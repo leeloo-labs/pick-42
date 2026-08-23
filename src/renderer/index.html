@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'">
+    <title>Pick 42</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <section class="overlay-shell" aria-label="Pick 42 Arena Companion">
+      <header class="titlebar">
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div class="brand-copy">
+          <strong>PICK 42</strong>
+          <span>ARENA COMPANION</span>
+        </div>
+        <div class="titlebar-actions">
+          <button id="collapse-button" class="icon-button" aria-label="Collapse companion" title="Collapse">—</button>
+          <button id="close-button" class="icon-button" aria-label="Close companion" title="Close">×</button>
+        </div>
+      </header>
+
+      <div class="status-strip">
+        <div class="status-copy">
+          <span id="status-dot" class="status-dot"></span>
+          <span id="status-message">Starting companion</span>
+        </div>
+        <button id="choose-log-button" class="text-button">CHOOSE LOG</button>
+      </div>
+
+      <div id="companion-body" class="companion-body">
+        <section class="turn-card">
+          <div>
+            <span class="eyebrow" id="turn-label">WAITING FOR ARENA</span>
+            <h1 id="phase-label">No active match</h1>
+          </div>
+          <div id="priority-pill" class="priority-pill muted">IDLE</div>
+        </section>
+
+        <section class="life-row" aria-label="Life totals">
+          <article class="life-card local">
+            <span>YOU</span>
+            <strong id="local-life">—</strong>
+          </article>
+          <div class="versus">VS</div>
+          <article class="life-card opponent">
+            <span>OPPONENT</span>
+            <strong id="opponent-life">—</strong>
+          </article>
+        </section>
+
+        <nav class="tabs" aria-label="Companion sections">
+          <button class="tab active" data-tab="live">LIVE</button>
+          <button class="tab" data-tab="known">KNOWN</button>
+          <button class="tab" data-tab="hand">YOUR HAND</button>
+        </nav>
+
+        <main class="panel-stack">
+          <section id="live-panel" class="tab-panel active">
+            <article id="context-card" class="context-card">
+              <div class="context-icon" aria-hidden="true">✦</div>
+              <div>
+                <span class="eyebrow">CURRENT CONTEXT</span>
+                <h2 id="context-title">Waiting for game state</h2>
+                <p id="context-detail">Pick 42 will explain the latest visible event here.</p>
+              </div>
+            </article>
+
+            <section class="section-block">
+              <div class="section-heading">
+                <span>AVAILABLE ACTIONS</span>
+                <span id="action-count" class="section-count">0</span>
+              </div>
+              <div id="actions-list" class="chip-list empty-copy">No decision from Arena yet.</div>
+            </section>
+
+            <section class="section-block timeline-block">
+              <div class="section-heading">
+                <span>MATCH TIMELINE</span>
+                <button id="explain-button" class="text-button">EXPLAIN LATEST</button>
+              </div>
+              <ol id="event-list" class="event-list"></ol>
+              <div id="timeline-empty" class="empty-state">
+                <span class="empty-glyph">◇</span>
+                <p>Visible game actions will appear here in order.</p>
+              </div>
+            </section>
+          </section>
+
+          <section id="known-panel" class="tab-panel">
+            <section class="section-block">
+              <div class="section-heading"><span>VISIBLE ZONES</span></div>
+              <div id="zone-grid" class="zone-grid"></div>
+            </section>
+            <section class="section-block">
+              <div class="section-heading">
+                <span>KNOWN OPPONENT CARDS</span>
+                <span id="known-count" class="section-count">0</span>
+              </div>
+              <div id="known-list" class="card-list empty-copy">No opponent cards have been revealed.</div>
+            </section>
+            <p class="privacy-note">Only cards revealed to your Arena client are tracked. Hidden zones remain hidden.</p>
+          </section>
+
+          <section id="hand-panel" class="tab-panel">
+            <section class="section-block">
+              <div class="section-heading">
+                <span>YOUR CURRENT HAND</span>
+                <span id="hand-count" class="section-count">0</span>
+              </div>
+              <div id="hand-list" class="card-list empty-copy">Your visible hand will appear here.</div>
+            </section>
+          </section>
+        </main>
+
+        <footer class="footer-bar">
+          <button id="demo-button" class="footer-button"><span>↻</span> Replay demo</button>
+          <button id="click-through-button" class="footer-button"><span>◎</span> Click-through</button>
+          <span class="hotkey-hint">⌘⇧Space</span>
+        </footer>
+      </div>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>

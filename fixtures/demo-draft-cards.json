@@ -1,0 +1,16 @@
+{
+  "103375": { "name": "Celebrate the Mountain-king", "manaCost": "{3}{W}", "typeLine": "Enchantment" },
+  "103382": { "name": "Fíli the Pathfinder", "manaCost": "{3}{W}", "typeLine": "Legendary Creature — Dwarf Scout", "printedPower": "2", "printedToughness": "2" },
+  "103385": { "name": "Kíli the Resourceful", "manaCost": "{1}{W}", "typeLine": "Legendary Creature — Dwarf Scout", "printedPower": "1", "printedToughness": "2" },
+  "103397": { "name": "An Unexpected Party", "manaCost": "{2}{W}{W}", "typeLine": "Enchantment" },
+  "103438": { "name": "Desolation Prowler", "manaCost": "{1}{B}", "typeLine": "Creature — Wolf", "printedPower": "2", "printedToughness": "2" },
+  "103444": { "name": "Gollum, Riddle Master", "manaCost": "{1}{B}", "typeLine": "Legendary Creature — Halfling Horror", "printedPower": "3", "printedToughness": "1" },
+  "103467": { "name": "Dáin Ironfoot", "manaCost": "{2}{R}", "typeLine": "Legendary Creature — Dwarf Warrior", "printedPower": "1", "printedToughness": "4" },
+  "103472": { "name": "Gandalf, Goblins' Bane", "manaCost": "{2}{R}", "typeLine": "Legendary Creature — Avatar Wizard", "printedPower": "2", "printedToughness": "3" },
+  "103489": { "name": "Smaug the Magnificent", "manaCost": "{2}{R}{R}", "typeLine": "Legendary Creature — Dragon", "printedPower": "4", "printedToughness": "3" },
+  "103499": { "name": "Beorn the Fierce", "manaCost": "{3}{G}{G}", "typeLine": "Legendary Creature — Bear Shapeshifter Warrior", "printedPower": "6", "printedToughness": "6" },
+  "103509": { "name": "Mirkwood Pathmaker", "manaCost": "{2}{G}", "typeLine": "Creature — Elf Ranger", "printedPower": "*", "printedToughness": "*" },
+  "103520": { "name": "Wargling", "manaCost": "{1}{G}", "typeLine": "Creature — Wolf", "printedPower": "2", "printedToughness": "2" },
+  "103531": { "name": "Chief Warg's Company", "manaCost": "{1}{B}{G}", "typeLine": "Creature — Wolf", "printedPower": "5", "printedToughness": "3" },
+  "103568": { "name": "Hobbit Hole", "manaCost": "", "typeLine": "Land" }
+}

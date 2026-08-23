@@ -1,0 +1,8 @@
+{
+  "1001": { "name": "Lightning Strike", "manaCost": "{1}{R}", "typeLine": "Instant" },
+  "1002": { "name": "Mountain", "manaCost": "", "typeLine": "Basic Land — Mountain" },
+  "1003": { "name": "Charming Scoundrel", "manaCost": "{1}{R}", "typeLine": "Creature — Human Rogue" },
+  "1004": { "name": "Monstrous Rage", "manaCost": "{R}", "typeLine": "Instant" },
+  "2001": { "name": "Rootrider Faun", "manaCost": "{1}{G}", "typeLine": "Creature — Satyr" },
+  "2002": { "name": "Hamlet Glutton", "manaCost": "{5}{G}{G}", "typeLine": "Creature — Giant" }
+}

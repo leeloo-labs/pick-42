@@ -1,0 +1,68 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+html, body, #guide { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+.visual-annotation { position: absolute; pointer-events: none; }
+.visual-annotation.card {
+  border: 3px solid #64df68;
+  border-radius: 9px;
+  background: linear-gradient(180deg, transparent 76%, rgba(34,123,44,.13));
+  box-shadow: 0 0 0 1px rgba(4,28,8,.65), 0 0 15px rgba(78,226,89,.34), inset 0 0 0 1px rgba(190,255,194,.2);
+}
+.visual-annotation span {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  padding: 6px 9px;
+  border-radius: 0 7px 0 7px;
+  color: white;
+  background: linear-gradient(135deg, #62d657, #31a53e);
+  box-shadow: 0 2px 8px rgba(0,0,0,.34);
+  font-size: clamp(10px, 1.1vw, 18px);
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  white-space: nowrap;
+}
+.visual-annotation.deck-row {
+  border: 3px solid rgba(91,221,90,.92);
+  border-radius: 12px;
+  background: rgba(61,189,67,.13);
+  box-shadow: 0 0 12px rgba(75,220,82,.18), inset 11px 0 rgba(61,189,67,.22);
+}
+.visual-annotation.deck-row.drop {
+  border-color: rgba(241,78,72,.92);
+  background: rgba(204,52,49,.13);
+  box-shadow: 0 0 12px rgba(241,78,72,.17), inset 11px 0 rgba(204,52,49,.24);
+}
+.visual-annotation.deck-row span {
+  top: 50%;
+  bottom: auto;
+  left: -4px;
+  transform: translate(-100%, -50%);
+  border-radius: 7px 0 0 7px;
+  font-size: clamp(8px, .72vw, 12px);
+}
+.visual-annotation.deck-row.drop span { background: linear-gradient(135deg, #e75e58, #b72d2a); }
+.guide-badge {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 12px;
+  border: 1px solid rgba(107,229,231,.52);
+  border-radius: 999px;
+  color: #c8ffff;
+  background: rgba(10,17,24,.88);
+  box-shadow: 0 3px 14px rgba(0,0,0,.35), 0 0 12px rgba(95,222,225,.16);
+  font-size: clamp(8px, .72vw, 12px);
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.guide-badge.tracking { animation: badge-pulse .55s ease-in-out infinite alternate; }
+.guide-badge.clear,
+.guide-badge.complete { border-color: rgba(100,223,104,.58); color: #cbffcc; box-shadow: 0 3px 14px rgba(0,0,0,.35), 0 0 12px rgba(100,223,104,.18); }
+.guide-badge.fallback { border-color: rgba(241,183,78,.58); color: #ffe0a2; }
+@keyframes badge-pulse { from { opacity: .58; } to { opacity: 1; } }

@@ -1,0 +1,5 @@
+[UnityCrossThreadLogger] Draft.Notify {"eventName":"Draft.Notify","draftId":"arcane-demo-draft","setCode":"HOB","PackCards":[103382,103397,103385,103444,103489,103499,103531,103467,103375,103438,103509,103472,103520,103568],"SelfPack":1,"SelfPick":1}
+[UnityCrossThreadLogger] EventPlayerDraftMakePick {"eventName":"EventPlayerDraftMakePick","draftId":"arcane-demo-draft","GrpId":103382,"Pack":1,"Pick":1}
+[UnityCrossThreadLogger] Draft.Notify {"eventName":"Draft.Notify","draftId":"arcane-demo-draft","setCode":"HOB","PackCards":[103397,103385,103444,103489,103499,103531,103467,103375,103438,103509,103472,103520,103568],"SelfPack":1,"SelfPick":2}
+[UnityCrossThreadLogger] EventPlayerDraftMakePick {"eventName":"EventPlayerDraftMakePick","draftId":"arcane-demo-draft","GrpId":103385,"Pack":1,"Pick":2}
+[UnityCrossThreadLogger] Draft.Notify {"eventName":"Draft.Notify","draftId":"arcane-demo-draft","setCode":"HOB","PackCards":[103397,103444,103489,103499,103531,103467,103375,103438,103509,103472,103520,103568],"SelfPack":1,"SelfPick":3}

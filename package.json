@@ -1,0 +1,19 @@
+{
+  "name": "pick-42-arena-companion",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Leeloo Labs LLC",
+  "description": "A local-first in-game companion overlay for MTG Arena.",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "draft": "electron src/draft-main.cjs",
+    "build:vision": "mkdir -p bin /private/tmp/arcane-swift-module-cache && xcrun swiftc -module-cache-path /private/tmp/arcane-swift-module-cache -O src/vision/arcane-vision.swift -o bin/arcane-vision",
+    "test": "node --test",
+    "check": "node --check src/main.cjs && node --check src/preload.cjs && node --check src/core/arena-log-parser.cjs && node --check src/core/arena-scene-tracker.cjs && node --check src/core/card-catalog.cjs && node --check src/core/json-entry-stream.cjs && node --check src/core/log-tailer.cjs && node --check src/renderer/app.js && node --check src/draft-main.cjs && node --check src/draft-preload.cjs && node --check src/visual-preload.cjs && node --check src/draft/arena-sort.js && node --check src/draft/csv.cjs && node --check src/draft/blend-engine.cjs && node --check src/draft/deck-builder.cjs && node --check src/draft/draft-log-parser.cjs && node --check src/draft/recipe-queue.js && node --check src/draft/scryfall.cjs && node --check src/draft/visual-guide-analyzer.cjs && node --check src/draft/visual-guide-controller.cjs && node --check src/draft/sources/seventeenlands.cjs && node --check src/draft/sources/untapped.cjs && node --check src/draft-renderer/app.js && node --check src/visual-renderer/app.js"
+  },
+  "devDependencies": {
+    "electron": "^43.4.1"
+  }
+}
