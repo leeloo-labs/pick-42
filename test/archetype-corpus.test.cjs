@@ -11,7 +11,7 @@ const {
   summarizeArchetypeCorpus,
   trophyThreshold
 } = require('../src/draft/archetype-corpus.cjs');
-const { philosophyForStrategy, scoreDraftPack } = require('../src/draft/blend-engine.cjs');
+const { scoreDraftPack } = require('../src/draft/blend-engine.cjs');
 
 function exemplarCorpus() {
   const decks = [];
@@ -247,7 +247,7 @@ test('finds a supported trophy archetype only with enough pool and sample eviden
   assert.equal(mismatch.status, 'mismatch');
 });
 
-test('trophy exemplars flip Synergy First toward Mauler without changing Balanced', () => {
+test('trophy exemplars adjust Mauler only when a corpus is loaded', () => {
   const corpus = exemplarCorpus();
   const cards = [
     { name: 'Desolation Prowler', manaCost: '{1}{B}', typeLine: 'Creature — Wolf', rulesText: 'Pay 2 life: This creature gets +2/+2 until end of turn. Activate only once each turn.', printedPower: '2', printedToughness: '2' },
@@ -272,18 +272,17 @@ test('trophy exemplars flip Synergy First toward Mauler without changing Balance
     ]
   };
   const common = { cards, pool, ...sources, archetypeCorpus: corpus, setCode: 'HOB', format: 'Player Draft', packNumber: 1, pickNumber: 7 };
-  const balanced = scoreDraftPack({ ...common, philosophy: philosophyForStrategy('balanced') });
-  const synergy = scoreDraftPack({ ...common, philosophy: philosophyForStrategy('synergy') });
+  const withCorpus = scoreDraftPack({ ...common });
+  const withoutCorpus = scoreDraftPack({ ...common, archetypeCorpus: null });
+  const mauler = withCorpus.find((card) => card.name === 'Dwarven Mauler');
 
-  assert.equal(balanced[0].name, 'Desolation Prowler');
-  assert.equal(synergy[0].name, 'Dwarven Mauler');
-  assert.equal(philosophyForStrategy('synergy').powerPriority, 60);
-  assert.equal(balanced.find((card) => card.name === 'Dwarven Mauler').adjustments.archetype, 0);
-  assert.ok(synergy.find((card) => card.name === 'Dwarven Mauler').adjustments.archetype > 2);
-  assert.ok(synergy[0].reasons.some((reason) => reason.includes('Boros Dwarves lane and trophy pattern support')));
+  assert.equal(withoutCorpus.find((card) => card.name === 'Dwarven Mauler').adjustments.archetype, 0);
+  assert.ok(mauler.adjustments.archetype > 1.5);
+  assert.ok(withCorpus.find((card) => card.name === 'Desolation Prowler').adjustments.archetype < 0);
+  assert.ok(mauler.reasons.some((reason) => reason.includes('4/6 decks')));
 });
 
-test('Synergy First keeps an established Boros lane over a high-IIH blue card', () => {
+test('a locked Boros lane holds Stalwart over a high-IIH blue card', () => {
   const corpus = exemplarCorpus();
   const cards = [
     { name: 'Long Lake Nuisance', manaCost: '{3}{U}', typeLine: 'Creature — Bird', rulesText: 'Flying\nWhen this creature enters, recruit.', printedPower: '3', printedToughness: '1' },
@@ -314,17 +313,18 @@ test('Synergy First keeps an established Boros lane over a high-IIH blue card', 
     ]
   };
   const common = { cards, pool, ...sources, archetypeCorpus: corpus, setCode: 'HOB', format: 'Player Draft', packNumber: 1, pickNumber: 8 };
-  const balanced = scoreDraftPack({ ...common, philosophy: philosophyForStrategy('balanced') });
-  const synergy = scoreDraftPack({ ...common, philosophy: philosophyForStrategy('synergy') });
-  const stalwart = synergy.find((card) => card.name === 'Iron Hills Stalwart');
-  const nuisance = synergy.find((card) => card.name === 'Long Lake Nuisance');
+  const open = scoreDraftPack({ ...common });
+  const locked = scoreDraftPack({
+    ...common,
+    lane: { status: 'locked', mode: 'lock-no-splash', splashPolicy: 'none', colors: ['W', 'R'], label: 'Boros Dwarves', confidence: 100 }
+  });
+  const stalwart = locked.find((card) => card.name === 'Iron Hills Stalwart');
+  const nuisance = locked.find((card) => card.name === 'Long Lake Nuisance');
 
-  assert.equal(balanced[0].name, 'Long Lake Nuisance');
-  assert.equal(synergy[0].name, 'Iron Hills Stalwart');
-  assert.ok(stalwart.adjustments.supportedLane > 0);
-  assert.ok(nuisance.adjustments.supportedLane < 0);
+  assert.equal(open[0].name, 'Long Lake Nuisance');
+  assert.equal(locked[0].name, 'Iron Hills Stalwart');
+  assert.ok(nuisance.adjustments.lane < 0);
   assert.ok(stalwart.reasons.some((reason) => reason.includes('supports 1 Dwarf payoff')));
-  assert.ok(nuisance.reasons.some((reason) => reason.includes('outside the supported Boros Dwarves lane')));
 });
 
 test('Patient Instructor outranks unsupported Azorius fixing in this Boros lane', () => {
@@ -375,22 +375,13 @@ test('Patient Instructor outranks unsupported Azorius fixing in this Boros lane'
     }
   };
 
-  for (const strategy of ['balanced', 'synergy', 'power', 'aggro', 'control']) {
-    const ranked = scoreDraftPack({ ...common, philosophy: philosophyForStrategy(strategy) });
-    assert.equal(ranked[0].name, 'Patient Instructor', `${strategy} should prefer the playable hybrid creature`);
-    const lakeTown = ranked.find((card) => card.name === 'Lake-town');
-    assert.equal(lakeTown.colorContext.classification, 'partial-land');
-    assert.equal(lakeTown.draftLane.tier, 1);
-    assert.equal(lakeTown.adjustments.fixing, 0);
-  }
-  const synergy = scoreDraftPack({ ...common, philosophy: philosophyForStrategy('synergy') });
-  const instructor = synergy.find((card) => card.name === 'Patient Instructor');
-  const lakeTown = synergy.find((card) => card.name === 'Lake-town');
-  assert.ok(instructor.adjustments.supportedLane > 0);
-  assert.equal(instructor.reasons.filter((reason) => reason.includes('Boros Dwarves')).length, 1);
+  const ranked = scoreDraftPack({ ...common });
+  assert.equal(ranked[0].name, 'Patient Instructor', 'should prefer the playable hybrid creature');
+  const lakeTown = ranked.find((card) => card.name === 'Lake-town');
+  assert.equal(lakeTown.colorContext.classification, 'partial-land');
+  assert.equal(lakeTown.draftLane.tier, 1);
+  assert.equal(lakeTown.adjustments.fixing, 0);
   assert.ok(lakeTown.adjustments.archetype < 0);
-  assert.equal(lakeTown.adjustments.supportedLane, 0);
-  assert.equal(lakeTown.adjustments.archetypeRecommendation, lakeTown.adjustments.archetype + lakeTown.adjustments.supportedLane);
   assert.equal(lakeTown.reasons.filter((reason) => reason.includes('Boros Dwarves')).length, 1);
 });
 
@@ -439,14 +430,12 @@ test('a third Dori falls behind the first Thorin in a committed Dwarf deck', () 
     lane: { status: 'locked', mode: 'lock-no-splash', label: 'Boros Dwarves', colors: ['W', 'R'], confidence: 100 }
   };
 
-  for (const strategy of ['balanced', 'synergy', 'power', 'aggro', 'control']) {
-    const ranked = scoreDraftPack({ ...common, philosophy: philosophyForStrategy(strategy) });
-    const duplicate = ranked.find((card) => card.name === dori.name);
-    assert.equal(ranked[0].name, thorin.name, `${strategy} should take the first Thorin over a third Dori`);
-    assert.equal(duplicate.adjustments.duplicate, -15);
-    assert.equal(duplicate.duplicate.candidateCopy, 3);
-    assert.ok(duplicate.reasons.some((reason) => reason.includes('third legendary copy')));
-  }
+  const ranked = scoreDraftPack({ ...common });
+  const duplicate = ranked.find((card) => card.name === dori.name);
+  assert.equal(ranked[0].name, thorin.name, 'should take the first Thorin over a third Dori');
+  assert.equal(duplicate.adjustments.duplicate, -15);
+  assert.equal(duplicate.duplicate.candidateCopy, 3);
+  assert.ok(duplicate.reasons.some((reason) => reason.includes('third legendary copy')));
 });
 
 test('Iron Hills Blacksmith beats a second Instructor when its Dwarf and Equipment package is live', () => {
@@ -506,14 +495,12 @@ test('Iron Hills Blacksmith beats a second Instructor when its Dwarf and Equipme
     lane: { status: 'locked', mode: 'lock-splash', label: 'Boros Dwarves', colors: ['W', 'R'], confidence: 100 }
   };
 
-  for (const strategy of ['balanced', 'synergy', 'power', 'aggro', 'control']) {
-    const ranked = scoreDraftPack({ ...common, philosophy: philosophyForStrategy(strategy, { sourceBalance: 50 }) });
-    const smith = ranked.find((card) => card.name === blacksmith.name);
-    const secondInstructor = ranked.find((card) => card.name === instructor.name);
-    assert.equal(ranked[0].name, blacksmith.name, `${strategy} should prefer the live Blacksmith package`);
-    assert.ok(smith.adjustments.synergy > secondInstructor.adjustments.synergy);
-    assert.ok(secondInstructor.adjustments.duplicate <= -0.7);
-    assert.ok(smith.reasons.some((reason) => reason.includes('Equipment payoff')));
-    assert.ok(smith.reasons.some((reason) => reason.includes('double-strike Equipment package')));
-  }
+  const ranked = scoreDraftPack({ ...common });
+  const smith = ranked.find((card) => card.name === blacksmith.name);
+  const secondInstructor = ranked.find((card) => card.name === instructor.name);
+  assert.equal(ranked[0].name, blacksmith.name, 'should prefer the live Blacksmith package');
+  assert.ok(smith.adjustments.synergy > secondInstructor.adjustments.synergy);
+  assert.ok(secondInstructor.adjustments.duplicate <= -0.7);
+  assert.ok(smith.reasons.some((reason) => reason.includes('Equipment payoff')));
+  assert.ok(smith.reasons.some((reason) => reason.includes('double-strike Equipment package')));
 });

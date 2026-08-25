@@ -33,7 +33,7 @@ function sourceRows(pool) {
 
 test('builds complete Golgari, Jund, and Rakdos limited decks', () => {
   const pool = syntheticPool();
-  const builds = buildLimitedDecks({ pool, ...sourceRows(pool), philosophy: { interactionPriority: 80 } });
+  const builds = buildLimitedDecks({ pool, ...sourceRows(pool) });
 
   assert.deepEqual(builds.map((build) => build.id), ['golgari', 'jund', 'rakdos']);
   for (const build of builds) {

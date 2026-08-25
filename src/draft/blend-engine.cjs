@@ -3,93 +3,11 @@
 const { normalizeCardName } = require('./csv.cjs');
 const { buildArchetypeContext, evaluateArchetypeSignal } = require('./archetype-corpus.cjs');
 
-const DEFAULT_STRATEGY_ID = 'balanced';
-const STRATEGY_BASE = Object.freeze({
+// The single contextual model's fixed weights. These are product tuning, not
+// configuration: nothing outside this module may alter them, so blended scores
+// stay reproducible from the imported data and the drafted pool alone.
+const PHILOSOPHY = Object.freeze({
   sourceBalance: 55,
-  supportedLanePriority: 0,
-  cardOverrides: {}
-});
-
-const DRAFT_STRATEGIES = Object.freeze({
-  balanced: Object.freeze({
-    id: 'balanced',
-    name: 'Balanced',
-    tag: 'ADAPTIVE',
-    description: 'Stay open early, follow strong signals, then balance power, color fit, curve, interaction, and synergy.',
-    settings: Object.freeze({
-      powerPriority: 82, stayOpen: 76, colorDiscipline: 72, curveDiscipline: 70,
-      signalSensitivity: 55, synergyPriority: 70, interactionPriority: 80, creaturePreference: 55,
-      aggressionPriority: 20, controlPriority: 20, fixingPriority: 45, rarityPriority: 10,
-      archetypePriority: 0
-    })
-  }),
-  synergy: Object.freeze({
-    id: 'synergy',
-    name: 'Synergy First',
-    tag: 'SUPPORTED LANES',
-    description: 'Commit to supported set themes and reward real enabler-payoff density without ignoring hard data guardrails.',
-    settings: Object.freeze({
-      powerPriority: 60, stayOpen: 50, colorDiscipline: 88, curveDiscipline: 65,
-      signalSensitivity: 72, synergyPriority: 100, interactionPriority: 65, creaturePreference: 58,
-      aggressionPriority: 15, controlPriority: 15, fixingPriority: 35, rarityPriority: 5,
-      archetypePriority: 100, supportedLanePriority: 100
-    })
-  }),
-  power: Object.freeze({
-    id: 'power',
-    name: 'Power & Fixing',
-    tag: 'CEILING',
-    description: 'Take the highest-impact cards and prioritize mana fixing that keeps premium splashes available.',
-    settings: Object.freeze({
-      powerPriority: 100, stayOpen: 90, colorDiscipline: 42, curveDiscipline: 42,
-      signalSensitivity: 45, synergyPriority: 45, interactionPriority: 78, creaturePreference: 45,
-      aggressionPriority: 10, controlPriority: 20, fixingPriority: 100, rarityPriority: 100,
-      archetypePriority: 0
-    })
-  }),
-  aggro: Object.freeze({
-    id: 'aggro',
-    name: 'Aggro',
-    tag: 'PRESSURE',
-    description: 'Build a low, reliable curve with efficient threats, tempo, combat tricks, evasion, and cheap interaction.',
-    settings: Object.freeze({
-      powerPriority: 78, stayOpen: 55, colorDiscipline: 88, curveDiscipline: 100,
-      signalSensitivity: 70, synergyPriority: 65, interactionPriority: 78, creaturePreference: 88,
-      aggressionPriority: 100, controlPriority: 0, fixingPriority: 15, rarityPriority: 5,
-      archetypePriority: 0
-    })
-  }),
-  control: Object.freeze({
-    id: 'control',
-    name: 'Control',
-    tag: 'INEVITABILITY',
-    description: 'Prioritize early defense and interaction, then card advantage, resilient threats, and late-game finishers.',
-    settings: Object.freeze({
-      powerPriority: 86, stayOpen: 60, colorDiscipline: 82, curveDiscipline: 78,
-      signalSensitivity: 60, synergyPriority: 60, interactionPriority: 100, creaturePreference: 35,
-      aggressionPriority: 0, controlPriority: 100, fixingPriority: 65, rarityPriority: 15,
-      archetypePriority: 0
-    })
-  })
-});
-
-function philosophyForStrategy(strategyId = DEFAULT_STRATEGY_ID, overrides = {}) {
-  const strategy = DRAFT_STRATEGIES[strategyId] || DRAFT_STRATEGIES[DEFAULT_STRATEGY_ID];
-  return {
-    ...STRATEGY_BASE,
-    ...strategy.settings,
-    ...overrides,
-    strategyId: strategy.id,
-    name: strategy.name,
-    cardOverrides: overrides.cardOverrides || STRATEGY_BASE.cardOverrides
-  };
-}
-
-const DEFAULT_PHILOSOPHY = Object.freeze(philosophyForStrategy());
-const CONTEXTUAL_PHILOSOPHY = Object.freeze({
-  ...philosophyForStrategy('balanced'),
-  strategyId: 'contextual',
-  name: 'Contextual',
   powerPriority: 85,
   stayOpen: 65,
   colorDiscipline: 82,
@@ -97,11 +15,12 @@ const CONTEXTUAL_PHILOSOPHY = Object.freeze({
   signalSensitivity: 65,
   synergyPriority: 85,
   interactionPriority: 85,
+  creaturePreference: 55,
   aggressionPriority: 35,
   controlPriority: 35,
   fixingPriority: 30,
-  archetypePriority: 75,
-  supportedLanePriority: 0
+  rarityPriority: 10,
+  archetypePriority: 75
 });
 
 function clamp(value, minimum = 0, maximum = 100) {
@@ -667,44 +586,8 @@ function analyzePoolSynergy(card, pool) {
   return { score, reasons, requirements, hardMissing };
 }
 
-function supportedLaneAdjustment(card, colorFit, archetype, priority) {
-  const weight = clamp(priority) / 100;
-  if (!weight || !archetype?.available) return { score: 0, detail: null };
-  if (colorFit.classification === 'partial-land') return { score: 0, detail: null };
-  const confidence = clamp(archetype.confidence) / 100;
-  const lane = archetype.archetype || 'supported';
-  const laneColors = new Set(archetype.colors || []);
-  const profile = manaProfile(card);
-  const fixedFit = profile.fixedColors.every((color) => laneColors.has(color));
-  const hybridFit = profile.hybridGroups.every((group) => group.some((color) => laneColors.has(color)));
-  const onLane = profile.colors.length > 0 && laneColors.size > 0 && fixedFit && hybridFit;
-  if (onLane) {
-    return { score: 6 * confidence * weight, detail: `stays in the supported ${lane} lane` };
-  }
-  const partiallyMatches = profile.colors.some((color) => laneColors.has(color));
-  if (profile.colors.length && !partiallyMatches) {
-    return { score: -18 * confidence * weight, detail: `outside the supported ${lane} lane` };
-  }
-  if (profile.colors.length && (partiallyMatches || colorFit.classification === 'splash')) {
-    return { score: -10 * confidence * weight, detail: `adds a color outside the supported ${lane} lane` };
-  }
-  return { score: 0, detail: null };
-}
-
-function combinedArchetypeDetail(archetype, supportedLane, total) {
-  const lane = archetype?.archetype || 'Supported lane';
-  const inclusion = Number.isFinite(archetype?.inclusionCount) && Number.isFinite(archetype?.deckCount)
-    ? `${archetype.inclusionCount}/${archetype.deckCount} trophy decks`
-    : null;
-  if (!supportedLane?.score) return archetype?.detail || `${lane} corpus signal`;
-  if (supportedLane.score > 0 && archetype.score < 0) {
-    return total >= 0
-      ? `${lane} lane fit outweighs limited direct inclusion${inclusion ? ` · ${inclusion}` : ''}`
-      : `${lane} color fit, but the trophy pattern remains negative${inclusion ? ` · ${inclusion}` : ''}`;
-  }
-  if (supportedLane.score > 0) return `${lane} lane and trophy pattern support this pick${inclusion ? ` · ${inclusion}` : ''}`;
-  if (archetype.score > 0 && total >= 0) return `${lane} trophy inclusion narrowly outweighs the off-lane cost${inclusion ? ` · ${inclusion}` : ''}`;
-  return `${supportedLane.detail}${inclusion ? ` · ${inclusion}` : ''}`;
+function archetypeSignalDetail(archetype) {
+  return archetype?.detail || `${archetype?.archetype || 'Supported lane'} corpus signal`;
 }
 
 function curveScore(card, pool) {
@@ -770,12 +653,12 @@ function urgencyScore(seventeenLands, untapped) {
   return clamp(88 - (lastSeen - 1) * 7.5, 18, 88);
 }
 
-function roleAdjustment(card, philosophy, pool) {
+function roleAdjustment(card, pool) {
   const type = String(card.typeLine || '');
   if (!/Creature/i.test(type)) return 0;
   const creatureCount = pool.filter((entry) => /Creature/i.test(String(entry.typeLine || ''))).length;
   const need = clamp((15 - creatureCount) / 15, 0, 1);
-  return ((philosophy.creaturePreference - 50) / 50) * need * 4;
+  return ((PHILOSOPHY.creaturePreference - 50) / 50) * need * 4;
 }
 
 function analyzeCardRole(card) {
@@ -1049,17 +932,15 @@ function scoreDraftPack({
   draftId = null,
   setCode = null,
   format = null,
-  lane = null,
-  philosophy = {}
+  lane = null
 }) {
-  const settings = { ...DEFAULT_PHILOSOPHY, ...philosophy };
   const landsByName = new Map(seventeenLands.map((card) => [card.key || normalizeCardName(card.name), card]));
   const untappedByName = new Map(untapped.map((card) => [card.key || normalizeCardName(card.name), card]));
   const excludedNames = new Set(excludedPoolNames.map(normalizeCardName).filter(Boolean));
   const pickIndex = (Math.max(1, packNumber) - 1) * 14 + Math.max(1, pickNumber);
   const commitment = clamp((pickIndex - 3) / 12, 0, 1);
-  const source17Weight = clamp(settings.sourceBalance) / 100;
-  const powerScale = 0.72 + clamp(settings.powerPriority) / 100 * 0.28;
+  const source17Weight = clamp(PHILOSOPHY.sourceBalance) / 100;
+  const powerScale = 0.72 + clamp(PHILOSOPHY.powerPriority) / 100 * 0.28;
   const archetypeContext = buildArchetypeContext({ pool, corpus: archetypeCorpus, setCode, format });
   const draftLane = lane || inferDraftLane({
     pool,
@@ -1121,50 +1002,46 @@ function scoreDraftPack({
     const urgency = urgencyScore(lands, tapped);
     const role = analyzeCardRole(card);
     const strategyRoles = strategyRoleScores(card, role);
-    const impact = cardImpactAdjustment(lands, tapped, source17Weight, settings.powerPriority);
+    const impact = cardImpactAdjustment(lands, tapped, source17Weight, PHILOSOPHY.powerPriority);
     const archetype = evaluateArchetypeSignal({ card, context: archetypeContext });
     const duplicate = duplicateAdjustment(card, pool, role);
     const poolPlan = excludedCardPlan(card, excludedNames, dataScore, synergy, role);
 
     const colorScale = fit.score < 50 ? 0.42 : 0.16;
-    const colorDelta = (fit.score - 50) * (settings.colorDiscipline / 100) * colorContext.confidence * colorScale;
-    const openDelta = (flexibility - 50) * (settings.stayOpen / 100) * (1 - commitment) * 0.13;
-    const curveDelta = (curve - 50) * (settings.curveDiscipline / 100) * commitment * 0.1;
-    const signalDelta = (urgency - 50) * (settings.signalSensitivity / 100) * 0.08;
-    const synergyDelta = synergy.score * (settings.synergyPriority / 100);
-    const interactionDelta = role.score * (settings.interactionPriority / 100);
+    const colorDelta = (fit.score - 50) * (PHILOSOPHY.colorDiscipline / 100) * colorContext.confidence * colorScale;
+    const openDelta = (flexibility - 50) * (PHILOSOPHY.stayOpen / 100) * (1 - commitment) * 0.13;
+    const curveDelta = (curve - 50) * (PHILOSOPHY.curveDiscipline / 100) * commitment * 0.1;
+    const signalDelta = (urgency - 50) * (PHILOSOPHY.signalSensitivity / 100) * 0.08;
+    const synergyDelta = synergy.score * (PHILOSOPHY.synergyPriority / 100);
+    const interactionDelta = role.score * (PHILOSOPHY.interactionPriority / 100);
     const impactDelta = impact.score;
-    const creatureDelta = roleAdjustment(card, settings, pool);
-    const aggressionDelta = strategyRoles.aggression.score * (settings.aggressionPriority / 100);
-    const controlDelta = strategyRoles.control.score * (settings.controlPriority / 100);
-    const fixingDelta = fixingAdjustment(card, settings.fixingPriority, laneFit);
-    const rarityDelta = rarityAdjustment(rarity, settings.rarityPriority, confidence);
-    const archetypeDelta = archetype.available ? archetype.score * (clamp(settings.archetypePriority) / 100) : 0;
-    const supportedLane = supportedLaneAdjustment(card, fit, archetype, settings.supportedLanePriority);
-    const supportedLaneDelta = supportedLane.score;
-    const archetypeRecommendationDelta = archetypeDelta + supportedLaneDelta;
+    const creatureDelta = roleAdjustment(card, pool);
+    const aggressionDelta = strategyRoles.aggression.score * (PHILOSOPHY.aggressionPriority / 100);
+    const controlDelta = strategyRoles.control.score * (PHILOSOPHY.controlPriority / 100);
+    const fixingDelta = fixingAdjustment(card, PHILOSOPHY.fixingPriority, laneFit);
+    const rarityDelta = rarityAdjustment(rarity, PHILOSOPHY.rarityPriority, confidence);
+    const archetypeDelta = archetype.available ? archetype.score * (clamp(PHILOSOPHY.archetypePriority) / 100) : 0;
     const laneDelta = laneFit.score;
     const duplicateDelta = duplicate.score;
     const poolPlanDelta = poolPlan.adjustment;
-    const overrideDelta = Number(settings.cardOverrides?.[card.name] ?? settings.cardOverrides?.[key] ?? 0) || 0;
-    const calculatedDelta = colorDelta + openDelta + curveDelta + signalDelta + synergyDelta + interactionDelta + impactDelta + creatureDelta + aggressionDelta + controlDelta + fixingDelta + rarityDelta + archetypeDelta + supportedLaneDelta + laneDelta + duplicateDelta + poolPlanDelta + overrideDelta;
+    const calculatedDelta = colorDelta + openDelta + curveDelta + signalDelta + synergyDelta + interactionDelta + impactDelta + creatureDelta + aggressionDelta + controlDelta + fixingDelta + rarityDelta + archetypeDelta + laneDelta + duplicateDelta + poolPlanDelta;
     const philosophyDelta = dataScore === null || isBasicLand ? 0 : calculatedDelta;
     const score = dataScore === null || isBasicLand ? null : clamp(50 + (dataScore - 50) * powerScale + philosophyDelta);
 
     const reasons = score === null ? [] : [];
     if (score !== null && poolPlan.previouslyExcluded) reasons.push(`${signed(poolPlanDelta)} pool choice: ${poolPlan.detail}`);
     if (score !== null && impact.flag) reasons.push(`${impact.flag.detail} · ${rounded(impact.confidence * 100, 0)}% confidence`);
-    if (score !== null) reasons.push(...synergy.reasons.map((reason) => `${signed(reason.score * (settings.synergyPriority / 100))} ${reason.detail}`));
+    if (score !== null) reasons.push(...synergy.reasons.map((reason) => `${signed(reason.score * (PHILOSOPHY.synergyPriority / 100))} ${reason.detail}`));
     const combinePartialLandContext = laneFit.classification === 'partial-land'
       && Math.abs(laneDelta) >= 0.6
-      && Math.abs(archetypeRecommendationDelta) >= 0.6;
+      && Math.abs(archetypeDelta) >= 0.6;
     if (score !== null && combinePartialLandContext) {
       const inclusion = Number.isFinite(archetype.inclusionCount) && Number.isFinite(archetype.deckCount)
         ? ` · ${archetype.inclusionCount}/${archetype.deckCount} trophy-deck inclusion`
         : '';
-      reasons.push(`${signed(laneDelta + archetypeRecommendationDelta)} context: ${laneFit.detail}${inclusion}`);
-    } else if (score !== null && Math.abs(archetypeRecommendationDelta) >= 0.6) {
-      reasons.push(`${signed(archetypeRecommendationDelta)} ${settings.name}: ${combinedArchetypeDetail(archetype, supportedLane, archetypeRecommendationDelta)}`);
+      reasons.push(`${signed(laneDelta + archetypeDelta)} context: ${laneFit.detail}${inclusion}`);
+    } else if (score !== null && Math.abs(archetypeDelta) >= 0.6) {
+      reasons.push(`${signed(archetypeDelta)} Contextual: ${archetypeSignalDetail(archetype)}`);
     }
     if (score !== null && !combinePartialLandContext && Math.abs(laneDelta) >= 0.6 && laneFit.detail) {
       reasons.push(`${signed(laneDelta)} lane: ${laneFit.detail}`);
@@ -1180,11 +1057,10 @@ function scoreDraftPack({
       if (Math.abs(curveDelta) >= 0.6) reasons.push(`${signed(curveDelta)} curve`);
       if (Math.abs(interactionDelta) >= 0.6) reasons.push(`${signed(interactionDelta)} ${role.detail}`);
       if (Math.abs(impactDelta) >= 0.6) reasons.push(`${signed(impactDelta)} draw impact`);
-      if (Math.abs(aggressionDelta) >= 0.6 && strategyRoles.aggression.detail) reasons.push(`${signed(aggressionDelta)} ${settings.name}: ${strategyRoles.aggression.detail}`);
-      if (Math.abs(controlDelta) >= 0.6 && strategyRoles.control.detail) reasons.push(`${signed(controlDelta)} ${settings.name}: ${strategyRoles.control.detail}`);
-      if (Math.abs(fixingDelta) >= 0.6) reasons.push(`${signed(fixingDelta)} ${settings.name}: flexible mana fixing`);
-      if (Math.abs(rarityDelta) >= 0.6) reasons.push(`${signed(rarityDelta)} ${settings.name}: rarity ceiling prior`);
-      if (overrideDelta) reasons.push(`${signed(overrideDelta)} personal note`);
+      if (Math.abs(aggressionDelta) >= 0.6 && strategyRoles.aggression.detail) reasons.push(`${signed(aggressionDelta)} Contextual: ${strategyRoles.aggression.detail}`);
+      if (Math.abs(controlDelta) >= 0.6 && strategyRoles.control.detail) reasons.push(`${signed(controlDelta)} Contextual: ${strategyRoles.control.detail}`);
+      if (Math.abs(fixingDelta) >= 0.6) reasons.push(`${signed(fixingDelta)} Contextual: flexible mana fixing`);
+      if (Math.abs(rarityDelta) >= 0.6) reasons.push(`${signed(rarityDelta)} Contextual: rarity ceiling prior`);
     }
     if (isBasicLand) reasons.push('Basic land · not ranked');
     else if (sourceCoverage === 0) reasons.push(lands || tapped ? 'Matched row has no usable in-hand win rate · unranked' : 'No imported source row · unranked');
@@ -1230,10 +1106,7 @@ function scoreDraftPack({
         fixing: rounded(fixingDelta),
         rarity: rounded(rarityDelta),
         archetype: rounded(archetypeDelta),
-        supportedLane: rounded(supportedLaneDelta),
-        archetypeRecommendation: rounded(archetypeRecommendationDelta),
-        poolPlan: rounded(poolPlanDelta),
-        override: rounded(overrideDelta)
+        poolPlan: rounded(poolPlanDelta)
       },
       colorContext: {
         primaryColors: colorContext.primaryColors,
@@ -1328,10 +1201,6 @@ function recommendPickTwoPair({ recommendations, cards, pool = [], firstName = n
 }
 
 module.exports = {
-  CONTEXTUAL_PHILOSOPHY,
-  DEFAULT_PHILOSOPHY,
-  DEFAULT_STRATEGY_ID,
-  DRAFT_STRATEGIES,
   analyzePoolSynergy,
   analyzeCardRole,
   cardImpactAdjustment,
@@ -1348,7 +1217,6 @@ module.exports = {
   impactSampleConfidence,
   manaProfile,
   manaValue,
-  philosophyForStrategy,
   recommendPickTwoPair,
   scoreDraftPack,
   strategyRoleScores,

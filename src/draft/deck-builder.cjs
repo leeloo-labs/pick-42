@@ -98,7 +98,7 @@ function splashBurden(card, archetype) {
   return burden;
 }
 
-function scorePoolCards({ cards, seventeenLands, untapped, philosophy, archetype }) {
+function scorePoolCards({ cards, seventeenLands, untapped, archetype }) {
   const eligible = cards.filter((card) => !isLand(card) && canPlay(card, archetype.colors));
   const sourceScores = scoreDraftPack({
     cards: eligible,
@@ -106,8 +106,7 @@ function scorePoolCards({ cards, seventeenLands, untapped, philosophy, archetype
     untapped,
     pool: [],
     packNumber: 1,
-    pickNumber: 1,
-    philosophy
+    pickNumber: 1
   });
   const byIndex = new Map(sourceScores.map((card) => [card.packIndex, card]));
 
@@ -332,9 +331,9 @@ function buildCurve(selected) {
   return curve;
 }
 
-function buildOne({ pool, seventeenLands, untapped, philosophy, archetype }) {
+function buildOne({ pool, seventeenLands, untapped, archetype }) {
   const draftedLands = pool.filter((card) => isLand(card) && !isBasicLand(card));
-  const scoredCards = scorePoolCards({ cards: pool, seventeenLands, untapped, philosophy, archetype });
+  const scoredCards = scorePoolCards({ cards: pool, seventeenLands, untapped, archetype });
   const initial = selectSpells(scoredCards, archetype, 23);
   let landCount = lowCurveLandCount(initial.selected);
   let selection = initial;
@@ -464,9 +463,9 @@ function inferDeckArchetypes(pool, preferredLane = null) {
   return archetypes;
 }
 
-function buildLimitedDecks({ pool = [], seventeenLands = [], untapped = [], philosophy = {}, preferredLane = null }) {
+function buildLimitedDecks({ pool = [], seventeenLands = [], untapped = [], preferredLane = null }) {
   if (pool.filter((card) => !isBasicLand(card)).length < 23) return [];
-  return inferDeckArchetypes(pool, preferredLane).map((archetype) => buildOne({ pool, seventeenLands, untapped, philosophy, archetype }));
+  return inferDeckArchetypes(pool, preferredLane).map((archetype) => buildOne({ pool, seventeenLands, untapped, archetype }));
 }
 
 module.exports = {

@@ -6,7 +6,6 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
 const {
-  CONTEXTUAL_PHILOSOPHY,
   inferDraftLane,
   recommendPickTwoPair,
   scoreDraftPack
@@ -74,7 +73,6 @@ let reviewState = reviewTracker.snapshot();
 let reviewArmed = false;
 const reviewMatchDecisions = new Map();
 let status = { kind: 'demo', message: 'Sample HOB pack · import current exports when ready' };
-let philosophy = { ...CONTEXTUAL_PHILOSOPHY };
 let lanePreference = null;
 let poolExclusionPreference = null;
 const SOURCE_FORMATS = ['any', 'premier', 'quick', 'traditional', 'pick-two'];
@@ -420,7 +418,6 @@ function currentDeckBuilds(preferredLane = currentDraftLane()) {
     pool: activeDraftPool(),
     seventeenLands: activeSources.seventeenLands,
     untapped: activeSources.untapped,
-    philosophy,
     preferredLane
   });
 }
@@ -649,8 +646,7 @@ function pickPairScoringArgs() {
     draftId: draftScopeId(),
     setCode: draftState.setCode,
     format: draftState.format,
-    lane: currentDraftLane(),
-    philosophy
+    lane: currentDraftLane()
   };
 }
 
@@ -680,8 +676,7 @@ function viewModel() {
     draftId: draftScopeId(),
     setCode: draftState.setCode,
     format: draftState.format,
-    lane: draftLane,
-    philosophy
+    lane: draftLane
   });
   const deckBuilds = currentDeckBuilds(draftLane);
   const corpusMatch = archetypeCorpus
@@ -702,8 +697,7 @@ function viewModel() {
         draftId: draftScopeId(),
         setCode: draftState.setCode,
         format: draftState.format,
-        lane: draftLane,
-        philosophy
+        lane: draftLane
       })
     : null;
   return {
@@ -744,7 +738,6 @@ function viewModel() {
         total: deck.cards.reduce((sum, card) => sum + card.quantity, 0)
       }))
     },
-    philosophy,
     draftLane,
     status,
     arenaLog: {
@@ -1232,11 +1225,6 @@ app.whenReady().then(async () => {
   reviewTracker.hydrate(readGameReviews());
   writeGameReviews(reviewTracker.snapshot().reviews);
   const saved = readSettings();
-  philosophy = {
-    ...CONTEXTUAL_PHILOSOPHY,
-    sourceBalance: Number.isFinite(Number(saved.philosophy?.sourceBalance)) ? Number(saved.philosophy.sourceBalance) : CONTEXTUAL_PHILOSOPHY.sourceBalance,
-    cardOverrides: saved.philosophy?.cardOverrides || CONTEXTUAL_PHILOSOPHY.cardOverrides
-  };
   lanePreference = saved.lanePreference && ['lock-no-splash', 'lock-splash', 'stay-open'].includes(saved.lanePreference.mode)
     ? saved.lanePreference
     : null;

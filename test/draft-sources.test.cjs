@@ -7,8 +7,6 @@ const path = require('node:path');
 const { parseSeventeenLandsCsv } = require('../src/draft/sources/seventeenlands.cjs');
 const { parseUntappedCsv } = require('../src/draft/sources/untapped.cjs');
 const {
-  DEFAULT_STRATEGY_ID,
-  DRAFT_STRATEGIES,
   analyzeCardRole,
   analyzePoolSynergy,
   evaluateColorFit,
@@ -17,7 +15,6 @@ const {
   inferColorContext,
   inferDraftLane,
   manaProfile,
-  philosophyForStrategy,
   recommendPickTwoPair,
   scoreDraftPack
 } = require('../src/draft/blend-engine.cjs');
@@ -55,16 +52,24 @@ test('blends both sources and exposes philosophy adjustments', () => {
   assert.ok(Number.isFinite(recommendations[0].philosophyDelta));
 });
 
-test('draft strategies expose five distinct, stable presets', () => {
-  assert.equal(DEFAULT_STRATEGY_ID, 'balanced');
-  assert.deepEqual(Object.keys(DRAFT_STRATEGIES), ['balanced', 'synergy', 'power', 'aggro', 'control']);
-  assert.equal(philosophyForStrategy('aggro').aggressionPriority, 100);
-  assert.equal(philosophyForStrategy('control').controlPriority, 100);
-  assert.equal(philosophyForStrategy('power').fixingPriority, 100);
-  assert.equal(philosophyForStrategy('missing').strategyId, 'balanced');
+test('blended scores ignore injected weights and are reproducible from data and pool', () => {
+  const source = {
+    seventeenLands: parseSeventeenLandsCsv(read('sample-17lands-hob.csv')),
+    untapped: parseUntappedCsv(read('sample-untapped-hob.csv'))
+  };
+  const pool = [catalog['103382'], catalog['103385'], catalog['103375']];
+  const args = { cards: cards.slice(0, 14), ...source, pool, packNumber: 1, pickNumber: 5 };
+  const base = scoreDraftPack(args);
+
+  assert.deepEqual(scoreDraftPack(args), base);
+  const injected = scoreDraftPack({
+    ...args,
+    philosophy: { sourceBalance: 0, powerPriority: 0, synergyPriority: 100, cardOverrides: { [base[0].name]: -40 } }
+  });
+  assert.deepEqual(injected, base);
 });
 
-test('Aggro and Control favor meaningfully different card roles', () => {
+test('aggression and control roles both adjust scores under the contextual model', () => {
   const quickblade = {
     name: 'Quickblade', manaCost: '{1}{R}', typeLine: 'Creature — Warrior',
     rulesText: 'Haste', printedPower: '2', printedToughness: '1'
@@ -77,43 +82,38 @@ test('Aggro and Control favor meaningfully different card roles', () => {
     seventeenLands: [quickblade, tomekeeper].map((card) => ({ name: card.name, gihWinRate: 56, gamesInHand: 10000 })),
     untapped: [quickblade, tomekeeper].map((card) => ({ name: card.name, inHandWinRate: 56, games: 10000 }))
   };
-  const aggro = scoreDraftPack({ cards: [quickblade, tomekeeper], ...sources, philosophy: philosophyForStrategy('aggro') });
-  const control = scoreDraftPack({ cards: [quickblade, tomekeeper], ...sources, philosophy: philosophyForStrategy('control') });
+  const ranked = scoreDraftPack({ cards: [quickblade, tomekeeper], ...sources });
+  const haste = ranked.find((card) => card.name === 'Quickblade');
+  const sphinx = ranked.find((card) => card.name === 'Ancient Tomekeeper');
 
-  assert.equal(aggro[0].name, 'Quickblade');
-  assert.equal(control[0].name, 'Ancient Tomekeeper');
-  assert.ok(aggro.find((card) => card.name === 'Quickblade').adjustments.aggression >= 4);
-  assert.ok(control.find((card) => card.name === 'Ancient Tomekeeper').adjustments.control >= 3);
-  assert.ok(control[0].reasons.some((reason) => reason.includes('Control:')));
+  assert.ok(haste.adjustments.aggression >= 1);
+  assert.ok(sphinx.adjustments.control >= 1);
+  assert.ok(sphinx.reasons.some((reason) => reason.includes('Contextual:')));
 });
 
-test('Power & Fixing explicitly rewards flexible mana without ranking basics', () => {
+test('flexible mana fixing earns a visible bonus without ranking basics', () => {
   const fixing = { name: 'Crossroads', manaCost: '', typeLine: 'Land', rulesText: 'Add {B} or {G}.' };
   const recommendation = scoreDraftPack({
     cards: [fixing],
-    philosophy: philosophyForStrategy('power'),
     seventeenLands: [{ name: fixing.name, gihWinRate: 56, gamesInHand: 10000, rarity: 'uncommon' }],
     untapped: [{ name: fixing.name, inHandWinRate: 56, games: 10000 }]
   })[0];
 
-  assert.ok(recommendation.adjustments.fixing >= 2.7);
-  assert.ok(recommendation.reasons.some((reason) => reason.includes('Power & Fixing: flexible mana fixing')));
+  assert.ok(recommendation.adjustments.fixing >= 0.6);
+  assert.ok(recommendation.reasons.some((reason) => reason.includes('Contextual: flexible mana fixing')));
 });
 
-test('color discipline matters after the early open-draft window', () => {
+test('color discipline rewards the on-lane card in a focused pool', () => {
   const source = {
     seventeenLands: parseSeventeenLandsCsv(read('sample-17lands-hob.csv')),
     untapped: parseUntappedCsv(read('sample-untapped-hob.csv'))
   };
   const pool = [catalog['103382'], catalog['103385'], catalog['103375']];
   const focusedCards = [catalog['103397'], catalog['103489']];
-  const loose = scoreDraftPack({ cards: focusedCards, ...source, pool, packNumber: 2, pickNumber: 4, philosophy: { colorDiscipline: 0 } });
-  const disciplined = scoreDraftPack({ cards: focusedCards, ...source, pool, packNumber: 2, pickNumber: 4, philosophy: { colorDiscipline: 100 } });
-  const partyLoose = loose.find((card) => card.name === 'An Unexpected Party');
-  const partyDisciplined = disciplined.find((card) => card.name === 'An Unexpected Party');
+  const ranked = scoreDraftPack({ cards: focusedCards, ...source, pool, packNumber: 2, pickNumber: 4 });
+  const party = ranked.find((card) => card.name === 'An Unexpected Party');
 
-  assert.ok(partyDisciplined.score > partyLoose.score);
-  assert.ok(partyDisciplined.adjustments.color > 0);
+  assert.ok(party.adjustments.color > 0);
 });
 
 test('steers this black-centered P1P8 pool toward Wargling instead of white cards', () => {
@@ -152,16 +152,6 @@ test('steers this black-centered P1P8 pool toward Wargling instead of white card
     pool,
     packNumber: 1,
     pickNumber: 8,
-    philosophy: {
-      sourceBalance: 50,
-      powerPriority: 63,
-      stayOpen: 65,
-      colorDiscipline: 73,
-      curveDiscipline: 63,
-      signalSensitivity: 73,
-      synergyPriority: 79,
-      creaturePreference: 50
-    },
     seventeenLands: sourceRows.map(([name, gihWinRate]) => ({ name, gihWinRate, gamesInHand: 10000 })),
     untapped: sourceRows.map(([name, , inHandWinRate]) => ({ name, inHandWinRate, games: 10000 }))
   });
@@ -179,7 +169,7 @@ test('steers this black-centered P1P8 pool toward Wargling instead of white card
   }
 });
 
-test('prefers premium removal in this P2P3 pack and keeps impact metrics visible', () => {
+test('premium removal beats an equal-data creature in this P2P3 pack and keeps impact metrics visible', () => {
   const pool = [
     { name: 'Pinecone Strike', manaCost: '{1}{R}', typeLine: 'Instant', rulesText: 'Pinecone Strike deals 3 damage to target creature.' },
     { name: 'Mirkwood', manaCost: '', typeLine: 'Land', rulesText: 'Put two +1/+1 counters on target Bear, Spider, or Wolf you control.' },
@@ -218,23 +208,14 @@ test('prefers premium removal in this P2P3 pack and keeps impact metrics visible
     packNumber: 2,
     pickNumber: 3,
     seventeenLands,
-    untapped,
-    philosophy: {
-      sourceBalance: 50,
-      powerPriority: 63,
-      stayOpen: 65,
-      colorDiscipline: 67,
-      curveDiscipline: 68,
-      signalSensitivity: 73,
-      synergyPriority: 75,
-      interactionPriority: 80
-    }
+    untapped
   });
   const slice = recommendations.find((card) => card.name === "Bilbo's Deadly Slice");
   const warg = recommendations.find((card) => card.name === 'Ravening Warg');
   const rabbit = recommendations.find((card) => card.name === 'Nasty Little Rabbit');
 
-  assert.equal(recommendations[0].name, "Bilbo's Deadly Slice");
+  assert.equal(slice.dataScore, rabbit.dataScore);
+  assert.ok(slice.score > rabbit.score, 'equal data — the interaction bonus must lift removal');
   assert.equal(slice.role.kind, 'premium-removal');
   assert.ok(slice.adjustments.interaction >= 4.8);
   assert.ok(warg.adjustments.synergy < 2);
@@ -341,7 +322,6 @@ test('turns reliable extreme IIH into visible positive and negative draft flags'
   ];
   const recommendations = scoreDraftPack({
     cards,
-    philosophy: { sourceBalance: 50, powerPriority: 63 },
     seventeenLands: [
       { name: cards[0].name, gihWinRate: 52, gamesInHand: 1100, gamesNotSeen: 1800, improvementInHand: -6.2 },
       { name: cards[1].name, gihWinRate: 60, gamesInHand: 2400, gamesNotSeen: 3100, improvementInHand: 5.8 }
@@ -366,7 +346,6 @@ test('labels extreme IIH from tiny samples as uncertain and requires usable rati
   const card = { name: 'Suspicious Rare', manaCost: '{5}{R}', typeLine: 'Creature' };
   const result = scoreDraftPack({
     cards: [card],
-    philosophy: { sourceBalance: 50, powerPriority: 63 },
     seventeenLands: [{ name: card.name, gihWinRate: null, gamesInHand: 30, gamesNotSeen: 45, improvementInHand: -8 }],
     untapped: [{ name: card.name, inHandWinRate: 53, games: 35, improvementInHand: -8 }]
   })[0];
@@ -422,11 +401,10 @@ test('penalizes Mattock without Dwarfs and restores it when supported', () => {
     seventeenLands: [{ key: 'dwarven mattock', name: mattock.name, gihWinRate: 54.3, gamesInHand: 738, alsa: 4.59 }],
     untapped: [{ key: 'dwarven mattock', name: mattock.name, inHandWinRate: 55.7, games: 6700, avgLastOffered: 4.8 }]
   };
-  const settings = { sourceBalance: 0, stayOpen: 65, signalSensitivity: 83, synergyPriority: 90 };
-  const withoutDwarf = scoreDraftPack({ cards: [mattock], ...source, pool: [{ typeLine: 'Creature — Wolf', manaCost: '{B}' }], packNumber: 1, pickNumber: 5, philosophy: settings })[0];
-  const withDwarf = scoreDraftPack({ cards: [mattock], ...source, pool: [{ typeLine: 'Creature — Dwarf Scout', manaCost: '{R}' }], packNumber: 1, pickNumber: 5, philosophy: settings })[0];
+  const withoutDwarf = scoreDraftPack({ cards: [mattock], ...source, pool: [{ typeLine: 'Creature — Wolf', manaCost: '{B}' }], packNumber: 1, pickNumber: 5 })[0];
+  const withDwarf = scoreDraftPack({ cards: [mattock], ...source, pool: [{ typeLine: 'Creature — Dwarf Scout', manaCost: '{R}' }], packNumber: 1, pickNumber: 5 })[0];
 
-  assert.ok(withoutDwarf.adjustments.synergy <= -18);
+  assert.ok(withoutDwarf.adjustments.synergy <= -16);
   assert.ok(withoutDwarf.adjustments.flexibility < 0);
   assert.ok(withoutDwarf.reasons[0].includes('no Dwarf'));
   assert.ok(withDwarf.score > withoutDwarf.score + 15);
@@ -490,7 +468,7 @@ test('manual lane choices are scoped to the current draft', () => {
   assert.equal(stale.manual, false);
 });
 
-test('a committed lane gates ordinary off-color cards before every Draft Strategy', () => {
+test('a committed lane gates ordinary off-color cards', () => {
   const candidates = [
     { name: 'Desolation Prowler', manaCost: '{1}{B}', typeLine: 'Creature — Wolf', rarity: 'uncommon' },
     { name: 'Long Lake Nuisance', manaCost: '{3}{U}', typeLine: 'Creature — Bird', rarity: 'uncommon' },
@@ -516,14 +494,12 @@ test('a committed lane gates ordinary off-color cards before every Draft Strateg
     draftId: 'draft-42'
   };
 
-  for (const strategy of Object.keys(DRAFT_STRATEGIES)) {
-    const ranked = scoreDraftPack({ ...common, philosophy: philosophyForStrategy(strategy) });
-    assert.equal(ranked[0].name, 'Misty Mountains Raider', `${strategy} must rank inside the committed lane first`);
-    assert.equal(ranked.find((card) => card.name === 'Misty Mountains Raider').contextualRank, 1);
-    assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').rawRank, 1);
-    assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').draftLane.tier, 2);
-    assert.equal(ranked.find((card) => card.name === 'Long Lake Nuisance').draftLane.tier, 2);
-  }
+  const ranked = scoreDraftPack({ ...common });
+  assert.equal(ranked[0].name, 'Misty Mountains Raider', 'the committed lane must rank first');
+  assert.equal(ranked.find((card) => card.name === 'Misty Mountains Raider').contextualRank, 1);
+  assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').rawRank, 1);
+  assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').draftLane.tier, 2);
+  assert.equal(ranked.find((card) => card.name === 'Long Lake Nuisance').draftLane.tier, 2);
 });
 
 test('labels the best pick as a likely sideboard fallback when the locked lane has no fit', () => {

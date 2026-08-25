@@ -377,45 +377,11 @@ button { color: inherit; }
 .rank-dual-scores.unranked-score { opacity: .62; }
 
 .side-card { border: 1px solid var(--line); border-radius: 13px; background: rgba(31,28,39,.72); }
-.philosophy-card { padding: 16px 16px 11px; }
 .side-heading { display: flex; align-items: flex-start; justify-content: space-between; }
 .side-heading h2 { margin: 5px 0 0; font-size: 14px; font-weight: 630; }
 .side-heading.compact { align-items: center; }
 .live-pill { padding: 4px 6px; border-color: rgba(114,214,155,.2); color: var(--green); background: rgba(114,214,155,.05); }
 .side-intro { margin: 10px 0 13px; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.strategy-list { display: grid; gap: 6px; }
-.strategy-button {
-  display: grid;
-  width: 100%;
-  min-height: 43px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 9px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  color: var(--muted);
-  background: rgba(255,255,255,.02);
-  text-align: left;
-  cursor: pointer;
-}
-.strategy-button:hover { border-color: rgba(163,131,255,.28); background: rgba(163,131,255,.055); }
-.strategy-button.active { border-color: rgba(163,131,255,.42); color: var(--ink); background: linear-gradient(135deg, rgba(163,131,255,.14), rgba(110,216,220,.045)); box-shadow: inset 3px 0 var(--violet); }
-.strategy-button strong { display: block; overflow: hidden; font-size: 12px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
-.strategy-button small { display: block; margin-top: 3px; color: var(--quiet); font-size: 8px; font-weight: 800; letter-spacing: .09em; }
-.strategy-button > span:last-child { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; color: transparent; border: 1px solid var(--line); font-size: 12px; }
-.strategy-button.active > span:last-child { color: white; border-color: var(--violet); background: var(--violet); }
-.strategy-advanced { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.055); }
-.strategy-advanced summary { padding: 10px 1px 8px; color: var(--quiet); font-size: 9px; font-weight: 850; letter-spacing: .1em; cursor: pointer; }
-.strategy-advanced > p { margin: 1px 1px 4px; color: var(--quiet); font-size: 9px; line-height: 1.45; }
-.strategy-advanced .slider-row { border-top: 0; }
-.slider-row { display: block; padding: 8px 0 7px; border-top: 1px solid rgba(255,255,255,.055); }
-.slider-row > span, .slider-row small { display: flex; align-items: center; justify-content: space-between; }
-.slider-row b { color: #c9c5ce; font-size: 11px; font-weight: 600; }
-.slider-row output { color: var(--violet); font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; }
-.slider-row input { width: 100%; height: 12px; margin: 5px 0 1px; accent-color: var(--violet); cursor: pointer; }
-.slider-row small i { color: #5b5662; font-size: 9px; font-style: normal; letter-spacing: .07em; }
-.source-slider output { color: var(--cyan); }
 
 .pool-card { margin-top: 0; padding: 14px 15px 13px; }
 .pool-guidance { margin: 10px 0 8px; color: var(--muted); font-size: 10px; line-height: 1.45; }
@@ -922,14 +888,10 @@ button { color: inherit; }
 .reason-chip { color: var(--muted); background: rgba(255,255,255,.38); }
 .metric-source small { color: var(--quiet); }
 .metric-source.lands strong, .source-stat.lands { color: #6d50ae; }
-.rank-row, .source-stat, .pool-chip, .deck-tab, .deck-stat-strip, .mana-source-row, .strategy-button { background: rgba(255,255,255,.28); }
+.rank-row, .source-stat, .pool-chip, .deck-tab, .deck-stat-strip, .mana-source-row { background: rgba(255,255,255,.28); }
 .rank-row:hover, .rank-row.selected { background: rgba(112,84,179,.1); }
 .side-card, .build-summary-card, .build-task-panel { background: rgba(244,242,238,.68); }
-.slider-row { border-top-color: rgba(47,42,50,.1); }
-.strategy-advanced { border-top-color: rgba(47,42,50,.1); }
-.strategy-button.active { background: linear-gradient(135deg, rgba(112,84,179,.15), rgba(38,121,131,.06)); }
-.slider-row b { color: var(--muted); }
-.slider-row small i, .local-note { color: var(--quiet); }
+.local-note { color: var(--quiet); }
 .curve-chart { border-top-color: rgba(47,42,50,.1); }
 .primary-button, .next-button, .build-expand-button { color: #5f439f; background: rgba(112,84,179,.1); }
 
