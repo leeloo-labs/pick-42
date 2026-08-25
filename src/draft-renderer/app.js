@@ -281,8 +281,8 @@ function renderLane() {
   setText('lane-detail', detail);
   setText('lane-confidence', `${lane.confidence ?? 0}%`);
   setIcon(byId('lane-glyph'), lane.status === 'locked' ? 'lock-keyhole' : lane.status === 'committed' ? 'scan-search' : 'unlock');
-  setText('lane-lock-name', `Lock in ${lane.label}`);
-  setText('lane-splash-name', `Lock in ${lane.label}`);
+  setText('lane-lock-name', `Lock in ${lane.label} — no splash`);
+  setText('lane-splash-name', `Lock in ${lane.label} — light splash`);
   byId('lane-menu').hidden = !laneMenuOpen;
   byId('lane-summary').setAttribute('aria-expanded', String(laneMenuOpen));
   byId('lane-resume-auto').hidden = !lane.manual;
@@ -911,9 +911,11 @@ function deckBoardCard(card, land = false, index = 0) {
   const typeIcon = element('span', 'deck-mini-type-icon');
   typeIcon.append(iconElement(cardGlyph(displayCard, land)));
   art.append(typeIcon, element('small', '', land ? 'LAND' : String(displayCard.typeLine || 'CARD').split('—')[0].trim().toUpperCase()));
-  const artUrl = displayCard.scryfall?.imageUris?.artCrop;
+  const artCrop = displayCard.scryfall?.imageUris?.artCrop;
+  const artUrl = artCrop || displayCard.scryfall?.imageUris?.normal;
   if (artUrl) {
     art.classList.add('has-scryfall-art');
+    if (!artCrop) art.classList.add('full-card-art');
     art.style.backgroundImage = `url("${artUrl}"), linear-gradient(145deg, var(--card-deep), var(--card-mid))`;
   }
   const footer = element('footer', 'deck-mini-footer');
@@ -1071,10 +1073,17 @@ function renderReviewImpactList(id, cards, emptyText, formatter = null) {
     const display = formatter ? formatter(card) : { label: card.label || '', detail: card.detail || '' };
     const row = element('article', `review-impact-row${display.className ? ` ${display.className}` : ''}`);
     const heading = element('div');
-    heading.append(element('strong', '', card.name), element('span', '', display.label));
+    const name = element('strong', '', card.name);
+    if (display.icon) {
+      const marker = element('span', 'review-impact-marker');
+      marker.append(iconElement(display.icon));
+      name.prepend(marker);
+    }
+    heading.append(name, element('span', '', display.label));
     row.append(heading, element('p', '', display.detail));
     list.append(row);
   }
+  hydrateIcons(list);
 }
 
 function varianceLabel(entry) {
@@ -1114,7 +1123,7 @@ function renderReview() {
       : `${review.cardsSeenCount} cards were observed across ${review.yourTurnsObserved} of your turns. Hidden opponent cards are excluded.`));
   setText('review-result', result);
   setText('review-turns', review.turns || '—');
-  setText('review-seat', review.onPlay === null ? '—' : (review.onPlay ? 'PLAY' : 'DRAW'));
+  setText('review-seat', review.onPlay === null ? '—' : (review.onPlay ? 'ON THE PLAY' : 'ON THE DRAW'));
   setText('review-mulligans', review.mulligans === null || review.mulligans === undefined ? '—' : review.mulligans);
 
   const analysis = review.postGame || {};
@@ -1148,13 +1157,17 @@ function renderReview() {
   const drawQuality = analysis.drawQuality || {};
   setText('review-iih-summary', drawQuality.summary || 'Waiting for matching 17Lands IIH data.');
   setText('review-iih-note', drawQuality.note || 'IIH is historical correlation, not causal credit.');
-  renderReviewImpactList('review-iih-cards', drawQuality.cards, 'No reliable IIH comparison was available.', (card) => ({
-    label: `${card.iih > 0 ? '+' : ''}${Number(card.iih).toFixed(1)}pp IIH`,
-    detail: `${card.category} · ${card.quantity ? `${card.quantity} cop${card.quantity === 1 ? 'y' : 'ies'} observed · ` : ''}${Number(card.gamesInHand || 0).toLocaleString()} games in hand`,
-    className: String(card.category || '').includes('NOT DRAWN')
+  renderReviewImpactList('review-iih-cards', drawQuality.cards, 'No reliable IIH comparison was available.', (card) => {
+    const className = String(card.category || '').includes('NOT DRAWN')
       ? 'not-drawn'
-      : (String(card.category || '').includes('LIABILITY') ? 'liability' : 'drawn')
-  }));
+      : (String(card.category || '').includes('LIABILITY') ? 'liability' : 'drawn');
+    return {
+      label: `${card.iih > 0 ? '+' : ''}${Number(card.iih).toFixed(1)}pp IIH`,
+      detail: `${card.category} · ${card.quantity ? `${card.quantity} cop${card.quantity === 1 ? 'y' : 'ies'} observed · ` : ''}${Number(card.gamesInHand || 0).toLocaleString()} games in hand`,
+      className,
+      icon: className === 'not-drawn' ? 'circle-dashed' : (className === 'liability' ? 'triangle-alert' : 'circle-check-big')
+    };
+  });
 
   const contributions = analysis.contributions || {};
   renderReviewImpactList('review-mvp-list', contributions.mvp, contributions.mvpEmpty || 'No evidence-backed MVP yet.');
