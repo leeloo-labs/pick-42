@@ -11,8 +11,9 @@
 
   function manaTokens(card) {
     const manaCost = String(card.manaCost || '');
-    const braced = [...manaCost.matchAll(/\{([^}]+)\}/g)].map((match) => match[1].toUpperCase());
-    if (braced.length) return braced;
+    // Arena's local catalog writes hybrid symbols with parentheses, e.g. {1}(B/R).
+    const grouped = [...manaCost.matchAll(/[{(]([^})]+)[})]/g)].map((match) => match[1].toUpperCase());
+    if (grouped.length) return grouped;
     return manaCost.toUpperCase().match(/\d+|[WUBRG](?:\/[WUBRG])?|[XYZ]/g) || [];
   }
 

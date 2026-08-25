@@ -23,6 +23,17 @@ test('distinguishes hybrid choices from gold requirements', () => {
   });
 });
 
+test('reads Arena-catalog parenthesized hybrid symbols', () => {
+  assert.deepEqual(manaPresentation({ manaCost: '{1}(B/R)' }), {
+    colors: ['B', 'R'],
+    fixedColors: [],
+    genericSymbols: '1',
+    hybridGroups: [['B', 'R']],
+    mode: 'hybrid',
+    sourceColors: ['B', 'R']
+  });
+});
+
 test('matches Arena color grouping inside a mana-value column', () => {
   const cards = [
     { name: 'Colorless Relic', manaCost: '{2}' },

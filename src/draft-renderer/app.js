@@ -509,7 +509,7 @@ function renderPool() {
     const column = element('div', 'curve-column');
     const bar = element('span', 'curve-bar');
     bar.style.height = `${Math.max(2, (summary.curve[bucket] / max) * 27)}px`;
-    column.append(bar, element('small', '', `${bucket} · ${summary.curve[bucket]}`));
+    column.append(element('b', '', summary.curve[bucket]), bar, element('small', '', bucket));
     curve.append(column);
   }
 
@@ -1044,7 +1044,7 @@ function renderDeckBuilder() {
     const column = element('div', 'deck-curve-column');
     const bar = element('span');
     bar.style.height = `${Math.max(3, (build.curve[bucket] / curveMax) * 52)}px`;
-    column.append(bar, element('b', '', build.curve[bucket]), element('small', '', bucket));
+    column.append(element('b', '', build.curve[bucket]), bar, element('small', '', bucket));
     curve.append(column);
   }
 
@@ -1052,9 +1052,10 @@ function renderDeckBuilder() {
   cuts.replaceChildren();
   if (!build.cuts.length) cuts.append(element('span', 'pool-empty', 'No additional on-color cards.'));
   for (const card of build.cuts.slice(0, 10)) {
+    const displayCut = enrichedCard(card);
     const row = element('div', 'cut-row');
     const cutMana = element('small', '');
-    const cutPips = manaPipsElement(card.manaCost);
+    const cutPips = manaPipsElement(displayCut.manaCost);
     if (cutPips) cutMana.append(cutPips);
     else cutMana.textContent = '—';
     row.append(element('span', '', `${card.quantity}× ${card.name}`), cutMana);
