@@ -56,7 +56,6 @@ const tailer = new LogTailer();
 let draftWindow;
 let watchedLogPath = null;
 let lastLogActivityAt = null;
-let lastProgrammaticResizeAt = 0;
 let normalWindowBounds = null;
 let compactBuildMode = false;
 let buildModeSource = null;
@@ -906,24 +905,6 @@ function createWindow() {
   normalWindowBounds = draftWindow.getBounds();
   draftWindow.loadFile(path.join(__dirname, 'draft-renderer', 'index.html'));
   draftWindow.webContents.on('did-finish-load', sendState);
-
-  // Dragging the side panel clearly wider is a request for the full app, not a
-  // bigger panel. Debounced so it fires once the drag settles, and ignored close
-  // to the app's own animated bounds changes.
-  let manualResizeTimer = null;
-  draftWindow.on('resize', () => {
-    if (!compactBuildMode || Date.now() - lastProgrammaticResizeAt < 700) return;
-    clearTimeout(manualResizeTimer);
-    manualResizeTimer = setTimeout(() => {
-      if (!compactBuildMode || !draftWindow || draftWindow.isDestroyed()) return;
-      if (Date.now() - lastProgrammaticResizeAt < 700) return;
-      const [width] = draftWindow.getSize();
-      if (width >= 560) {
-        suppressAutomaticBuildMode = sceneTracker.snapshot().inDeckBuilder;
-        setCompactBuildMode(false);
-      }
-    }, 280);
-  });
 }
 
 function setCompactBuildMode(enabled, source = null) {
@@ -934,13 +915,15 @@ function setCompactBuildMode(enabled, source = null) {
     return;
   }
 
-  lastProgrammaticResizeAt = Date.now();
   if (next) {
     if (!compactBuildMode) normalWindowBounds = draftWindow.getBounds();
     const workArea = screen.getDisplayMatching(draftWindow.getBounds()).workArea;
     const width = Math.min(400, Math.max(350, workArea.width - 36));
     const height = Math.min(780, Math.max(540, workArea.height - 36));
     draftWindow.setMinimumSize(340, 500);
+    // The panel may be shrunk by hand but never dragged wider; returning to the
+    // full app is the expand button's job.
+    draftWindow.setMaximumSize(width, 100000);
     draftWindow.setBounds({
       x: workArea.x + workArea.width - width - 18,
       y: workArea.y + 18,
@@ -958,6 +941,7 @@ function setCompactBuildMode(enabled, source = null) {
       width: fallbackWidth,
       height: fallbackHeight
     };
+    draftWindow.setMaximumSize(100000, 100000);
     draftWindow.setBounds(bounds, true);
     draftWindow.setMinimumSize(780, 620);
   }
