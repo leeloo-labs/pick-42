@@ -79,6 +79,18 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Exclude cards with unverified conditional cost reductions from printed-mana curve evidence, and count stranded evidence by distinct turn rather than by copies in hand.
 - Persist completed reviews locally in the legacy Pick 42/Arcane user-data directory; never upload raw game data.
 
+## Voice and copy
+
+Pick 42's restrained, evidence-first copy is a deliberate product feature, not a placeholder tone. Every user-facing string must survive these rules:
+
+- State what the data shows, never what it cannot show. Confidence lives in the numbers and labels; the prose stays neutral.
+- Verdicts describe evidence and offer reversible actions. They never issue commands, promise outcomes, or dramatize.
+- When there is no defensible evidence, say exactly that instead of filling the space with a guess — as in "No defensible LVP: Pick 42 will not call a card bad merely because it was drawn or died."
+- Results and deviations are context, not verdicts: "Deviations are context, not verdicts", "one loss alone is not evidence against your changes". A single game never argues for a deck change on its own.
+- Correlation language stays correlational: "IIH is historical correlation, not causal credit."
+- Uncertainty is labeled, never hidden: LIMITED EVIDENCE, LOW-SAMPLE IIH, and partial-coverage labels remain visible wherever they apply.
+- New copy that sounds more confident than its data supports is wrong even when it reads better. When in doubt, quote the numbers and stop.
+
 ## Development
 
 ```bash
@@ -88,7 +100,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 129 passing tests.
+- The test suite currently contains 132 passing tests.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
 - Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.
