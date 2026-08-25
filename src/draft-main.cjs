@@ -8,6 +8,7 @@ const path = require('node:path');
 const {
   CONTEXTUAL_PHILOSOPHY,
   inferDraftLane,
+  recommendPickTwoPair,
   scoreDraftPack
 } = require('./draft/blend-engine.cjs');
 const { normalizeCardName } = require('./draft/csv.cjs');
@@ -16,6 +17,7 @@ const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
 const {
   createArchetypeDeck,
   isGenericArchetypeLabel,
+  normalizeFormat,
   parseArenaDeckText,
   parseArchetypeCorpus,
   summarizeArchetypeCorpus,
@@ -563,12 +565,32 @@ function viewModel() {
   const corpusMatch = archetypeCorpus
     ? summarizeArchetypeCorpus(archetypeCorpus, { setCode: draftState.setCode, format: draftState.format })
     : { deckCount: 0, trophyCount: 0, archetypeCount: 0, archetypes: [], setCodes: [], formats: [] };
+  const gate = recommendationGate(recommendations);
+  const pickPair = gate.ready && normalizeFormat(draftState.format) === 'pick-two'
+    ? recommendPickTwoPair({
+        recommendations,
+        cards: draftState.pack,
+        seventeenLands: activeSources.seventeenLands,
+        untapped: activeSources.untapped,
+        archetypeCorpus,
+        pool: modelingPool,
+        excludedPoolNames: excludedNames,
+        packNumber: draftState.packNumber,
+        pickNumber: draftState.pickNumber,
+        draftId: draftScopeId(),
+        setCode: draftState.setCode,
+        format: draftState.format,
+        lane: draftLane,
+        philosophy
+      })
+    : null;
   return {
     draft: draftState,
     recommendations,
     deckBuilds,
     selectedBuildId,
-    recommendationGate: recommendationGate(recommendations),
+    pickPair,
+    recommendationGate: gate,
     poolSummary: {
       ...poolSummary(modelingPool),
       draftedTotal: draftState.pool.length,

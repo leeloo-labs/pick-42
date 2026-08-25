@@ -26,12 +26,17 @@ function draftEventInfo(value) {
   let kind = null;
   if (normalized.includes('quickdraft')) kind = 'quick';
   else if (normalized.includes('traditionaldraft')) kind = 'traditional';
-  else if (normalized.includes('picktwodraft') || normalized.includes('premierdraft')) kind = 'player';
+  else if (normalized.includes('picktwodraft')) kind = 'pick-two';
+  else if (normalized.includes('premierdraft')) kind = 'player';
   if (!kind) return null;
 
   const eventSet = text.match(/^(?:QuickDraft|PickTwoDraft|PremierDraft|TraditionalDraft)_([A-Z0-9]+)(?:_|$)/i)?.[1];
   const contextSet = text.match(/^([A-Z0-9]+)_(?:Quick_Draft|Premier_Draft|Traditional_Draft|Pick_Two_Draft)(?:_|$)/i)?.[1];
   return { kind, setCode: String(eventSet || contextSet || '').toUpperCase() || null };
+}
+
+function formatForKind(kind) {
+  return { quick: 'Quick Draft', traditional: 'Traditional Draft', 'pick-two': 'Pick Two Draft' }[kind] || 'Player Draft';
 }
 
 function sameDraftContext(context, eventName) {
@@ -148,14 +153,15 @@ class DraftLogParser extends EventEmitter {
       this.state.courseId = courseId;
       this.state.eventName = eventName;
       this.state.draftId = courseId;
-      this.state.format = eventInfo.kind === 'quick' ? 'Quick Draft' : (eventInfo.kind === 'traditional' ? 'Traditional Draft' : 'Player Draft');
+      this.state.format = formatForKind(eventInfo.kind);
       this.state.setCode = eventInfo.setCode ?? this.state.setCode;
     }
     if (courseSnapshot && eventInfo && restoredPool.length) {
       this.state.draftId = courseId || String(message.draftId ?? message.DraftId ?? eventName);
       this.state.eventName = eventName;
       this.state.packNumber = 3;
-      this.state.pickNumber = 14;
+      // A completed Pick Two draft ends on pack 3's seventh two-card selection (3 × 7 × 2 = 42 picks).
+      this.state.pickNumber = eventInfo.kind === 'pick-two' ? 7 : 14;
       this.state.packCardIds = [];
       this.state.pickedCardIds = restoredPool;
       const courseDeck = message.CourseDeck ?? message.courseDeck;
@@ -192,7 +198,8 @@ class DraftLogParser extends EventEmitter {
     if (pack.length) {
       this.state.packCardIds = pack;
       if (picked.length) this.state.pickedCardIds = picked;
-      this.state.format = quickDraft ? 'Quick Draft' : 'Player Draft';
+      const liveInfo = eventInfo || draftEventInfo(this.state.eventName);
+      this.state.format = liveInfo ? formatForKind(liveInfo.kind) : (quickDraft ? 'Quick Draft' : 'Player Draft');
       this.state.packNumber = this.#displayNumber(message.SelfPack ?? message.PackNumber ?? message.packNumber, this.state.packNumber, quickDraft);
       this.state.pickNumber = this.#displayNumber(message.SelfPick ?? message.PickNumber ?? message.pickNumber, this.state.pickNumber, quickDraft);
       this.state.setCode = message.setCode ?? message.SetCode ?? setFromEvent ?? this.state.setCode;

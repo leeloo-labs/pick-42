@@ -1291,6 +1291,34 @@ function scoreDraftPack({
   }));
 }
 
+// Pick Two events take two cards per pack. The second selection is not simply the
+// second-ranked row: the first pick joins the pool before the remainder is
+// re-scored, so lane pressure, curve, synergy, and duplicate effects apply.
+function recommendPickTwoPair({ recommendations, cards, pool = [], ...scoreArgs }) {
+  if (!Array.isArray(recommendations) || recommendations.length < 2) return null;
+  if (!Array.isArray(cards) || cards.length < 2) return null;
+  const first = recommendations.find((card) => card.eligible) || recommendations[0];
+  const firstKey = normalizeCardName(first.name);
+  const firstCard = cards.find((card) => normalizeCardName(card.name) === firstKey);
+  if (!firstCard) return null;
+  const remaining = cards.filter((card) => card !== firstCard);
+  if (!remaining.length) return null;
+  const followUps = scoreDraftPack({ ...scoreArgs, cards: remaining, pool: [...pool, firstCard] });
+  const second = followUps.find((card) => card.eligible) || followUps[0];
+  if (!second) return null;
+  const naiveSecond = recommendations.find((card) => card !== first && (card.eligible || !recommendations.some((entry) => entry.eligible)));
+  return {
+    first: { name: first.name, score: first.score },
+    second: {
+      name: second.name,
+      score: second.score,
+      reason: second.reasons?.[0] || null,
+      outlook: second.pickOutlook?.label || null
+    },
+    secondDiffersFromList: Boolean(naiveSecond) && normalizeCardName(naiveSecond.name) !== normalizeCardName(second.name)
+  };
+}
+
 module.exports = {
   CONTEXTUAL_PHILOSOPHY,
   DEFAULT_PHILOSOPHY,
@@ -1313,6 +1341,7 @@ module.exports = {
   manaProfile,
   manaValue,
   philosophyForStrategy,
+  recommendPickTwoPair,
   scoreDraftPack,
   strategyRoleScores,
   winRateScore

@@ -18,6 +18,7 @@ const {
   inferDraftLane,
   manaProfile,
   philosophyForStrategy,
+  recommendPickTwoPair,
   scoreDraftPack
 } = require('../src/draft/blend-engine.cjs');
 
@@ -625,4 +626,33 @@ test('carries an OUT decision forward when another copy appears in a later pack'
   assert.equal(exceptional.adjustments.poolPlan, -2);
   assert.equal(exceptional.pickOutlook, null);
   assert.match(exceptional.reasons[0], /reconsider the earlier OUT mark/);
+});
+
+test('recommends a Pick Two pair with the pool updated between picks', () => {
+  const seventeenLands = parseSeventeenLandsCsv(read('sample-17lands-hob.csv'));
+  const untapped = parseUntappedCsv(read('sample-untapped-hob.csv'));
+  const args = { seventeenLands, untapped, pool: [], packNumber: 1, pickNumber: 1, format: 'Pick Two Draft' };
+  const recommendations = scoreDraftPack({ cards, ...args });
+
+  const pair = recommendPickTwoPair({ recommendations, cards, ...args });
+  assert.ok(pair);
+  assert.equal(pair.first.name, recommendations[0].name);
+  assert.notEqual(pair.second.name, pair.first.name);
+  assert.ok(Number.isFinite(pair.second.score));
+  assert.equal(typeof pair.secondDiffersFromList, 'boolean');
+});
+
+test('a Pick Two pair may take the second copy of the best card', () => {
+  const fili = cards.find((card) => card.name === 'Fíli the Pathfinder');
+  const twoCopies = [fili, { ...fili }, cards.find((card) => card.name === 'Gollum, Riddle Master')];
+  const seventeenLands = parseSeventeenLandsCsv(read('sample-17lands-hob.csv'));
+  const untapped = parseUntappedCsv(read('sample-untapped-hob.csv'));
+  const args = { seventeenLands, untapped, pool: [], packNumber: 1, pickNumber: 1 };
+  const recommendations = scoreDraftPack({ cards: twoCopies, ...args });
+
+  const pair = recommendPickTwoPair({ recommendations, cards: twoCopies, ...args });
+  assert.ok(pair);
+  assert.equal(pair.first.name, 'Fíli the Pathfinder');
+  // Only one physical copy leaves the pack; the second selection is scored over the rest.
+  assert.ok(['Fíli the Pathfinder', 'Gollum, Riddle Master'].includes(pair.second.name));
 });

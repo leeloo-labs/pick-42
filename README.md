@@ -77,6 +77,10 @@ A locked lane gates ordinary off-color cards. Only a truly exceptional, data-bac
 
 The active-pool panel is an abbreviated deck list. Marking a card **OUT** keeps it visible but removes it from lane inference, recommendations, and deck construction. That choice carries forward when another copy appears later in the same draft, unless strong new evidence provides an explicit reason to reconsider.
 
+### Pick Two drafts
+
+Arena's Pick Two events keep the same 42-card pool — three packs of seven two-card selections. Pick 42 labels them as a distinct format so trophy-corpus matching stays format-true, and the Contextual view adds a pair recommendation: the second selection is re-scored with the first pick already in the pool, so lane pressure, curve, synergy, and duplicate effects apply between the two picks. Because of that, the recommended second card is not always the second-ranked row; it carries a **2nd Pick** flag in the pack ranking.
+
 ### Trophy-deck corpus
 
 Open **META** to build the trophy corpus two ways:
@@ -155,7 +159,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 113 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 117 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 
@@ -173,6 +177,7 @@ Important paths:
 ## Current limitations
 
 - Arena does not publish or version the `Player.log` schema, so new client shapes require sanitized fixtures and parser updates.
+- Pick Two support is verified against a real completed Pick Two course; the mid-draft pick messages reuse the parser's generic pack and multi-card-pick paths but have not yet been captured live, so the first Pick Two draft played with Pick 42 open confirms them.
 - Statistical quality depends on current, correctly matched 17Lands and Untapped exports.
 - Trophy decks are imported manually; Pick 42 does not crawl trophy pages.
 - Tactical review is deliberately conservative and cannot know hidden cards, player intent, or unlogged decision alternatives.

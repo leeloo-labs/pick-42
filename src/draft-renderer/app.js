@@ -398,6 +398,20 @@ function renderHero() {
   const activeReasons = rankingMode === 'raw' ? rawReasons(card) : card.reasons;
   if (rankingMode === 'contextual' && card.pickOutlook) reasons.append(element('span', 'reason-chip outlook-reason', card.pickOutlook.detail));
   for (const reason of activeReasons.slice(0, 4)) reasons.append(element('span', 'reason-chip', reason));
+
+  const pairNode = byId('hero-pair');
+  const pair = model.pickPair;
+  if (pair && rankingMode === 'contextual') {
+    pairNode.hidden = false;
+    setText('hero-pair-first', pair.first.name);
+    setText('hero-pair-second', pair.second.name);
+    const note = pair.second.outlook
+      ? ` · ${pair.second.outlook.toLowerCase()}`
+      : (pair.secondDiffersFromList ? ' · rises once the first pick joins your pool' : '');
+    setText('hero-pair-note', ` (${pair.second.score.toFixed(1)} after the first pick${note})`);
+  } else {
+    pairNode.hidden = true;
+  }
 }
 
 function sourceStat(label, value, className) {
@@ -440,6 +454,11 @@ function renderRanking() {
     if (rankingMode === 'contextual' && card.pickOutlook?.fallback) {
       const flag = element('span', 'outlook-flag');
       configureOutlookFlag(flag, card, true);
+      title.append(flag);
+    }
+    if (rankingMode === 'contextual' && model.pickPair && card.name === model.pickPair.second.name) {
+      const flag = element('span', 'pair-flag', '2ND PICK');
+      flag.title = `Best second selection once ${model.pickPair.first.name} joins your pool`;
       title.append(flag);
     }
     const detail = rankingMode === 'raw' ? rawReasons(card)[0] : card.reasons[0];

@@ -158,3 +158,39 @@ test('selects the newest course when consecutive drafts reuse the same event nam
   assert.deepEqual(state.arenaDeck.mainDeck, []);
   assert.deepEqual(state.arenaDeck.sideboard, []);
 });
+
+test('labels a Pick Two draft and restores its 42-card pool', () => {
+  const parser = new DraftLogParser({ catalog });
+  const pool = [...Object.keys(catalog), ...Object.keys(catalog), ...Object.keys(catalog)].map(Number);
+  parser.feed(JSON.stringify({
+    CourseId: 'pick-two-course',
+    InternalEventName: 'PickTwoDraft_HOB_20260811',
+    CurrentModule: 'CreateMatch',
+    CardPool: pool,
+    CourseDeck: { MainDeck: [{ cardId: 103382, quantity: 2 }], Sideboard: [] }
+  }));
+
+  const state = parser.snapshot();
+  assert.equal(state.format, 'Pick Two Draft');
+  assert.equal(state.setCode, 'HOB');
+  assert.equal(state.pool.length, 42);
+  assert.equal(state.packNumber, 3);
+  assert.equal(state.pickNumber, 7);
+});
+
+test('tracks a live Pick Two pack and a two-card selection', () => {
+  const parser = new DraftLogParser({ catalog });
+  parser.feed(JSON.stringify({
+    EventName: 'PickTwoDraft_HOB_20260811',
+    PackCards: [103382, 103444, 103385, 103397],
+    SelfPack: 1,
+    SelfPick: 1
+  }));
+  assert.equal(parser.snapshot().format, 'Pick Two Draft');
+
+  parser.feed(JSON.stringify({ method: 'Draft.MakeHumanDraftPick', CardIds: [103382, 103444] }));
+  const state = parser.snapshot();
+  assert.equal(state.pool.length, 2);
+  assert.deepEqual(state.pool.map((card) => card.grpId), [103382, 103444]);
+  assert.equal(state.pack.length, 2);
+});
