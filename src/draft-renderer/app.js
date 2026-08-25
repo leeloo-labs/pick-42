@@ -1139,27 +1139,50 @@ function varianceLabel(entry) {
   return `${entry.level} · ${String(entry.kind || '').toUpperCase()}`;
 }
 
-function renderReviewGameStrip(reviews, displayed, latest) {
+function renderReviewGameStrip(groups, displayed, latest) {
   const strip = byId('review-game-strip');
   strip.replaceChildren();
-  strip.hidden = reviews.length < 2;
+  const totalGames = groups.reduce((sum, group) => sum + group.games.length, 0);
+  strip.hidden = totalGames < 1;
   if (strip.hidden) return;
-  [...reviews].reverse().forEach((entry, index) => {
-    const number = reviews.length - index;
-    const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
-    const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
-    chip.type = 'button';
-    chip.append(
-      element('strong', '', `G${number} · ${entry.won === true ? 'WIN' : (entry.won === false ? 'LOSS' : '—')}`),
-      element('small', '', `${entry.deck?.name || 'Limited deck'} · ${entry.turns ? `${entry.turns} turns` : '—'}`)
-    );
-    if (entry.completedAt) chip.title = new Date(entry.completedAt).toLocaleString();
-    chip.addEventListener('click', () => {
-      selectedReviewId = latest && entry.id === latest.id ? null : entry.id;
-      renderReview();
-    });
-    strip.append(chip);
-  });
+  for (const group of groups) {
+    const section = element('div', `review-event-group ${group.status}`);
+    const heading = element('div', 'review-event-heading');
+    const title = element('div', 'review-event-title');
+    if (group.trophy) {
+      const icon = element('span', 'review-event-trophy');
+      icon.append(iconElement('trophy'));
+      title.append(icon);
+    }
+    title.append(element('strong', '', group.name));
+    if (group.formatLabel) title.append(element('small', '', group.formatLabel));
+    const record = element('span', `review-event-record ${group.status}`);
+    record.textContent = group.trophy
+      ? `TROPHY · ${group.record}`
+      : (group.status === 'eliminated'
+        ? `${group.record} · ENDED`
+        : (group.status === 'live' ? `${group.record} · LIVE` : group.record));
+    heading.append(title, record);
+    const chips = element('div', 'review-event-games');
+    for (const entry of group.games) {
+      const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
+      const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
+      chip.type = 'button';
+      chip.append(
+        element('strong', '', `G${entry.draftGameNumber} · ${entry.won === true ? 'WIN' : (entry.won === false ? 'LOSS' : '—')}`),
+        element('small', '', entry.turns ? `${entry.turns} turns` : '—')
+      );
+      if (entry.completedAt) chip.title = new Date(entry.completedAt).toLocaleString();
+      chip.addEventListener('click', () => {
+        selectedReviewId = latest && entry.id === latest.id ? null : entry.id;
+        renderReview();
+      });
+      chips.append(chip);
+    }
+    section.append(heading, chips);
+    strip.append(section);
+  }
+  hydrateIcons(strip);
 }
 
 function renderReview() {
@@ -1174,7 +1197,7 @@ function renderReview() {
   const followingLatest = !selected;
   const recording = followingLatest && review?.status === 'recording';
   const ignored = Boolean(reviewState.lastIgnored) && !recording && followingLatest;
-  renderReviewGameStrip(reviews, review, latest);
+  renderReviewGameStrip(reviewState.eventGroups || [], review, latest);
   const content = byId('review-content');
   byId('review-empty').hidden = Boolean(review);
   content.hidden = !review;

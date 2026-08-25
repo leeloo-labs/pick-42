@@ -24,7 +24,7 @@ const {
   trophyThreshold
 } = require('./draft/archetype-corpus.cjs');
 const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
-const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, replaceRebuiltReviewInPlace, reviewDeckIdentity } = require('./draft/game-review.cjs');
+const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, replaceRebuiltReviewInPlace, reviewDeckIdentity, reviewEventGroups } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
@@ -467,6 +467,7 @@ function reviewContext() {
   return {
     draftId: draftState.draftId,
     setCode: draftState.setCode,
+    format: draftState.format,
     deck: reviewDeckSnapshot()
   };
 }
@@ -475,11 +476,13 @@ function presentedReviewState() {
   const activeSources = activeSourceData();
   const completed = reviewState.reviews || [];
   const activeRelated = reviewState.active ? [reviewState.active, ...completed] : completed;
+  const analyzed = completed.map((review) => analyzePostGameReview(review, { seventeenLands: activeSources.seventeenLands, relatedReviews: completed }));
   return {
     ...reviewState,
     active: analyzePostGameReview(reviewState.active, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
     latest: analyzePostGameReview(reviewState.latest, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
-    reviews: completed.map((review) => analyzePostGameReview(review, { seventeenLands: activeSources.seventeenLands, relatedReviews: completed }))
+    reviews: analyzed,
+    eventGroups: reviewEventGroups(analyzed, { currentDraftId: draftState.draftId, currentFormat: draftState.format })
   };
 }
 

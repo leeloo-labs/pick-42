@@ -141,6 +141,7 @@ Leave `npm run draft` open while playing the drafted deck, then open **PLAY**. P
 The report intentionally focuses on evidence that can change a decision:
 
 - a compact result, play/draw, game-turn, mulligan, and game-shape summary;
+- a game history grouped by draft, with per-event records that know each format's rules: a gold trophy celebration at 7 wins (Premier/Quick), 4 wins (Pick Two), or 3-0 (Traditional), an ENDED state at the loss cap, and LIVE for the event in progress;
 - low, moderate, or high mana-variance analysis for both players;
 - the deck's four highest reliable 17Lands IIH cards, each marked drawn or not drawn;
 - additional reliable negative-IIH cards only when they were actually drawn;
@@ -162,7 +163,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 121 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 124 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 

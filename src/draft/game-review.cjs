@@ -2,6 +2,7 @@
 
 const { EventEmitter } = require('node:events');
 const { manaProfile, manaValue } = require('./blend-engine.cjs');
+const { normalizeFormat, trophyThreshold } = require('./archetype-corpus.cjs');
 const { normalizeCardName } = require('./csv.cjs');
 
 const COLORS = ['W', 'U', 'B', 'R', 'G'];
@@ -1010,6 +1011,68 @@ function applyDeviationToVerdict(verdict, review, deviation, contributions) {
   return next;
 }
 
+// Losses that end an Arena limited event, by normalized format.
+const EVENT_LOSS_CAPS = { premier: 3, quick: 3, 'pick-two': 2, traditional: null };
+
+// Groups completed reviews into their drafts, numbers games per draft, and derives
+// the event record with format-aware trophy and elimination states. Records count
+// recorded games only, so a game played while Pick 42 was closed is not invented.
+function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = null } = {}) {
+  const groups = new Map();
+  for (const review of reviews || []) {
+    const key = String(review?.draftId || 'unknown-draft');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(review);
+  }
+
+  const result = [];
+  for (const [draftId, games] of groups.entries()) {
+    const ordered = [...games].sort((left, right) => String(left.completedAt || '').localeCompare(String(right.completedAt || '')));
+    const isCurrent = Boolean(currentDraftId) && draftId === String(currentDraftId);
+    const formatText = ordered.find((game) => game.format)?.format || (isCurrent ? currentFormat : null);
+    const format = formatText ? normalizeFormat(formatText) : null;
+    const winsTarget = format ? trophyThreshold(format) : null;
+    const lossCap = format ? EVENT_LOSS_CAPS[format] ?? null : null;
+
+    let wins;
+    let losses;
+    if (format === 'traditional') {
+      const matches = new Map();
+      for (const game of ordered) {
+        const matchKey = String(game.matchId || game.id);
+        if (!matches.has(matchKey)) matches.set(matchKey, { wins: 0, losses: 0 });
+        if (game.won === true) matches.get(matchKey).wins += 1;
+        else if (game.won === false) matches.get(matchKey).losses += 1;
+      }
+      wins = [...matches.values()].filter((match) => match.wins > match.losses).length;
+      losses = matches.size - wins;
+    } else {
+      wins = ordered.filter((game) => game.won === true).length;
+      losses = ordered.filter((game) => game.won === false).length;
+    }
+
+    const trophy = winsTarget !== null && wins >= winsTarget;
+    const eliminated = !trophy && lossCap !== null && losses >= lossCap;
+    result.push({
+      draftId,
+      name: [...ordered].reverse().find((game) => game.deck?.name)?.deck?.name || 'Limited deck',
+      format,
+      formatLabel: formatText || null,
+      wins,
+      losses,
+      record: `${wins}-${losses}`,
+      trophy,
+      eliminated,
+      status: trophy ? 'trophy' : (eliminated ? 'eliminated' : (isCurrent ? 'live' : 'ended')),
+      isCurrent,
+      latestAt: ordered.length ? String(ordered[ordered.length - 1].completedAt || '') : '',
+      games: ordered.map((game, index) => ({ ...game, draftGameNumber: index + 1 }))
+    });
+  }
+
+  return result.sort((left, right) => right.latestAt.localeCompare(left.latestAt));
+}
+
 function analyzePostGameReview(review, { seventeenLands = [], relatedReviews = [] } = {}) {
   if (!review) return null;
   const variance = varianceAnalysis(review);
@@ -1220,6 +1283,7 @@ class GameReviewTracker extends EventEmitter {
       updatedAt: new Date().toISOString(),
       draftId: context.draftId || null,
       setCode: context.setCode || null,
+      format: context.format || null,
       deck: context.deck ? { ...clone(context.deck), fingerprint: deckFingerprint(context.deck) } : null,
       openingHand: [],
       openingHandFrozen: false,
@@ -1524,6 +1588,7 @@ module.exports = {
   reanalyzePersistedReview,
   replaceRebuiltReviewInPlace,
   reviewClearlyMismatchesDeck,
+  reviewEventGroups,
   reviewDeckIdentity,
   reviewSeriesAnalysis,
   reviewVersionKey,

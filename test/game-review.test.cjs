@@ -16,6 +16,7 @@ const {
   gameShapeAnalysis,
   replaceRebuiltReviewInPlace,
   reviewDeckIdentity,
+  reviewEventGroups,
   sourceCounts,
   turningPointAnalysis
 } = require('../src/draft/game-review.cjs');
@@ -846,4 +847,66 @@ test('a loss with a deviated build offers a reversible swap toward the model', (
   assert.match(verdict.deviation.phrase, /\+2× Warg Tactics/);
   assert.match(verdict.action, /Stone by Sunlight/);
   assert.match(verdict.action, /Boros Dwarves/);
+});
+
+test('groups reviews per draft with format-aware trophy and elimination states', () => {
+  const game = (draftId, index, won, extra = {}) => ({
+    id: `${draftId}:${index}`,
+    draftId,
+    won,
+    turns: 10,
+    completedAt: `2026-08-2${draftId === 'p2' ? 5 : 4}T0${index}:00:00Z`,
+    deck: { name: draftId === 'p2' ? 'Golgari' : 'Boros Dwarves' },
+    ...extra
+  });
+
+  const quickGames = [true, true, false, true, true, true, false, false].map((won, index) => game('qd', index + 1, won, { format: 'Quick Draft' }));
+  const pickTwoGames = [false, true, true, true, true].map((won, index) => game('p2', index + 1, won));
+  const groups = reviewEventGroups([...quickGames, ...pickTwoGames], { currentDraftId: 'p2', currentFormat: 'Pick Two Draft' });
+
+  assert.equal(groups.length, 2);
+  const [pickTwo, quick] = groups;
+  assert.equal(pickTwo.draftId, 'p2');
+  assert.equal(pickTwo.record, '4-1');
+  assert.equal(pickTwo.trophy, true);
+  assert.equal(pickTwo.status, 'trophy');
+  assert.deepEqual(pickTwo.games.map((entry) => entry.draftGameNumber), [1, 2, 3, 4, 5]);
+
+  assert.equal(quick.record, '5-3');
+  assert.equal(quick.trophy, false);
+  assert.equal(quick.eliminated, true);
+  assert.equal(quick.status, 'eliminated');
+});
+
+test('a pick-two draft ends at two losses and stays live before that', () => {
+  const game = (index, won) => ({ id: `p2b:${index}`, draftId: 'p2b', won, completedAt: `2026-08-25T0${index}:00:00Z`, deck: { name: 'Golgari' } });
+  const context = { currentDraftId: 'p2b', currentFormat: 'Pick Two Draft' };
+
+  const live = reviewEventGroups([game(1, false), game(2, true)], context)[0];
+  assert.equal(live.status, 'live');
+  assert.equal(live.record, '1-1');
+
+  const out = reviewEventGroups([game(1, false), game(2, true), game(3, false)], context)[0];
+  assert.equal(out.eliminated, true);
+  assert.equal(out.status, 'eliminated');
+});
+
+test('traditional drafts derive match records and trophy at three match wins', () => {
+  const trad = (matchId, gameNumber, won) => ({
+    id: `td:${matchId}:${gameNumber}`,
+    draftId: 'td',
+    matchId,
+    won,
+    format: 'TradDraft',
+    completedAt: `2026-08-24T1${matchId}:0${gameNumber}:00Z`,
+    deck: { name: 'Azorius' }
+  });
+  const games = [
+    trad('m1', 1, true), trad('m1', 2, true),
+    trad('m2', 1, true), trad('m2', 2, false), trad('m2', 3, true),
+    trad('m3', 1, false), trad('m3', 2, true), trad('m3', 3, true)
+  ];
+  const [group] = reviewEventGroups(games, {});
+  assert.equal(group.record, '3-0');
+  assert.equal(group.trophy, true);
 });
