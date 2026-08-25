@@ -250,6 +250,15 @@ button { color: inherit; }
 .hero-copy h2 { overflow: hidden; margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
 .hero-copy > p { overflow: hidden; margin: 6px 0 14px; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .mana-cost { flex: 0 0 auto; color: var(--gold); font-size: 13px; font-weight: 700; }
+.mana-pips { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; vertical-align: -3px; }
+.mana-pip { display: inline-flex; width: 15px; height: 15px; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 50%; font-size: 9px; font-style: normal; font-weight: 800; line-height: 1; box-shadow: inset 0 0 0 1px rgba(24,20,28,.18); }
+.pip-generic { color: #38343c; background: #ccc7c0; }
+.pip-W { color: #4a3d1d; background: #e6dcb4; }
+.pip-U { color: #f4faff; background: #4d9fc9; }
+.pip-B { color: #efeaf1; background: #37323e; }
+.pip-R { color: #fff4f1; background: #c85b48; }
+.pip-G { color: #f0fff4; background: #4c925d; }
+.pip-hybrid { color: #1c1922; background: linear-gradient(135deg, color-mix(in srgb, var(--pip-a) 72%, white) 0 49%, color-mix(in srgb, var(--pip-b) 72%, white) 51% 100%); font-size: 7px; letter-spacing: .02em; text-shadow: 0 0 3px rgba(255,255,255,.9), 0 0 1px rgba(255,255,255,.95); }
 .reason-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .reason-chip { padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; color: #c5c1ca; background: rgba(255,255,255,.03); font-size: 11px; }
 .reason-chip.outlook-reason { flex-basis: 100%; border-color: rgba(150,101,30,.28); color: var(--gold); background: rgba(150,101,30,.07); line-height: 1.35; }
@@ -268,8 +277,18 @@ button { color: inherit; }
 .list-heading[hidden] { display: none; }
 .list-heading em { color: var(--violet); font-style: normal; }
 .ranking-list { display: flex; flex-direction: column; gap: 6px; }
-.rank-row { display: grid; min-height: 55px; grid-template-columns: 30px minmax(0,1fr) 110px 132px; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.018); cursor: pointer; }
+.rank-row { display: grid; min-height: 55px; grid-template-columns: 30px minmax(0,1fr) 110px 132px; align-items: center; border: 1px solid var(--line); border-left: 3px solid #89838a; border-radius: 10px; background: rgba(255,255,255,.018); cursor: pointer; }
+.rank-row.tone-white { border-left-color: #c4ae73; }.rank-row.tone-blue { border-left-color: #4d9fc9; }.rank-row.tone-black { border-left-color: #28252d; }.rank-row.tone-red { border-left-color: #c85b48; }.rank-row.tone-green { border-left-color: #4c925d; }.rank-row.tone-multicolor { border-left-color: #a17b36; }
+.rank-row.mana-hybrid { border-left-color: var(--mana-a); border-right: 3px solid var(--mana-b); }
+.rank-row.mana-gold { border-left-color: #a17b36; }
 .rank-row:hover, .rank-row.selected { border-color: rgba(163,131,255,.3); background: rgba(163,131,255,.055); }
+.rank-row:hover.tone-white, .rank-row.selected.tone-white { border-left-color: #c4ae73; }
+.rank-row:hover.tone-blue, .rank-row.selected.tone-blue { border-left-color: #4d9fc9; }
+.rank-row:hover.tone-black, .rank-row.selected.tone-black { border-left-color: #28252d; }
+.rank-row:hover.tone-red, .rank-row.selected.tone-red { border-left-color: #c85b48; }
+.rank-row:hover.tone-green, .rank-row.selected.tone-green { border-left-color: #4c925d; }
+.rank-row:hover.tone-multicolor, .rank-row.selected.tone-multicolor { border-left-color: #a17b36; }
+.rank-row:hover.mana-hybrid, .rank-row.selected.mana-hybrid { border-left-color: var(--mana-a); border-right-color: var(--mana-b); }
 .rank-row.unranked { opacity: .72; }
 .rank-number { color: #615d69; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
 .rank-card { min-width: 0; }
@@ -277,6 +296,10 @@ button { color: inherit; }
 .rank-card-title strong { min-width: 0; }
 .rank-card strong { display: block; overflow: hidden; font-size: 13px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
 .rank-card > span { display: block; margin-top: 4px; overflow: hidden; color: var(--quiet); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.rank-card-detail .mana-pips { margin-right: 6px; }
+.pool-card-copy .mana-pips { margin-right: 5px; }
+.pool-card-copy .mana-pip { width: 13px; height: 13px; font-size: 8px; }
+.cut-row .mana-pip { width: 13px; height: 13px; font-size: 8px; }
 .impact-flag {
   display: inline-flex;
   flex: 0 0 auto;

@@ -17,7 +17,7 @@ const MANA_ACCENTS = Object.freeze({ W: '#d8cda9', U: '#4d9fc9', B: '#28252d', R
 
 const byId = (id) => document.getElementById(id);
 const { buildRecipeTasks: recipeTasks, recipeProgress } = window.ArcaneRecipe;
-const { manaPresentation, sortArenaCards } = window.ArcaneArenaSort;
+const { manaPresentation, manaTokens, sortArenaCards } = window.ArcaneArenaSort;
 
 function setText(id, value) {
   byId(id).textContent = value;
@@ -65,6 +65,28 @@ function signed(value) {
 
 function compactMana(value) {
   return String(value || '—').replace(/[{}]/g, '');
+}
+
+function manaPipsElement(manaCost) {
+  const tokens = manaTokens({ manaCost });
+  if (!tokens.length) return null;
+  const pips = element('span', 'mana-pips');
+  pips.setAttribute('role', 'img');
+  pips.setAttribute('aria-label', `Mana cost ${compactMana(manaCost)}`);
+  for (const token of tokens) {
+    if (/^[WUBRG]$/.test(token)) {
+      pips.append(element('i', `mana-pip pip-${token}`, token));
+    } else if (/^[WUBRG]\/[WUBRG]$/.test(token)) {
+      const [left, right] = token.split('/');
+      const pip = element('i', 'mana-pip pip-hybrid', `${left}${right}`);
+      pip.style.setProperty('--pip-a', MANA_ACCENTS[left]);
+      pip.style.setProperty('--pip-b', MANA_ACCENTS[right]);
+      pips.append(pip);
+    } else {
+      pips.append(element('i', 'mana-pip pip-generic', token));
+    }
+  }
+  return pips;
 }
 
 function configureImpactFlag(node, card, compact = false) {
@@ -331,7 +353,11 @@ function renderHero() {
   setText('hero-score', Number(rankingMode === 'raw' ? card.dataScore : card.score).toFixed(1));
   setText('hero-score-label', rankingMode === 'raw' ? 'RAW SCORE' : 'CONTEXT SCORE');
   setText('hero-name', card.name);
-  setText('hero-mana', compactMana(card.manaCost));
+  const heroMana = byId('hero-mana');
+  heroMana.replaceChildren();
+  const heroPips = manaPipsElement(card.manaCost);
+  if (heroPips) heroMana.append(heroPips);
+  else heroMana.textContent = '—';
   setText('hero-type', card.typeLine || `Arena ID ${card.grpId}`);
   setText('hero-17', percent(card.metrics.seventeenLands?.gihWinRate));
   setText('hero-ut', percent(card.metrics.untapped?.inHandWinRate));
@@ -378,7 +404,9 @@ function renderRanking() {
 
   activeRecommendations().forEach((card, index) => {
     const impactKind = card.metrics.impactFlag?.kind || '';
-    const row = element('article', `rank-row ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
+    const cardIsLand = /\bLand\b/i.test(card.typeLine || '');
+    const row = element('article', `rank-row tone-${cardTone(card, cardIsLand)} ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
+    applyDeckManaStyle(row, card, cardIsLand);
     row.tabIndex = 0;
     row.append(element('span', 'rank-number', String(index + 1).padStart(2, '0')));
     const copy = element('div', 'rank-card');
@@ -395,7 +423,11 @@ function renderRanking() {
       title.append(flag);
     }
     const detail = rankingMode === 'raw' ? rawReasons(card)[0] : card.reasons[0];
-    copy.append(title, element('span', 'rank-card-detail', `${compactMana(card.manaCost)} · ${detail || card.typeLine || 'No source row'}`));
+    const detailNode = element('span', 'rank-card-detail');
+    const detailPips = manaPipsElement(card.manaCost);
+    if (detailPips) detailNode.append(detailPips);
+    detailNode.append(document.createTextNode(detail || card.typeLine || 'No source row'));
+    copy.append(title, detailNode);
     row.append(copy);
     const sources = element('div', 'rank-sources');
     sources.append(
@@ -492,7 +524,11 @@ function renderPool() {
     applyDeckManaStyle(row, card, land);
     const quantity = element('span', 'pool-card-quantity', `${card.quantity}×`);
     const copy = element('span', 'pool-card-copy');
-    copy.append(element('strong', '', card.name), element('small', '', `${compactMana(card.manaCost)}${card.typeLine ? ` · ${card.typeLine}` : ''}`));
+    const poolDetail = element('small', '');
+    const poolPips = manaPipsElement(card.manaCost);
+    if (poolPips) poolDetail.append(poolPips);
+    poolDetail.append(document.createTextNode(card.typeLine || (poolPips ? '' : 'Card')));
+    copy.append(element('strong', '', card.name), poolDetail);
     const toggle = element('button', `pool-card-toggle ${excluded ? 'restore' : ''}`);
     toggle.type = 'button';
     toggle.title = excluded ? 'Return this card to the active pool' : 'Exclude this card from recommendations and deck builds';
@@ -1015,7 +1051,11 @@ function renderDeckBuilder() {
   if (!build.cuts.length) cuts.append(element('span', 'pool-empty', 'No additional on-color cards.'));
   for (const card of build.cuts.slice(0, 10)) {
     const row = element('div', 'cut-row');
-    row.append(element('span', '', `${card.quantity}× ${card.name}`), element('small', '', compactMana(card.manaCost)));
+    const cutMana = element('small', '');
+    const cutPips = manaPipsElement(card.manaCost);
+    if (cutPips) cutMana.append(cutPips);
+    else cutMana.textContent = '—';
+    row.append(element('span', '', `${card.quantity}× ${card.name}`), cutMana);
     cuts.append(row);
   }
 }
