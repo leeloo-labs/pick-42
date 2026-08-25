@@ -1653,6 +1653,7 @@ byId('preview-copy-name').addEventListener('click', async () => {
 });
 byId('minimize-button').addEventListener('click', () => window.draftCompanion.minimize());
 byId('close-button').addEventListener('click', () => window.draftCompanion.close());
+byId('build-close').addEventListener('click', () => window.draftCompanion.close());
 
 window.draftCompanion.onRecipeCommand((command) => {
   if (!model || activeView !== 'build') return;
