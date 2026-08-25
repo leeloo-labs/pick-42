@@ -161,7 +161,8 @@ test('selects the newest course when consecutive drafts reuse the same event nam
 
 test('labels a Pick Two draft and restores its 42-card pool', () => {
   const parser = new DraftLogParser({ catalog });
-  const pool = [...Object.keys(catalog), ...Object.keys(catalog), ...Object.keys(catalog)].map(Number);
+  const poolSlice = Object.keys(catalog).slice(0, 14);
+  const pool = [...poolSlice, ...poolSlice, ...poolSlice].map(Number);
   parser.feed(JSON.stringify({
     CourseId: 'pick-two-course',
     InternalEventName: 'PickTwoDraft_HOB_20260811',

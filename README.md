@@ -81,7 +81,7 @@ The active-pool panel is an abbreviated deck list. Marking a card **OUT** keeps 
 
 ### Pick Two drafts
 
-Arena's Pick Two events keep the same 42-card pool — three packs of seven two-card selections. Pick 42 labels them as a distinct format so trophy-corpus matching stays format-true, and the Contextual view adds a pair recommendation: the second selection is re-scored with the first pick already in the pool, so lane pressure, curve, synergy, and duplicate effects apply between the two picks. Because of that, the recommended second card is not always the second-ranked row. The hero card presents the pair as one unit — the top pick with an attached second-selection band showing its own score, mana, and reasoning — and the pack ranking flags both cards with **1st Pick** and **2nd Pick**. After a selection is made, the leftover pack passes on, so the decision area shows an animated waiting state (naming what was just taken) until the next pack arrives. A bundled **Pick Two sample** (next to the regular sample pack on the empty draft view) tours the whole flow — live pair recommendations, two-card picks, and the waiting state — without spending an entry.
+Arena's Pick Two events keep the same 42-card pool — three packs of seven two-card selections. Pick 42 labels them as a distinct format so trophy-corpus matching stays format-true, and the Contextual view adds a pair recommendation: the second selection is re-scored with the first pick already in the pool, so lane pressure, curve, synergy, and duplicate effects apply between the two picks. Because of that, the recommended second card is not always the second-ranked row. The hero card presents the pair as one unit — the top pick with an attached second-selection band showing its own score, mana, and reasoning — and the pack ranking flags both cards with **1st Pick** and **2nd Pick**. After a selection is made, the leftover pack passes on, so the decision area shows an animated waiting state (naming what was just taken) until the next pack arrives. Both samples on the empty draft view deal **three randomly generated packs** from a 43-card sample set with real booster rarity slots (one rare — mythic one time in eight — three uncommons, ten commons; wheeled packs shrink and decay in quality). Each Next pick takes the live recommendation — the pair in Pick Two — and a finished sample registers its 42-card pool so the deck builder produces builds from it. Every run is a different draft.
 
 ### Trophy-deck corpus
 
@@ -165,7 +165,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 127 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 129 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 

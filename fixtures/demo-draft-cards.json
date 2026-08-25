@@ -1,16 +1,343 @@
 {
-  "103375": { "name": "Celebrate the Mountain-king", "manaCost": "{3}{W}", "typeLine": "Enchantment" },
-  "103382": { "name": "Fíli the Pathfinder", "manaCost": "{3}{W}", "typeLine": "Legendary Creature — Dwarf Scout", "printedPower": "2", "printedToughness": "2" },
-  "103385": { "name": "Kíli the Resourceful", "manaCost": "{1}{W}", "typeLine": "Legendary Creature — Dwarf Scout", "printedPower": "1", "printedToughness": "2" },
-  "103397": { "name": "An Unexpected Party", "manaCost": "{2}{W}{W}", "typeLine": "Enchantment" },
-  "103438": { "name": "Desolation Prowler", "manaCost": "{1}{B}", "typeLine": "Creature — Wolf", "printedPower": "2", "printedToughness": "2" },
-  "103444": { "name": "Gollum, Riddle Master", "manaCost": "{1}{B}", "typeLine": "Legendary Creature — Halfling Horror", "printedPower": "3", "printedToughness": "1" },
-  "103467": { "name": "Dáin Ironfoot", "manaCost": "{2}{R}", "typeLine": "Legendary Creature — Dwarf Warrior", "printedPower": "1", "printedToughness": "4" },
-  "103472": { "name": "Gandalf, Goblins' Bane", "manaCost": "{2}{R}", "typeLine": "Legendary Creature — Avatar Wizard", "printedPower": "2", "printedToughness": "3" },
-  "103489": { "name": "Smaug the Magnificent", "manaCost": "{2}{R}{R}", "typeLine": "Legendary Creature — Dragon", "printedPower": "4", "printedToughness": "3" },
-  "103499": { "name": "Beorn the Fierce", "manaCost": "{3}{G}{G}", "typeLine": "Legendary Creature — Bear Shapeshifter Warrior", "printedPower": "6", "printedToughness": "6" },
-  "103509": { "name": "Mirkwood Pathmaker", "manaCost": "{2}{G}", "typeLine": "Creature — Elf Ranger", "printedPower": "*", "printedToughness": "*" },
-  "103520": { "name": "Wargling", "manaCost": "{1}{G}", "typeLine": "Creature — Wolf", "printedPower": "2", "printedToughness": "2" },
-  "103531": { "name": "Chief Warg's Company", "manaCost": "{1}{B}{G}", "typeLine": "Creature — Wolf", "printedPower": "5", "printedToughness": "3" },
-  "103568": { "name": "Hobbit Hole", "manaCost": "", "typeLine": "Land" }
+  "103375": {
+    "name": "Celebrate the Mountain-king",
+    "manaCost": "{3}{W}",
+    "typeLine": "Enchantment",
+    "rarity": "U"
+  },
+  "103382": {
+    "name": "Fíli the Pathfinder",
+    "manaCost": "{3}{W}",
+    "typeLine": "Legendary Creature — Dwarf Scout",
+    "printedPower": "2",
+    "printedToughness": "2",
+    "rarity": "R"
+  },
+  "103385": {
+    "name": "Kíli the Resourceful",
+    "manaCost": "{1}{W}",
+    "typeLine": "Legendary Creature — Dwarf Scout",
+    "printedPower": "1",
+    "printedToughness": "2",
+    "rarity": "U"
+  },
+  "103397": {
+    "name": "An Unexpected Party",
+    "manaCost": "{2}{W}{W}",
+    "typeLine": "Enchantment",
+    "rarity": "R"
+  },
+  "103438": {
+    "name": "Desolation Prowler",
+    "manaCost": "{1}{B}",
+    "typeLine": "Creature — Wolf",
+    "printedPower": "2",
+    "printedToughness": "2",
+    "rarity": "C"
+  },
+  "103444": {
+    "name": "Gollum, Riddle Master",
+    "manaCost": "{1}{B}",
+    "typeLine": "Legendary Creature — Halfling Horror",
+    "printedPower": "3",
+    "printedToughness": "1",
+    "rarity": "R"
+  },
+  "103467": {
+    "name": "Dáin Ironfoot",
+    "manaCost": "{2}{R}",
+    "typeLine": "Legendary Creature — Dwarf Warrior",
+    "printedPower": "1",
+    "printedToughness": "4",
+    "rarity": "U"
+  },
+  "103472": {
+    "name": "Gandalf, Goblins' Bane",
+    "manaCost": "{2}{R}",
+    "typeLine": "Legendary Creature — Avatar Wizard",
+    "printedPower": "2",
+    "printedToughness": "3",
+    "rarity": "M"
+  },
+  "103489": {
+    "name": "Smaug the Magnificent",
+    "manaCost": "{2}{R}{R}",
+    "typeLine": "Legendary Creature — Dragon",
+    "printedPower": "4",
+    "printedToughness": "3",
+    "rarity": "M"
+  },
+  "103499": {
+    "name": "Beorn the Fierce",
+    "manaCost": "{3}{G}{G}",
+    "typeLine": "Legendary Creature — Bear Shapeshifter Warrior",
+    "printedPower": "6",
+    "printedToughness": "6",
+    "rarity": "R"
+  },
+  "103509": {
+    "name": "Mirkwood Pathmaker",
+    "manaCost": "{2}{G}",
+    "typeLine": "Creature — Elf Ranger",
+    "printedPower": "*",
+    "printedToughness": "*",
+    "rarity": "C"
+  },
+  "103520": {
+    "name": "Wargling",
+    "manaCost": "{1}{G}",
+    "typeLine": "Creature — Wolf",
+    "printedPower": "2",
+    "printedToughness": "2",
+    "rarity": "C"
+  },
+  "103531": {
+    "name": "Chief Warg's Company",
+    "manaCost": "{1}{B}{G}",
+    "typeLine": "Creature — Wolf",
+    "printedPower": "5",
+    "printedToughness": "3",
+    "rarity": "U"
+  },
+  "103568": {
+    "name": "Hobbit Hole",
+    "manaCost": "",
+    "typeLine": "Land",
+    "rarity": "C"
+  },
+  "990001": {
+    "name": "Shire Militia",
+    "manaCost": "{1}{W}",
+    "typeLine": "Creature — Halfling Soldier",
+    "rarity": "C",
+    "rulesText": "Vigilance",
+    "printedPower": "2",
+    "printedToughness": "1"
+  },
+  "990002": {
+    "name": "Bounder Patrol",
+    "manaCost": "{2}{W}",
+    "typeLine": "Creature — Halfling Scout",
+    "rarity": "C",
+    "rulesText": "Flash",
+    "printedPower": "2",
+    "printedToughness": "3"
+  },
+  "990003": {
+    "name": "Stand at the Gate",
+    "manaCost": "{W}",
+    "typeLine": "Instant",
+    "rarity": "C",
+    "rulesText": "Target creature gets +1/+3 until end of turn."
+  },
+  "990004": {
+    "name": "Eagle Messenger",
+    "manaCost": "{3}{W}",
+    "typeLine": "Creature — Bird",
+    "rarity": "C",
+    "rulesText": "Flying",
+    "printedPower": "2",
+    "printedToughness": "2"
+  },
+  "990005": {
+    "name": "Riddle in the Dark",
+    "manaCost": "{1}{U}",
+    "typeLine": "Instant",
+    "rarity": "C",
+    "rulesText": "Draw a card. Scry 2."
+  },
+  "990006": {
+    "name": "Lake-town Skiff",
+    "manaCost": "{2}{U}",
+    "typeLine": "Artifact — Vehicle",
+    "rarity": "C",
+    "rulesText": "Crew 1",
+    "printedPower": "3",
+    "printedToughness": "2"
+  },
+  "990007": {
+    "name": "Misty Veilwatcher",
+    "manaCost": "{3}{U}",
+    "typeLine": "Creature — Elf Wizard",
+    "rarity": "C",
+    "rulesText": "Flying",
+    "printedPower": "2",
+    "printedToughness": "4"
+  },
+  "990008": {
+    "name": "Barrel Escape",
+    "manaCost": "{U}",
+    "typeLine": "Instant",
+    "rarity": "C",
+    "rulesText": "Return target creature you control to its owner’s hand. Draw a card."
+  },
+  "990009": {
+    "name": "Spider Ambusher",
+    "manaCost": "{2}{B}",
+    "typeLine": "Creature — Spider",
+    "rarity": "C",
+    "rulesText": "Menace",
+    "printedPower": "3",
+    "printedToughness": "2"
+  },
+  "990010": {
+    "name": "Gnawing Doubt",
+    "manaCost": "{1}{B}",
+    "typeLine": "Sorcery",
+    "rarity": "C",
+    "rulesText": "Target creature gets -2/-2 until end of turn."
+  },
+  "990011": {
+    "name": "Dungeon Rats",
+    "manaCost": "{B}",
+    "typeLine": "Creature — Rat",
+    "rarity": "C",
+    "rulesText": "Deathtouch",
+    "printedPower": "1",
+    "printedToughness": "1"
+  },
+  "990012": {
+    "name": "Goblin Torchbearer",
+    "manaCost": "{1}{R}",
+    "typeLine": "Creature — Goblin",
+    "rarity": "C",
+    "rulesText": "Haste",
+    "printedPower": "2",
+    "printedToughness": "1"
+  },
+  "990013": {
+    "name": "Rockfall",
+    "manaCost": "{2}{R}",
+    "typeLine": "Instant",
+    "rarity": "C",
+    "rulesText": "Rockfall deals 3 damage to target creature."
+  },
+  "990014": {
+    "name": "Warg Outrider",
+    "manaCost": "{3}{R}",
+    "typeLine": "Creature — Wolf Warrior",
+    "rarity": "C",
+    "rulesText": "Trample",
+    "printedPower": "4",
+    "printedToughness": "2"
+  },
+  "990015": {
+    "name": "Fern-gully Forager",
+    "manaCost": "{2}{G}",
+    "typeLine": "Creature — Halfling Druid",
+    "rarity": "C",
+    "rulesText": "When this creature enters, you gain 2 life.",
+    "printedPower": "2",
+    "printedToughness": "2"
+  },
+  "990016": {
+    "name": "Old Forest Root",
+    "manaCost": "{3}{G}",
+    "typeLine": "Creature — Treefolk",
+    "rarity": "C",
+    "rulesText": "Reach",
+    "printedPower": "2",
+    "printedToughness": "5"
+  },
+  "990017": {
+    "name": "Elrond’s Counsel",
+    "manaCost": "{2}{U}",
+    "typeLine": "Sorcery",
+    "rarity": "U",
+    "rulesText": "Draw two cards."
+  },
+  "990018": {
+    "name": "Mattock Veteran",
+    "manaCost": "{2}{W}",
+    "typeLine": "Creature — Dwarf Soldier",
+    "rarity": "U",
+    "rulesText": "Whenever another Dwarf you control attacks, this creature gets +1/+0 until end of turn.",
+    "printedPower": "3",
+    "printedToughness": "2"
+  },
+  "990019": {
+    "name": "Barrow-wight",
+    "manaCost": "{3}{B}",
+    "typeLine": "Creature — Spirit",
+    "rarity": "U",
+    "rulesText": "Flying",
+    "printedPower": "3",
+    "printedToughness": "3"
+  },
+  "990020": {
+    "name": "Feast of Crows",
+    "manaCost": "{2}{B}{B}",
+    "typeLine": "Sorcery",
+    "rarity": "U",
+    "rulesText": "Destroy target creature. You lose 2 life."
+  },
+  "990021": {
+    "name": "Dragonfire Volley",
+    "manaCost": "{1}{R}{R}",
+    "typeLine": "Instant",
+    "rarity": "U",
+    "rulesText": "Dragonfire Volley deals 4 damage to target creature."
+  },
+  "990022": {
+    "name": "Bear Hug",
+    "manaCost": "{1}{G}",
+    "typeLine": "Instant",
+    "rarity": "U",
+    "rulesText": "Target creature you control fights target creature you don’t control."
+  },
+  "990023": {
+    "name": "Windborne Eagles",
+    "manaCost": "{4}{U}",
+    "typeLine": "Creature — Bird",
+    "rarity": "U",
+    "rulesText": "Flying",
+    "printedPower": "3",
+    "printedToughness": "3"
+  },
+  "990024": {
+    "name": "Thorn-hedge Colossus",
+    "manaCost": "{4}{G}",
+    "typeLine": "Creature — Treefolk",
+    "rarity": "U",
+    "rulesText": "Trample",
+    "printedPower": "5",
+    "printedToughness": "5"
+  },
+  "990025": {
+    "name": "Master Burglar’s Gambit",
+    "manaCost": "{2}{U}",
+    "typeLine": "Sorcery",
+    "rarity": "R",
+    "rulesText": "Draw three cards, then discard a card."
+  },
+  "990026": {
+    "name": "Necromancer’s Shadow",
+    "manaCost": "{3}{B}{B}",
+    "typeLine": "Creature — Wraith",
+    "rarity": "R",
+    "rulesText": "Flying, menace",
+    "printedPower": "5",
+    "printedToughness": "4"
+  },
+  "990027": {
+    "name": "Erebor War-forge",
+    "manaCost": "{2}{R}",
+    "typeLine": "Artifact — Equipment",
+    "rarity": "R",
+    "rulesText": "Equipped creature gets +2/+1. Equip {1}. When this Equipment enters, attach it to target Dwarf you control."
+  },
+  "990028": {
+    "name": "Skin-changer’s Rage",
+    "manaCost": "{3}{G}{G}",
+    "typeLine": "Sorcery",
+    "rarity": "R",
+    "rulesText": "Creatures you control get +2/+2 and gain trample until end of turn."
+  },
+  "990029": {
+    "name": "Arkenstone of Thráin",
+    "manaCost": "{3}",
+    "typeLine": "Legendary Artifact",
+    "rarity": "M",
+    "rulesText": "At the beginning of your upkeep, draw a card and you lose 1 life."
+  }
 }

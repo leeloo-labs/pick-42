@@ -31,8 +31,8 @@ test('normalizes official-style 17Lands and Untapped CSV columns', () => {
   const lands = parseSeventeenLandsCsv(read('sample-17lands-hob.csv'));
   const untapped = parseUntappedCsv(read('sample-untapped-hob.csv'));
 
-  assert.equal(lands.length, 14);
-  assert.equal(untapped.length, 14);
+  assert.equal(lands.length, 43);
+  assert.equal(untapped.length, 43);
   assert.equal(lands.find((card) => card.name === 'Fíli the Pathfinder').gihWinRate, 66);
   assert.equal(untapped.find((card) => card.name === 'Gollum, Riddle Master').inHandWinRate, 61.8);
   assert.equal(lands.find((card) => card.name === 'Gollum, Riddle Master').key, untapped.find((card) => card.name === 'Gollum, Riddle Master').key);
@@ -689,4 +689,30 @@ test('inspecting a card recomputes its companion and never self-pairs a single c
   assert.notEqual(pair.second.name, inspected);
 
   assert.equal(recommendPickTwoPair({ recommendations, cards, firstName: 'Not In This Pack', ...args }), null);
+});
+
+test('sample boosters honor rarity slots and never duplicate a card in a pack', () => {
+  const demoCatalog = JSON.parse(read('demo-draft-cards.json'));
+  const { generateSamplePack } = require('../src/draft/sample-draft.cjs');
+  let seed = 42;
+  const rng = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+
+  for (let trial = 0; trial < 20; trial += 1) {
+    const fresh = generateSamplePack({ catalog: demoCatalog, round: 1, picksPerRound: 2, rng });
+    assert.equal(fresh.length, 14);
+    assert.equal(new Set(fresh).size, 14);
+    const rarities = fresh.map((id) => demoCatalog[String(id)].rarity);
+    assert.equal(rarities.filter((rarity) => rarity === 'R' || rarity === 'M').length, 1);
+    assert.equal(rarities.filter((rarity) => rarity === 'U').length, 3);
+    assert.equal(rarities.filter((rarity) => rarity === 'C').length, 10);
+  }
+
+  const wheeled = generateSamplePack({ catalog: demoCatalog, round: 4, picksPerRound: 2, rng });
+  assert.equal(wheeled.length, 8);
+  assert.equal(new Set(wheeled).size, 8);
+  assert.equal(generateSamplePack({ catalog: demoCatalog, round: 7, picksPerRound: 2, rng }).length, 2);
+  assert.equal(generateSamplePack({ catalog: demoCatalog, round: 14, picksPerRound: 1, rng }).length, 1);
 });

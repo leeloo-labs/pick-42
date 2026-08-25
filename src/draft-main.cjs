@@ -28,6 +28,7 @@ const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatc
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
+const { generateSamplePack } = require('./draft/sample-draft.cjs');
 const { parseUntappedCsv } = require('./draft/sources/untapped.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { ArenaLogParser } = require('./core/arena-log-parser.cjs');
@@ -95,8 +96,6 @@ let scryfallState = {
   source: null,
   message: 'Loading Scryfall card images'
 };
-let demoEntries = [];
-let demoIndex = 0;
 
 function defaultLogCandidates() {
   const home = os.homedir();
@@ -757,7 +756,7 @@ function viewModel() {
       cards: scryfallCardsForView(recommendations, deckBuilds)
     },
     catalog: { count: arenaCatalogResult.count, source: arenaCatalogResult.source },
-    demo: { index: demoIndex, total: demoEntries.length }
+    demo: demoDraft ? { mode: demoDraft.mode, packNumber: demoDraft.packNumber, round: demoDraft.round, done: demoDraft.done } : null
   };
 }
 
@@ -772,46 +771,89 @@ function setStatus(next) {
   sendState();
 }
 
-const DEMO_FILES = { premier: 'demo-draft.log', 'pick-two': 'demo-pick-two-draft.log' };
+const DEMO_ROUNDS = { premier: 14, 'pick-two': 7 };
+const DEMO_PICKS = { premier: 1, 'pick-two': 2 };
 let demoMode = 'premier';
+let demoDraft = null;
+
+function demoEventName() {
+  return demoDraft?.mode === 'pick-two' ? 'PickTwoDraft_HOB_20260811' : 'PremierDraft_HOB_20260811';
+}
+
+function demoFeedPack() {
+  const ids = generateSamplePack({ catalog: demoCatalog, round: demoDraft.round, picksPerRound: DEMO_PICKS[demoDraft.mode] });
+  parser.feed(`${JSON.stringify({ draftId: 'sample-draft-session', SelfPick: demoDraft.round, SelfPack: demoDraft.packNumber, PackCards: ids.join(',') })}\n`);
+}
 
 function startDemo(mode = demoMode) {
-  demoMode = DEMO_FILES[mode] ? mode : 'premier';
+  demoMode = DEMO_ROUNDS[mode] ? mode : 'premier';
   tailer.stop();
   reviewArmed = false;
   matchParser.reset();
   reviewMatchDecisions.clear();
   reviewTracker.disarm();
   parser.reset();
-  demoEntries = fs.readFileSync(fixturePath(DEMO_FILES[demoMode]), 'utf8').split('\n').filter(Boolean);
-  demoIndex = 0;
-  // Feed until the first pack is on screen (the Pick Two sample opens with a course snapshot).
-  while (demoIndex < demoEntries.length) {
-    parser.feed(`${demoEntries[demoIndex]}\n`);
-    demoIndex += 1;
-    if (parser.snapshot().packCardIds.length) break;
-  }
+  demoDraft = { mode: demoMode, packNumber: 1, round: 1, done: false };
+  parser.feed(`${JSON.stringify({
+    Courses: [{ CourseId: 'sample-draft-course', InternalEventName: demoEventName(), CurrentModule: 'PlayerDraft', ModulePayload: '', CardPool: [], DraftId: 'sample-draft-session' }]
+  })}\n`);
+  demoFeedPack();
   setStatus({
     kind: 'demo',
     message: demoMode === 'pick-two'
-      ? 'Sample Pick Two pack · use Next pick to take a pair, then again for the next pack'
-      : 'Sample HOB pack · use Next pick to step through the draft'
+      ? 'Sample Pick Two draft · three random packs · Next pick follows the recommendation'
+      : 'Sample draft · three random packs · Next pick follows the recommendation'
   });
 }
 
-function advanceDemo() {
-  if (demoIndex >= demoEntries.length) return startDemo();
-  const entry = demoEntries[demoIndex];
-  parser.feed(`${entry}\n`);
-  demoIndex += 1;
-  // Legacy sample shapes pair a pick with the next pack immediately; the human-draft
-  // sample leaves the gap so the waiting state is part of the tour.
-  if (!/EventPlayerDraftMakePick/i.test(entry)
-    && /MakePick|DraftPick/i.test(entry) && demoIndex < demoEntries.length && /Draft\.Notify|DraftStatus/i.test(demoEntries[demoIndex])) {
-    parser.feed(`${demoEntries[demoIndex]}\n`);
-    demoIndex += 1;
+function demoPickIds() {
+  const packCards = parser.snapshot().pack;
+  const count = Math.min(DEMO_PICKS[demoDraft.mode], packCards.length);
+  const names = [];
+  if (count === 2) {
+    const pair = pickPairFor(null);
+    if (pair) names.push(pair.first.name, pair.second.name);
+  } else {
+    const recommendations = scoreDraftPack({ cards: draftState.pack, ...pickPairScoringArgs() });
+    const top = recommendations.find((card) => card.eligible) || recommendations[0];
+    if (top) names.push(top.name);
   }
-  setStatus({ kind: 'demo', message: demoIndex >= demoEntries.length ? 'End of sample draft · Next pick restarts from Pick 1' : 'Sample draft advanced' });
+  const chosen = [];
+  for (const name of names) {
+    const match = packCards.find((card) => card.name === name && !chosen.includes(card.grpId));
+    if (match) chosen.push(match.grpId);
+  }
+  for (const card of packCards) {
+    if (chosen.length >= count) break;
+    if (!chosen.includes(card.grpId)) chosen.push(card.grpId);
+  }
+  return chosen.slice(0, count);
+}
+
+function advanceDemo() {
+  if (!demoDraft || demoDraft.done) return startDemo(demoDraft?.mode);
+  if (draftState.waitingForPack || !draftState.packCardIds.length) {
+    demoDraft.round += 1;
+    if (demoDraft.round > DEMO_ROUNDS[demoDraft.mode]) {
+      demoDraft.packNumber += 1;
+      demoDraft.round = 1;
+    }
+    if (demoDraft.packNumber > 3) {
+      demoDraft.done = true;
+      parser.feed(`${JSON.stringify({
+        Courses: [{ CourseId: 'sample-draft-course', InternalEventName: demoEventName(), CurrentModule: 'CreateMatch', ModulePayload: '', CardPool: [...draftState.pickedCardIds], DraftId: 'sample-draft-session' }]
+      })}\n`);
+      setStatus({ kind: 'demo', message: `Sample draft complete · ${draftState.pickedCardIds.length} cards drafted · open DECKS · Next pick restarts` });
+      return;
+    }
+    demoFeedPack();
+    setStatus({ kind: 'demo', message: `Sample pack ${demoDraft.packNumber}, pick ${demoDraft.round} · Next pick follows the recommendation` });
+    return;
+  }
+  const ids = demoPickIds();
+  if (!ids.length) return;
+  parser.feed(`${JSON.stringify({ DraftId: 'sample-draft-session', GrpIds: ids, Pack: demoDraft.packNumber, Pick: demoDraft.round })}\n`);
+  setStatus({ kind: 'demo', message: 'Pick locked in · Next pick deals the next pack' });
 }
 
 async function watchLog(logPath) {
