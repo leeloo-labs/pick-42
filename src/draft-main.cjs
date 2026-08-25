@@ -56,6 +56,7 @@ const tailer = new LogTailer();
 let draftWindow;
 let watchedLogPath = null;
 let lastLogActivityAt = null;
+let lastProgrammaticResizeAt = 0;
 let normalWindowBounds = null;
 let compactBuildMode = false;
 let buildModeSource = null;
@@ -905,6 +906,24 @@ function createWindow() {
   normalWindowBounds = draftWindow.getBounds();
   draftWindow.loadFile(path.join(__dirname, 'draft-renderer', 'index.html'));
   draftWindow.webContents.on('did-finish-load', sendState);
+
+  // Dragging the side panel clearly wider is a request for the full app, not a
+  // bigger panel. Debounced so it fires once the drag settles, and ignored close
+  // to the app's own animated bounds changes.
+  let manualResizeTimer = null;
+  draftWindow.on('resize', () => {
+    if (!compactBuildMode || Date.now() - lastProgrammaticResizeAt < 700) return;
+    clearTimeout(manualResizeTimer);
+    manualResizeTimer = setTimeout(() => {
+      if (!compactBuildMode || !draftWindow || draftWindow.isDestroyed()) return;
+      if (Date.now() - lastProgrammaticResizeAt < 700) return;
+      const [width] = draftWindow.getSize();
+      if (width >= 560) {
+        suppressAutomaticBuildMode = sceneTracker.snapshot().inDeckBuilder;
+        setCompactBuildMode(false);
+      }
+    }, 280);
+  });
 }
 
 function setCompactBuildMode(enabled, source = null) {
@@ -915,6 +934,7 @@ function setCompactBuildMode(enabled, source = null) {
     return;
   }
 
+  lastProgrammaticResizeAt = Date.now();
   if (next) {
     if (!compactBuildMode) normalWindowBounds = draftWindow.getBounds();
     const workArea = screen.getDisplayMatching(draftWindow.getBounds()).workArea;
