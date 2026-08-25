@@ -7,13 +7,17 @@ const path = require('node:path');
 const { parseSeventeenLandsCsv } = require('../src/draft/sources/seventeenlands.cjs');
 const { parseUntappedCsv } = require('../src/draft/sources/untapped.cjs');
 const {
+  DEFAULT_STRATEGY_ID,
+  DRAFT_STRATEGIES,
   analyzeCardRole,
   analyzePoolSynergy,
   evaluateColorFit,
   explicitSubtypeRequirements,
   ferociousEnablerWeight,
   inferColorContext,
+  inferDraftLane,
   manaProfile,
+  philosophyForStrategy,
   scoreDraftPack
 } = require('../src/draft/blend-engine.cjs');
 
@@ -48,6 +52,51 @@ test('blends both sources and exposes philosophy adjustments', () => {
   assert.ok(recommendations[0].metrics.untapped);
   assert.ok(recommendations[0].reasons.some((reason) => reason.startsWith('17L')));
   assert.ok(Number.isFinite(recommendations[0].philosophyDelta));
+});
+
+test('draft strategies expose five distinct, stable presets', () => {
+  assert.equal(DEFAULT_STRATEGY_ID, 'balanced');
+  assert.deepEqual(Object.keys(DRAFT_STRATEGIES), ['balanced', 'synergy', 'power', 'aggro', 'control']);
+  assert.equal(philosophyForStrategy('aggro').aggressionPriority, 100);
+  assert.equal(philosophyForStrategy('control').controlPriority, 100);
+  assert.equal(philosophyForStrategy('power').fixingPriority, 100);
+  assert.equal(philosophyForStrategy('missing').strategyId, 'balanced');
+});
+
+test('Aggro and Control favor meaningfully different card roles', () => {
+  const quickblade = {
+    name: 'Quickblade', manaCost: '{1}{R}', typeLine: 'Creature — Warrior',
+    rulesText: 'Haste', printedPower: '2', printedToughness: '1'
+  };
+  const tomekeeper = {
+    name: 'Ancient Tomekeeper', manaCost: '{5}{U}', typeLine: 'Creature — Sphinx',
+    rulesText: 'Flying\nWhen Ancient Tomekeeper enters, draw two cards.', printedPower: '4', printedToughness: '6'
+  };
+  const sources = {
+    seventeenLands: [quickblade, tomekeeper].map((card) => ({ name: card.name, gihWinRate: 56, gamesInHand: 10000 })),
+    untapped: [quickblade, tomekeeper].map((card) => ({ name: card.name, inHandWinRate: 56, games: 10000 }))
+  };
+  const aggro = scoreDraftPack({ cards: [quickblade, tomekeeper], ...sources, philosophy: philosophyForStrategy('aggro') });
+  const control = scoreDraftPack({ cards: [quickblade, tomekeeper], ...sources, philosophy: philosophyForStrategy('control') });
+
+  assert.equal(aggro[0].name, 'Quickblade');
+  assert.equal(control[0].name, 'Ancient Tomekeeper');
+  assert.ok(aggro.find((card) => card.name === 'Quickblade').adjustments.aggression >= 4);
+  assert.ok(control.find((card) => card.name === 'Ancient Tomekeeper').adjustments.control >= 3);
+  assert.ok(control[0].reasons.some((reason) => reason.includes('Control:')));
+});
+
+test('Power & Fixing explicitly rewards flexible mana without ranking basics', () => {
+  const fixing = { name: 'Crossroads', manaCost: '', typeLine: 'Land', rulesText: 'Add {B} or {G}.' };
+  const recommendation = scoreDraftPack({
+    cards: [fixing],
+    philosophy: philosophyForStrategy('power'),
+    seventeenLands: [{ name: fixing.name, gihWinRate: 56, gamesInHand: 10000, rarity: 'uncommon' }],
+    untapped: [{ name: fixing.name, inHandWinRate: 56, games: 10000 }]
+  })[0];
+
+  assert.ok(recommendation.adjustments.fixing >= 2.7);
+  assert.ok(recommendation.reasons.some((reason) => reason.includes('Power & Fixing: flexible mana fixing')));
 });
 
 test('color discipline matters after the early open-draft window', () => {
@@ -344,6 +393,25 @@ test('detects hard subtype requirements in rules text', () => {
   assert.equal(supported.hardMissing, false);
 });
 
+test('recognizes Stalwart synergies without misreading Reach as each', () => {
+  const stalwart = {
+    name: 'Iron Hills Stalwart', manaCost: '{4}{R}', typeLine: 'Creature — Dwarf Warrior',
+    rulesText: 'Reach\nTrample\nWhen this creature enters, attach target Equipment you control to up to one target creature you control.'
+  };
+  const pool = [{
+    name: 'Dwarven Mattock', manaCost: '{2}', typeLine: 'Artifact — Equipment',
+    rulesText: 'When this Equipment enters, attach it to target Dwarf you control.'
+  }];
+  const requirements = explicitSubtypeRequirements(stalwart.rulesText);
+  const synergy = analyzePoolSynergy(stalwart, pool);
+
+  assert.deepEqual(requirements, [{ subtype: 'Equipment', kind: 'hard', detail: 'for its attach trigger' }]);
+  assert.ok(!requirements.some((requirement) => requirement.subtype === 'Trample'));
+  assert.ok(synergy.score >= 5);
+  assert.ok(synergy.reasons.some((reason) => reason.detail.includes('1 Equipment')));
+  assert.ok(synergy.reasons.some((reason) => reason.detail.includes('supports 1 Dwarf payoff')));
+});
+
 test('penalizes Mattock without Dwarfs and restores it when supported', () => {
   const mattock = {
     name: 'Dwarven Mattock', manaCost: '{2}', typeLine: 'Artifact — Equipment',
@@ -361,4 +429,200 @@ test('penalizes Mattock without Dwarfs and restores it when supported', () => {
   assert.ok(withoutDwarf.adjustments.flexibility < 0);
   assert.ok(withoutDwarf.reasons[0].includes('no Dwarf'));
   assert.ok(withDwarf.score > withoutDwarf.score + 15);
+});
+
+function borosDraftPool() {
+  return [
+    { name: 'Misty Mountains Raider', manaCost: '{4}{R}', typeLine: 'Creature — Goblin Soldier' },
+    { name: 'Stone by Sunlight', manaCost: '{1}{W}', typeLine: 'Instant' },
+    { name: 'Pinecone Strike', manaCost: '{1}{R}', typeLine: 'Instant' },
+    { name: 'Patient Instructor', manaCost: '{2}(W/U)', typeLine: 'Creature — Human Citizen' },
+    { name: 'Dori, Bearer of Friends', manaCost: '{2}{R}', typeLine: 'Legendary Creature — Dwarf Warrior' },
+    { name: 'Lake-town Toymaker', manaCost: '{3}{W}', typeLine: 'Creature — Human Artificer' },
+    { name: 'Pinecone Strike', manaCost: '{1}{R}', typeLine: 'Instant' },
+    { name: 'Old Thrush', manaCost: '{2}', typeLine: 'Creature — Bird' },
+    { name: 'Dori, Bearer of Friends', manaCost: '{2}{R}', typeLine: 'Legendary Creature — Dwarf Warrior' },
+    { name: 'Mirkwood Nurturer', manaCost: '{2}(G/U)', typeLine: 'Creature — Elf Druid' },
+    { name: 'Dwarven Mattock', manaCost: '{2}', typeLine: 'Artifact — Equipment' },
+    { name: 'Dwarven Mauler', manaCost: '{R}', typeLine: 'Creature — Dwarf Warrior' },
+    { name: 'Iron Hills Stalwart', manaCost: '{4}{R}', typeLine: 'Creature — Dwarf Warrior' },
+    { name: 'The Misty Mountains Cold', manaCost: '{2}{R}', typeLine: 'Enchantment — Saga' },
+    { name: 'Lakeshore Apothecary', manaCost: '{1}{U}', typeLine: 'Creature — Elf Druid' }
+  ];
+}
+
+test('infers a committed Boros Dwarves lane instead of accepting every drafted color', () => {
+  const lane = inferDraftLane({
+    pool: borosDraftPool(),
+    packNumber: 2,
+    pickNumber: 2,
+    draftId: 'draft-42'
+  });
+
+  assert.equal(lane.status, 'committed');
+  assert.equal(lane.label, 'Boros Dwarves');
+  assert.deepEqual(new Set(lane.colors), new Set(['W', 'R']));
+  assert.ok(lane.confidence >= 62);
+  assert.notEqual(lane.evidence.runnerUp, 'Boros');
+});
+
+test('manual lane choices are scoped to the current draft', () => {
+  const common = { pool: borosDraftPool(), packNumber: 2, pickNumber: 2, draftId: 'draft-42' };
+  const noSplash = inferDraftLane({
+    ...common,
+    preference: { mode: 'lock-no-splash', draftId: 'draft-42', colors: ['W', 'R'], label: 'Boros Dwarves' }
+  });
+  const splash = inferDraftLane({
+    ...common,
+    preference: { mode: 'lock-splash', draftId: 'draft-42', colors: ['W', 'R'], label: 'Boros Dwarves' }
+  });
+  const open = inferDraftLane({ ...common, preference: { mode: 'stay-open', draftId: 'draft-42' } });
+  const stale = inferDraftLane({ ...common, preference: { mode: 'stay-open', draftId: 'older-draft' } });
+
+  assert.equal(noSplash.status, 'locked');
+  assert.equal(noSplash.splashPolicy, 'none');
+  assert.equal(splash.status, 'locked');
+  assert.equal(splash.splashPolicy, 'open');
+  assert.equal(open.status, 'open');
+  assert.equal(open.manual, true);
+  assert.equal(stale.status, 'committed');
+  assert.equal(stale.manual, false);
+});
+
+test('a committed lane gates ordinary off-color cards before every Draft Strategy', () => {
+  const candidates = [
+    { name: 'Desolation Prowler', manaCost: '{1}{B}', typeLine: 'Creature — Wolf', rarity: 'uncommon' },
+    { name: 'Long Lake Nuisance', manaCost: '{3}{U}', typeLine: 'Creature — Bird', rarity: 'uncommon' },
+    { name: 'Misty Mountains Raider', manaCost: '{4}{R}', typeLine: 'Creature — Goblin Soldier', rarity: 'common' }
+  ];
+  const seventeenLands = [
+    { name: candidates[0].name, gihWinRate: 61.5, gamesInHand: 34000, rarity: 'uncommon' },
+    { name: candidates[1].name, gihWinRate: 57.7, gamesInHand: 61000, rarity: 'uncommon' },
+    { name: candidates[2].name, gihWinRate: 56.2, gamesInHand: 39000, rarity: 'common' }
+  ];
+  const untapped = [
+    { name: candidates[0].name, inHandWinRate: 58.7, games: 52000, rarity: 'uncommon' },
+    { name: candidates[1].name, inHandWinRate: 54.6, games: 50000, rarity: 'uncommon' },
+    { name: candidates[2].name, inHandWinRate: 54.8, games: 48000, rarity: 'common' }
+  ];
+  const common = {
+    cards: candidates,
+    pool: borosDraftPool(),
+    seventeenLands,
+    untapped,
+    packNumber: 2,
+    pickNumber: 2,
+    draftId: 'draft-42'
+  };
+
+  for (const strategy of Object.keys(DRAFT_STRATEGIES)) {
+    const ranked = scoreDraftPack({ ...common, philosophy: philosophyForStrategy(strategy) });
+    assert.equal(ranked[0].name, 'Misty Mountains Raider', `${strategy} must rank inside the committed lane first`);
+    assert.equal(ranked.find((card) => card.name === 'Misty Mountains Raider').contextualRank, 1);
+    assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').rawRank, 1);
+    assert.equal(ranked.find((card) => card.name === 'Desolation Prowler').draftLane.tier, 2);
+    assert.equal(ranked.find((card) => card.name === 'Long Lake Nuisance').draftLane.tier, 2);
+  }
+});
+
+test('labels the best pick as a likely sideboard fallback when the locked lane has no fit', () => {
+  const cards = [
+    { name: 'Long Lake Nuisance', manaCost: '{3}{U}', typeLine: 'Creature — Bird', rarity: 'uncommon' },
+    { name: 'Old Fat Spider', manaCost: '{4}{G}{G}', typeLine: 'Creature — Spider', rarity: 'common' }
+  ];
+  const seventeenLands = cards.map((card, index) => ({
+    name: card.name,
+    gihWinRate: index ? 53.1 : 56.4,
+    gamesInHand: 42000,
+    rarity: card.rarity
+  }));
+  const untapped = cards.map((card, index) => ({
+    name: card.name,
+    inHandWinRate: index ? 51.2 : 54.3,
+    games: 38000,
+    rarity: card.rarity
+  }));
+  const lane = {
+    status: 'locked',
+    mode: 'lock-no-splash',
+    splashPolicy: 'none',
+    colors: ['W', 'R'],
+    label: 'Boros Dwarves',
+    confidence: 100
+  };
+  const common = { cards, seventeenLands, untapped, lane, pool: borosDraftPool(), packNumber: 3, pickNumber: 8 };
+  const ranked = scoreDraftPack(common);
+
+  assert.equal(ranked[0].name, 'Long Lake Nuisance');
+  assert.equal(ranked[0].pickOutlook.kind, 'likely-sideboard');
+  assert.equal(ranked[0].pickOutlook.fallback, true);
+  assert.equal(ranked[0].pickOutlook.likelyToPlay, false);
+  assert.match(ranked[0].pickOutlook.detail, /does not expect it to make the deck/);
+  assert.equal(ranked[1].pickOutlook.fallback, false);
+
+  const onLane = { name: 'Misty Mountains Raider', manaCost: '{4}{R}', typeLine: 'Creature — Goblin Soldier', rarity: 'common' };
+  const withFit = scoreDraftPack({
+    ...common,
+    cards: [...cards, onLane],
+    seventeenLands: [...seventeenLands, { name: onLane.name, gihWinRate: 49.5, gamesInHand: 42000, rarity: 'common' }],
+    untapped: [...untapped, { name: onLane.name, inHandWinRate: 48.8, games: 38000, rarity: 'common' }]
+  });
+  assert.equal(withFit[0].name, onLane.name);
+  assert.equal(withFit[0].pickOutlook, null);
+});
+
+test('carries an OUT decision forward when another copy appears in a later pack', () => {
+  const thrush = {
+    name: 'Old Thrush',
+    manaCost: '{2}',
+    typeLine: 'Creature — Bird',
+    rulesText: 'Flying\nWhen this creature enters, you gain 2 life.',
+    rarity: 'common'
+  };
+  const nuisance = { name: 'Long Lake Nuisance', manaCost: '{3}{U}', typeLine: 'Creature — Bird', rarity: 'uncommon' };
+  const lane = {
+    status: 'locked',
+    mode: 'lock-no-splash',
+    splashPolicy: 'none',
+    colors: ['W', 'R'],
+    label: 'Boros Dwarves',
+    confidence: 100
+  };
+  const common = {
+    cards: [thrush, nuisance],
+    pool: borosDraftPool(),
+    excludedPoolNames: ['old thrush'],
+    lane,
+    packNumber: 3,
+    pickNumber: 9,
+    seventeenLands: [
+      { name: thrush.name, gihWinRate: 55, gamesInHand: 48000, rarity: 'common' },
+      { name: nuisance.name, gihWinRate: 59, gamesInHand: 48000, rarity: 'uncommon' }
+    ],
+    untapped: [
+      { name: thrush.name, inHandWinRate: 53.5, games: 43000, rarity: 'common' },
+      { name: nuisance.name, inHandWinRate: 57, games: 43000, rarity: 'uncommon' }
+    ]
+  };
+  const ranked = scoreDraftPack(common);
+  const recommendation = ranked.find((card) => card.name === thrush.name);
+
+  assert.equal(ranked[0].name, thrush.name);
+  assert.equal(recommendation.poolPlan.previouslyExcluded, true);
+  assert.equal(recommendation.poolPlan.reconsidered, false);
+  assert.equal(recommendation.adjustments.poolPlan, -16);
+  assert.equal(recommendation.pickOutlook.kind, 'likely-sideboard');
+  assert.equal(recommendation.pickOutlook.source, 'pool-choice');
+  assert.match(recommendation.reasons[0], /earlier Old Thrush is marked OUT/);
+
+  const exceptional = scoreDraftPack({
+    ...common,
+    cards: [thrush],
+    seventeenLands: [{ name: thrush.name, gihWinRate: 63, gamesInHand: 48000, rarity: 'common' }],
+    untapped: [{ name: thrush.name, inHandWinRate: 63, games: 43000, rarity: 'common' }]
+  })[0];
+  assert.equal(exceptional.poolPlan.reconsidered, true);
+  assert.equal(exceptional.adjustments.poolPlan, -2);
+  assert.equal(exceptional.pickOutlook, null);
+  assert.match(exceptional.reasons[0], /reconsider the earlier OUT mark/);
 });

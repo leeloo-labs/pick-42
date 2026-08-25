@@ -111,3 +111,97 @@ test('clears known cards and match-scoped state when a new game begins', () => {
   assert.deepEqual(secondGame.knownOpponentCards.map((card) => card.name), ['Game Two Card']);
   assert.equal(secondGame.battlefield.length, 1);
 });
+
+test('exposes a local win result and named local graveyard cards for review', () => {
+  const parser = new ArenaLogParser({
+    catalog: { 3001: { name: 'Reviewed Spell', manaCost: '{1}{B}', typeLine: 'Instant' } }
+  });
+  parser.feed(JSON.stringify({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: {
+          matchID: 'completed-review-match',
+          gameNumber: 1,
+          results: [{ winningTeamId: 1, reason: 'ResultReason_Concede' }]
+        },
+        gameObjects: [{ instanceId: 41, grpId: 3001, ownerSeatId: 1, controllerSeatId: 1 }],
+        zones: [{ zoneId: 12, type: 'ZoneType_Graveyard', ownerSeatId: 1, objectInstanceIds: [41] }]
+      }
+    }]
+  }));
+
+  const state = parser.snapshot();
+  assert.equal(state.complete, true);
+  assert.deepEqual(state.result, { winnerSeatId: 1, won: true, reason: 'Concede' });
+  assert.deepEqual(state.graveyard.map((card) => card.name), ['Reviewed Spell']);
+});
+
+test('preserves a stable card identity when Arena changes object ids between zones', () => {
+  const parser = new ArenaLogParser({
+    catalog: { 3001: { name: 'Traveling Spell', manaCost: '{1}{R}', typeLine: 'Sorcery' } }
+  });
+  parser.feed(JSON.stringify({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: { matchID: 'stable-card-match', gameNumber: 1 },
+        players: [{ systemSeatNumber: 1 }, { systemSeatNumber: 2 }],
+        gameObjects: [{ instanceId: 41, grpId: 3001, type: 'GameObjectType_Card', ownerSeatId: 1, controllerSeatId: 1 }],
+        zones: [{ zoneId: 10, type: 'ZoneType_Hand', ownerSeatId: 1, objectInstanceIds: [41] }]
+      }
+    }]
+  }));
+  parser.feed(JSON.stringify({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameObjects: [{ instanceId: 72, grpId: 3001, type: 'GameObjectType_Card', ownerSeatId: 1, controllerSeatId: 1 }],
+        zones: [
+          { zoneId: 10, type: 'ZoneType_Hand', ownerSeatId: 1, objectInstanceIds: [] },
+          { zoneId: 12, type: 'ZoneType_Graveyard', ownerSeatId: 1, objectInstanceIds: [72] }
+        ],
+        annotations: [{
+          type: ['AnnotationType_ObjectIdChanged'],
+          affectedIds: [72],
+          details: [
+            { key: 'orig_id', valueInt32: [41] },
+            { key: 'new_id', valueInt32: [72] }
+          ]
+        }]
+      }
+    }]
+  }));
+
+  const state = parser.snapshot();
+  assert.equal(state.graveyard[0].instanceId, 72);
+  assert.equal(state.graveyard[0].stableId, 41);
+});
+
+test('captures cumulative attacker choices with granted flying from client combat responses', () => {
+  const parser = new ArenaLogParser({
+    catalog: {
+      5001: { name: 'Human Soldier', typeLine: 'Creature — Human Soldier', rulesText: '' },
+      5002: { name: "Eagle's Rescue", typeLine: 'Enchantment — Aura', rulesText: 'Enchanted creature gets +2/+2 and has flying.' },
+      5003: { name: 'Dragon', typeLine: 'Creature — Dragon', rulesText: 'Flying' },
+      5004: { name: 'Goblin Plate Mail', typeLine: 'Artifact — Equipment', rulesText: 'Equipped creature gets +1/+0 and has menace.' },
+      5005: { name: 'Dreaded Bat-Cloud', typeLine: 'Creature — Bat', rulesText: 'Flying\nDeathtouch' },
+      5006: { name: 'Patient Instructor', typeLine: 'Creature — Human Citizen', rulesText: 'Vigilance' },
+      5007: { name: 'Thorin Oakenshield', typeLine: 'Creature — Dwarf Noble', rulesText: '' },
+      5008: { name: 'Misty Mountains Raider', typeLine: 'Creature — Goblin Soldier', rulesText: '' },
+      5009: { name: 'Army', typeLine: 'Creature — Goblin Army', rulesText: '' },
+      5010: { name: 'Great Goblin', typeLine: 'Creature — Goblin Soldier', rulesText: '' }
+    }
+  });
+  parser.feed(fs.readFileSync(path.join(projectRoot, 'fixtures', 'tactical-turning-point.log'), 'utf8'));
+
+  const state = parser.snapshot();
+  assert.equal(state.combatChoices.length, 1);
+  assert.deepEqual(state.combatChoices[0].attackers.map((card) => card.name), ['Human Soldier', 'Patient Instructor']);
+  assert.match(state.combatChoices[0].attackers[0].effectiveRulesText, /flying/i);
+  assert.equal(state.combatChoices[0].board.you.life, 4);
+  assert.equal(state.combatChoices[0].board.you.creatures.length, 6);
+});

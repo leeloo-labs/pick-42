@@ -83,8 +83,32 @@ test('only drops to 16 lands for a genuinely low curve with card flow', () => {
 test('mana profiles preserve fixed versus hybrid color requirements', () => {
   const hybrid = manaProfile('{2}(B/R)');
   const gold = manaProfile('{2}{B}{G}');
+  const dualLand = manaProfile({ name: 'Lake-town', typeLine: 'Land', rulesText: '{T}: Add {W} or {U}.' });
 
   assert.deepEqual(hybrid.fixedColors, []);
   assert.deepEqual(hybrid.hybridGroups, [['B', 'R']]);
   assert.deepEqual(gold.fixedColors, ['B', 'G']);
+  assert.deepEqual(dualLand.hybridGroups, [['W', 'U']]);
+  assert.equal(dualLand.isLandSource, true);
+});
+
+test('builds the preferred lane from the newest pool instead of fixed prototype colors', () => {
+  const pool = [];
+  for (let index = 0; index < 13; index += 1) pool.push(card(`Red Dwarf ${index}`, index < 7 ? '{1}{R}' : '{3}{R}', 'Creature — Dwarf Warrior'));
+  for (let index = 0; index < 10; index += 1) pool.push(card(`White Dwarf ${index}`, index < 6 ? '{1}{W}' : '{3}{W}', 'Creature — Dwarf Soldier'));
+  for (let index = 0; index < 4; index += 1) pool.push(card(`Boros Removal ${index}`, index % 2 ? '{1}{R}' : '{1}{W}', 'Instant', 'Destroy target creature.'));
+  for (let index = 0; index < 3; index += 1) pool.push(card(`Blue Detour ${index}`, '{2}{U}'));
+
+  const builds = buildLimitedDecks({
+    pool,
+    ...sourceRows(pool),
+    preferredLane: { colors: ['W', 'R'], label: 'Boros Dwarves' }
+  });
+
+  assert.equal(builds[0].id, 'boros');
+  assert.equal(builds[0].name, 'Boros Dwarves');
+  assert.deepEqual(builds[0].colors, ['W', 'R']);
+  assert.match(builds[0].label, /CURRENT LANE/);
+  assert.equal(builds[0].summary.total, 40);
+  assert.ok(builds.every((build) => build.id !== 'golgari' && build.id !== 'rakdos'));
 });

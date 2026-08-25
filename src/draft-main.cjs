@@ -2,15 +2,32 @@
 
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, shell } = require('electron');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
-const { DEFAULT_PHILOSOPHY, scoreDraftPack } = require('./draft/blend-engine.cjs');
-const { buildLimitedDecks } = require('./draft/deck-builder.cjs');
+const {
+  CONTEXTUAL_PHILOSOPHY,
+  inferDraftLane,
+  scoreDraftPack
+} = require('./draft/blend-engine.cjs');
+const { normalizeCardName } = require('./draft/csv.cjs');
+const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
+const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
+const {
+  createArchetypeDeck,
+  isGenericArchetypeLabel,
+  parseArenaDeckText,
+  parseArchetypeCorpus,
+  summarizeArchetypeCorpus,
+  trophyThreshold
+} = require('./draft/archetype-corpus.cjs');
 const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
+const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, replaceRebuiltReviewInPlace, reviewDeckIdentity } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
 const { parseUntappedCsv } = require('./draft/sources/untapped.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
+const { ArenaLogParser } = require('./core/arena-log-parser.cjs');
 const { ArenaSceneTracker } = require('./core/arena-scene-tracker.cjs');
 const { LogTailer } = require('./core/log-tailer.cjs');
 const { VisualGuideController } = require('./draft/visual-guide-controller.cjs');
@@ -27,6 +44,8 @@ const arenaCatalogResult = loadArenaCardCatalog();
 // Keep demo cards as a fallback, but preserve Arena's richer localized rules text in live drafts.
 const catalog = { ...demoCatalog, ...arenaCatalogResult.catalog };
 const parser = new DraftLogParser({ catalog });
+const matchParser = new ArenaLogParser({ catalog });
+const reviewTracker = new GameReviewTracker();
 const sceneTracker = new ArenaSceneTracker();
 const tailer = new LogTailer();
 
@@ -35,7 +54,7 @@ let normalWindowBounds = null;
 let compactBuildMode = false;
 let buildModeSource = null;
 let suppressAutomaticBuildMode = false;
-let selectedBuildId = 'golgari';
+let selectedBuildId = null;
 let visualGuideController = null;
 let visualGuideState = {
   enabled: false,
@@ -45,9 +64,19 @@ let visualGuideState = {
   annotationCount: 0
 };
 let draftState = parser.snapshot();
+let reviewState = reviewTracker.snapshot();
+let reviewArmed = false;
+const reviewMatchDecisions = new Map();
 let status = { kind: 'demo', message: 'Sample HOB pack · import current exports when ready' };
-let philosophy = { ...DEFAULT_PHILOSOPHY };
+let philosophy = { ...CONTEXTUAL_PHILOSOPHY };
+let lanePreference = null;
+let poolExclusionPreference = null;
 let sourceData = { seventeenLands: [], untapped: [] };
+let archetypeCorpus = null;
+let importedArchetypeCorpus = null;
+let importedArchetypeCorpusPath = null;
+let manualArchetypeDecks = [];
+let archetypeCorpusSource = { label: 'No corpus', kind: 'empty', count: 0, trophyCount: 0 };
 let sources = {
   seventeenLands: { label: '17Lands sample', kind: 'sample', count: 0 },
   untapped: { label: 'Untapped sample', kind: 'sample', count: 0 }
@@ -87,6 +116,157 @@ function scryfallCachePath() {
   return path.join(app.getPath('userData'), 'scryfall-hob.json');
 }
 
+function gameReviewsPath() {
+  return path.join(app.getPath('userData'), 'game-reviews.json');
+}
+
+function manualArchetypeCorpusPath() {
+  return path.join(app.getPath('userData'), 'manual-archetype-corpus.json');
+}
+
+function rebuildArchetypeCorpus() {
+  const byId = new Map();
+  for (const deck of importedArchetypeCorpus?.decks || []) byId.set(`import:${deck.id}`, deck);
+  for (const deck of manualArchetypeDecks) byId.set(`manual:${deck.id}`, deck);
+  const decks = [...byId.values()];
+  archetypeCorpus = decks.length ? { version: 1, decks } : null;
+  const summary = summarizeArchetypeCorpus(archetypeCorpus);
+  const importedCount = importedArchetypeCorpus?.decks?.length || 0;
+  const manualCount = manualArchetypeDecks.length;
+  const kind = importedCount && manualCount ? 'combined' : (importedCount ? 'import' : (manualCount ? 'manual' : 'empty'));
+  archetypeCorpusSource = {
+    label: kind === 'combined'
+      ? `${path.basename(importedArchetypeCorpusPath)} + manual entries`
+      : (kind === 'import' ? path.basename(importedArchetypeCorpusPath) : (kind === 'manual' ? 'Pasted trophy decks' : 'No corpus')),
+    kind,
+    count: summary.deckCount,
+    trophyCount: summary.trophyCount,
+    archetypeCount: summary.archetypeCount,
+    manualCount,
+    importedCount,
+    path: importedArchetypeCorpusPath
+  };
+}
+
+function loadArchetypeCorpus(filePath) {
+  const text = fs.readFileSync(filePath, 'utf8');
+  const corpus = parseArchetypeCorpus(text, { catalog, fileName: filePath });
+  importedArchetypeCorpus = corpus;
+  importedArchetypeCorpusPath = filePath;
+  rebuildArchetypeCorpus();
+  return corpus;
+}
+
+function readManualArchetypeCorpus() {
+  let migrated = false;
+  try {
+    const payload = JSON.parse(fs.readFileSync(manualArchetypeCorpusPath(), 'utf8'));
+    manualArchetypeDecks = (Array.isArray(payload?.decks) ? payload.decks : [])
+      .map((deck, index) => {
+        const autoArchetype = deck.archetypeSource === 'auto'
+          || (!deck.archetypeSource && isGenericArchetypeLabel(deck.archetype, deck.colors));
+        const normalized = {
+          ...createArchetypeDeck(deck, {
+            catalog,
+            fallbackId: `manual-${index + 1}`,
+            reclassifyColors: true,
+            reclassifyArchetype: autoArchetype
+          }),
+          archetypeSource: autoArchetype ? 'auto' : 'custom',
+          origin: 'manual'
+        };
+        if (JSON.stringify({
+          archetype: deck.archetype,
+          archetypeSource: deck.archetypeSource,
+          colors: deck.colors,
+          splashColors: deck.splashColors,
+          colorIdentity: deck.colorIdentity
+        }) !== JSON.stringify({
+          archetype: normalized.archetype,
+          archetypeSource: normalized.archetypeSource,
+          colors: normalized.colors,
+          splashColors: normalized.splashColors,
+          colorIdentity: normalized.colorIdentity
+        })) migrated = true;
+        return normalized;
+      })
+      .filter((deck) => deck.trophy && deck.cards.length);
+  } catch {
+    manualArchetypeDecks = [];
+  }
+  if (migrated) {
+    try { writeManualArchetypeCorpus(); } catch { /* Keep the in-memory migration if local persistence is temporarily unavailable. */ }
+  }
+  rebuildArchetypeCorpus();
+}
+
+function writeManualArchetypeCorpus() {
+  fs.mkdirSync(path.dirname(manualArchetypeCorpusPath()), { recursive: true });
+  fs.writeFileSync(manualArchetypeCorpusPath(), JSON.stringify({
+    version: 1,
+    source: 'Manually pasted trophy deck lists',
+    generatedAt: new Date().toISOString(),
+    decks: manualArchetypeDecks
+  }, null, 2));
+}
+
+function manualDeckId(value, cards) {
+  const signature = JSON.stringify({
+    setCode: value.setCode,
+    format: value.format,
+    record: value.record,
+    sourceUrl: value.sourceUrl,
+    cards: cards.map((card) => [card.key, card.quantity]).sort((a, b) => a[0].localeCompare(b[0]))
+  });
+  return `manual-${crypto.createHash('sha256').update(signature).digest('hex').slice(0, 16)}`;
+}
+
+function addManualArchetypeDeck(value) {
+  const parsed = parseArenaDeckText(value?.deckText);
+  const setCode = String(value?.setCode || draftState.setCode || '').trim().toUpperCase();
+  const format = String(value?.format || draftState.format || '').trim();
+  const record = String(value?.record || '').trim();
+  if (!setCode) throw new Error('Enter the set code shown by 17Lands, such as HOB.');
+  if (!format) throw new Error('Choose the draft format for this trophy deck.');
+  if (!record) throw new Error('Enter the final record shown by 17Lands, such as 7-2.');
+  const id = manualDeckId({ setCode, format, record, sourceUrl: value?.sourceUrl }, parsed.cards);
+  if (manualArchetypeDecks.some((deck) => deck.id === id)) throw new Error('That trophy deck is already in the manual corpus.');
+  const deck = {
+    ...createArchetypeDeck({
+      id,
+      setCode,
+      format,
+      record,
+      eventDate: value?.eventDate,
+      rank: value?.rank,
+      archetype: value?.archetype,
+      colors: value?.colors,
+      sourceUrl: value?.sourceUrl,
+      cards: parsed.cards
+    }, { catalog, fallbackId: id }),
+    origin: 'manual'
+  };
+  if (!deck.trophy) {
+    const threshold = trophyThreshold(deck.format);
+    throw new Error(threshold
+      ? `${record} is not a trophy record for ${deck.formatLabel}; this format requires ${threshold} wins.`
+      : 'Pick 42 could not verify the trophy threshold for that format.');
+  }
+  manualArchetypeDecks.push(deck);
+  writeManualArchetypeCorpus();
+  rebuildArchetypeCorpus();
+  return deck;
+}
+
+function removeManualArchetypeDeck(deckId) {
+  const before = manualArchetypeDecks.length;
+  manualArchetypeDecks = manualArchetypeDecks.filter((deck) => deck.id !== deckId);
+  if (manualArchetypeDecks.length !== before) {
+    writeManualArchetypeCorpus();
+    rebuildArchetypeCorpus();
+  }
+}
+
 function readSettings() {
   try { return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')); } catch { return {}; }
 }
@@ -95,6 +275,15 @@ function writeSettings(patch) {
   const next = { ...readSettings(), ...patch };
   fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
   fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2));
+}
+
+function readGameReviews() {
+  try { return JSON.parse(fs.readFileSync(gameReviewsPath(), 'utf8')); } catch { return []; }
+}
+
+function writeGameReviews(reviews) {
+  fs.mkdirSync(path.dirname(gameReviewsPath()), { recursive: true });
+  fs.writeFileSync(gameReviewsPath(), JSON.stringify(reviews, null, 2));
 }
 
 function loadCsv(source, filePath, kind = 'import') {
@@ -132,6 +321,134 @@ function activeSourceData() {
     seventeenLands: samplesAllowed || sources.seventeenLands.kind === 'import' ? sourceData.seventeenLands : [],
     untapped: samplesAllowed || sources.untapped.kind === 'import' ? sourceData.untapped : []
   };
+}
+
+function draftScopeId() {
+  return String(draftState.draftId || (status.kind === 'demo' ? 'demo-hob' : 'unidentified-draft'));
+}
+
+function activePoolExclusions() {
+  return exclusionKeysForDraft(poolExclusionPreference, draftScopeId());
+}
+
+function activeDraftPool() {
+  return filterActivePool(draftState.pool, poolExclusionPreference, draftScopeId());
+}
+
+function currentDraftLane(preference = lanePreference) {
+  const activeSources = activeSourceData();
+  return inferDraftLane({
+    pool: activeDraftPool(),
+    seventeenLands: activeSources.seventeenLands,
+    untapped: activeSources.untapped,
+    archetypeCorpus,
+    setCode: draftState.setCode,
+    format: draftState.format,
+    packNumber: draftState.packNumber,
+    pickNumber: draftState.pickNumber,
+    draftId: draftScopeId(),
+    preference
+  });
+}
+
+function currentDeckBuilds(preferredLane = currentDraftLane()) {
+  const activeSources = activeSourceData();
+  return buildLimitedDecks({
+    pool: activeDraftPool(),
+    seventeenLands: activeSources.seventeenLands,
+    untapped: activeSources.untapped,
+    philosophy,
+    preferredLane
+  });
+}
+
+function colorsForLand(card) {
+  const basics = { Plains: 'W', Island: 'U', Swamp: 'B', Mountain: 'R', Forest: 'G' };
+  return basics[card.name] ? [basics[card.name]] : landColors(card);
+}
+
+function reviewDeckSnapshot() {
+  const builds = currentDeckBuilds();
+  const build = builds.find((entry) => entry.id === selectedBuildId) || builds[0] || null;
+  const arenaMain = draftState.arenaDeck?.mainDeck || [];
+  const arenaSideboard = draftState.arenaDeck?.sideboard || [];
+  const arenaTotal = arenaMain.reduce((total, card) => total + Number(card.quantity || 1), 0);
+  const exact = arenaTotal >= 35;
+  const main = exact
+    ? arenaMain
+    : [...(build?.mainDeck || []), ...(build?.lands || [])];
+  const identity = reviewDeckIdentity({ selectedBuild: build, selectedBuildId });
+  const scoredCandidates = [...(build?.mainDeck || []), ...(build?.cuts || []), ...(build?.excluded || [])];
+  const candidateById = new Map(scoredCandidates.filter((card) => card.grpId).map((card) => [Number(card.grpId), card]));
+  const candidateByName = new Map(scoredCandidates.map((card) => [String(card.name || '').toLowerCase(), card]));
+  const enrichCandidate = (card) => {
+    const scored = candidateById.get(Number(card.grpId)) || candidateByName.get(String(card.name || '').toLowerCase());
+    return scored ? { ...scored, ...card, deckValue: scored.deckValue } : card;
+  };
+  const cards = main.filter((card) => !/\bLand\b/i.test(String(card.typeLine || ''))).map(enrichCandidate);
+  const lands = main.filter((card) => /\bLand\b/i.test(String(card.typeLine || '')))
+    .map((card) => ({ ...enrichCandidate(card), colors: card.colors?.length ? card.colors : colorsForLand(card) }));
+  const sources = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  for (const land of lands) {
+    for (const color of land.colors || []) sources[color] += Number(land.quantity || 1);
+  }
+  return {
+    source: exact ? 'Arena course deck' : 'Selected Pick 42 recipe',
+    buildId: identity.buildId,
+    name: identity.name,
+    cards,
+    lands,
+    cuts: arenaSideboard.length ? arenaSideboard.map(enrichCandidate) : [...(build?.cuts || []), ...(build?.excluded || [])],
+    total: main.reduce((total, card) => total + Number(card.quantity || 1), 0),
+    mana: {
+      sources,
+      targets: build?.mana?.targets || {}
+    }
+  };
+}
+
+function reviewContext() {
+  return {
+    draftId: draftState.draftId,
+    setCode: draftState.setCode,
+    deck: reviewDeckSnapshot()
+  };
+}
+
+function presentedReviewState() {
+  const activeSources = activeSourceData();
+  const completed = reviewState.reviews || [];
+  const activeRelated = reviewState.active ? [reviewState.active, ...completed] : completed;
+  return {
+    ...reviewState,
+    active: analyzePostGameReview(reviewState.active, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
+    latest: analyzePostGameReview(reviewState.latest, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
+    reviews: completed.map((review) => analyzePostGameReview(review, { seventeenLands: activeSources.seventeenLands, relatedReviews: completed }))
+  };
+}
+
+function rebuildLatestLegacyReview(logPath) {
+  const reviews = reviewTracker.snapshot().reviews || [];
+  const legacy = reviews.find((review) => Number(review.captureVersion || 0) < 4 && review.matchId && review.deck?.total >= 35);
+  if (!legacy) return false;
+  const replayParser = new ArenaLogParser({ catalog, maxEvents: 240 });
+  const replayTracker = new GameReviewTracker({ maxReviews: 1 });
+  const context = { draftId: legacy.draftId, setCode: legacy.setCode, deck: legacy.deck };
+  replayTracker.arm(context);
+  replayParser.on('state', (state) => {
+    if (state.matchId === legacy.matchId) replayTracker.consume(state, context);
+  });
+  try {
+    replayParser.feed(fs.readFileSync(logPath, 'utf8'));
+  } catch {
+    return false;
+  }
+  const rebuilt = replayTracker.snapshot().reviews.find((review) => review.id === legacy.id);
+  if (!rebuilt) return false;
+  const next = replaceRebuiltReviewInPlace(reviews, legacy, rebuilt);
+  reviewTracker.hydrate(next);
+  writeGameReviews(reviewTracker.snapshot().reviews);
+  return true;
 }
 
 function recommendationGate(recommendations) {
@@ -223,30 +540,64 @@ function scryfallCardsForView(recommendations, deckBuilds) {
 
 function viewModel() {
   const activeSources = activeSourceData();
+  const modelingPool = activeDraftPool();
+  const excludedNames = [...activePoolExclusions()];
+  const draftLane = currentDraftLane();
   const recommendations = scoreDraftPack({
     cards: draftState.pack,
     seventeenLands: activeSources.seventeenLands,
     untapped: activeSources.untapped,
-    pool: draftState.pool,
+    archetypeCorpus,
+    pool: modelingPool,
+    excludedPoolNames: excludedNames,
     packNumber: draftState.packNumber,
     pickNumber: draftState.pickNumber,
+    draftId: draftScopeId(),
+    setCode: draftState.setCode,
+    format: draftState.format,
+    lane: draftLane,
     philosophy
   });
-  const deckBuilds = buildLimitedDecks({
-    pool: draftState.pool,
-    seventeenLands: activeSources.seventeenLands,
-    untapped: activeSources.untapped,
-    philosophy
-  });
+  const deckBuilds = currentDeckBuilds(draftLane);
+  const corpusMatch = archetypeCorpus
+    ? summarizeArchetypeCorpus(archetypeCorpus, { setCode: draftState.setCode, format: draftState.format })
+    : { deckCount: 0, trophyCount: 0, archetypeCount: 0, archetypes: [], setCodes: [], formats: [] };
   return {
     draft: draftState,
     recommendations,
     deckBuilds,
     selectedBuildId,
     recommendationGate: recommendationGate(recommendations),
-    poolSummary: poolSummary(draftState.pool),
+    poolSummary: {
+      ...poolSummary(modelingPool),
+      draftedTotal: draftState.pool.length,
+      excludedTotal: draftState.pool.length - modelingPool.length
+    },
+    poolPlan: { excludedNames },
     sources,
+    archetypeCorpus: {
+      source: archetypeCorpusSource,
+      match: corpusMatch,
+      defaults: {
+        setCode: draftState.setCode || 'HOB',
+        format: draftState.format || 'Player Draft',
+        eventDate: new Date().toISOString().slice(0, 10)
+      },
+      manualDecks: manualArchetypeDecks.map((deck) => ({
+        id: deck.id,
+        setCode: deck.setCode,
+        format: deck.formatLabel,
+        record: deck.wins === null ? 'Trophy' : `${deck.wins}-${deck.losses ?? 0}`,
+        archetype: deck.archetype,
+        colors: deck.colors,
+        splashColors: deck.splashColors,
+        eventDate: deck.eventDate,
+        rank: deck.rank,
+        total: deck.cards.reduce((sum, card) => sum + card.quantity, 0)
+      }))
+    },
     philosophy,
+    draftLane,
     status,
     arena: {
       ...sceneTracker.snapshot(),
@@ -254,6 +605,13 @@ function viewModel() {
       buildModeSource
     },
     visualGuide: visualGuideState,
+    review: {
+      ...presentedReviewState(),
+      pendingDeck: (() => {
+        const deck = reviewDeckSnapshot();
+        return { ...deck, fingerprint: deckFingerprint(deck) };
+      })()
+    },
     scryfall: {
       ...scryfallState,
       cards: scryfallCardsForView(recommendations, deckBuilds)
@@ -276,6 +634,10 @@ function setStatus(next) {
 
 function startDemo() {
   tailer.stop();
+  reviewArmed = false;
+  matchParser.reset();
+  reviewMatchDecisions.clear();
+  reviewTracker.disarm();
   parser.reset();
   demoEntries = fs.readFileSync(fixturePath('demo-draft.log'), 'utf8').split('\n').filter(Boolean);
   demoIndex = 0;
@@ -297,12 +659,25 @@ function advanceDemo() {
 }
 
 async function watchLog(logPath) {
+  reviewArmed = false;
+  matchParser.reset();
+  reviewMatchDecisions.clear();
   parser.reset();
   sceneTracker.reset();
   draftState = parser.snapshot();
   writeSettings({ logPath });
   setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: logPath });
   await tailer.start(logPath);
+  migrateLegacyDraftPreferences(draftState);
+  if (selectedBuildId && !currentDeckBuilds().some((build) => build.id === selectedBuildId)) {
+    selectedBuildId = null;
+    writeSettings({ selectedBuildId: null });
+  }
+  rebuildLatestLegacyReview(logPath);
+  matchParser.reset();
+  reviewMatchDecisions.clear();
+  reviewTracker.arm(reviewContext());
+  reviewArmed = true;
 }
 
 function createWindow() {
@@ -317,7 +692,7 @@ function createWindow() {
     frame: false,
     transparent: false,
     backgroundColor: '#111016',
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     title: 'Pick 42 Draft Companion',
     webPreferences: {
@@ -327,8 +702,6 @@ function createWindow() {
       sandbox: true
     }
   });
-  draftWindow.setAlwaysOnTop(true, process.platform === 'darwin' ? 'floating' : 'screen-saver');
-  if (process.platform === 'darwin') draftWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   draftWindow.setPosition(Math.max(display.x, display.x + display.width - windowWidth - 18), Math.max(display.y, display.y + 18));
   normalWindowBounds = draftWindow.getBounds();
   draftWindow.loadFile(path.join(__dirname, 'draft-renderer', 'index.html'));
@@ -394,6 +767,41 @@ function registerIpc() {
     }
     return viewModel();
   });
+  ipcMain.handle('draft:import-archetype-corpus', async () => {
+    const result = await dialog.showOpenDialog(draftWindow, {
+      title: 'Import authorized archetype corpus',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Archetype corpus', extensions: ['csv', 'json'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    });
+    if (result.canceled || !result.filePaths[0]) return viewModel();
+    try {
+      loadArchetypeCorpus(result.filePaths[0]);
+      writeSettings({ archetypeCorpusPath: result.filePaths[0] });
+      setStatus({ kind: 'live', message: `${archetypeCorpusSource.trophyCount} trophy exemplars imported` });
+    } catch (error) {
+      setStatus({ kind: 'error', message: error.message });
+    }
+    return viewModel();
+  });
+  ipcMain.handle('draft:add-trophy-deck', (_event, value) => {
+    try {
+      const deck = addManualArchetypeDeck(value);
+      setStatus({ kind: 'live', message: `${deck.archetype} ${deck.record || `${deck.wins}-${deck.losses ?? 0}`} trophy deck saved locally` });
+    } catch (error) {
+      setStatus({ kind: 'error', message: error.message });
+      throw error;
+    }
+    return viewModel();
+  });
+  ipcMain.handle('draft:remove-trophy-deck', (_event, deckId) => {
+    removeManualArchetypeDeck(String(deckId || ''));
+    setStatus({ kind: 'live', message: `${manualArchetypeDecks.length} manually pasted trophy decks saved` });
+    return viewModel();
+  });
+  ipcMain.handle('draft:read-clipboard', () => ({ text: clipboard.readText() }));
   ipcMain.handle('draft:choose-log', async () => {
     const result = await dialog.showOpenDialog(draftWindow, {
       title: 'Choose MTG Arena Player.log',
@@ -403,10 +811,31 @@ function registerIpc() {
     if (!result.canceled && result.filePaths[0]) await watchLog(result.filePaths[0]);
     return viewModel();
   });
-  ipcMain.handle('draft:update-philosophy', (_event, patch) => {
-    const allowed = ['sourceBalance', 'powerPriority', 'stayOpen', 'colorDiscipline', 'curveDiscipline', 'signalSensitivity', 'synergyPriority', 'interactionPriority', 'creaturePreference'];
-    for (const key of allowed) if (Number.isFinite(Number(patch?.[key]))) philosophy[key] = Math.max(0, Math.min(100, Number(patch[key])));
-    writeSettings({ philosophy });
+  ipcMain.handle('draft:set-lane-preference', (_event, requestedMode) => {
+    const mode = String(requestedMode || 'auto');
+    if (mode === 'auto') {
+      lanePreference = null;
+    } else if (['lock-no-splash', 'lock-splash', 'stay-open'].includes(mode)) {
+      const automatic = currentDraftLane(null);
+      lanePreference = {
+        mode,
+        draftId: draftScopeId(),
+        colors: automatic.colors,
+        label: automatic.label
+      };
+    } else {
+      return viewModel();
+    }
+    writeSettings({ lanePreference });
+    visualGuideController?.contextChanged();
+    sendState();
+    return viewModel();
+  });
+  ipcMain.handle('draft:set-pool-card-excluded', (_event, cardName, excluded) => {
+    const key = normalizeCardName(cardName);
+    if (!key || !draftState.pool.some((card) => normalizeCardName(card.name) === key)) return viewModel();
+    poolExclusionPreference = updatePoolExclusion(poolExclusionPreference, draftScopeId(), key, excluded);
+    writeSettings({ poolExclusions: poolExclusionPreference });
     visualGuideController?.contextChanged();
     sendState();
     return viewModel();
@@ -453,11 +882,50 @@ function registerIpc() {
   ipcMain.handle('draft:close', () => app.quit());
 }
 
+function migrateLegacyDraftPreferences(nextState) {
+  if (!nextState.courseId || !nextState.eventName || nextState.courseId === nextState.eventName) return;
+  const patch = {};
+  if (lanePreference?.draftId === nextState.eventName) {
+    lanePreference = { ...lanePreference, draftId: nextState.courseId };
+    patch.lanePreference = lanePreference;
+  }
+  if (poolExclusionPreference?.draftId === nextState.eventName) {
+    poolExclusionPreference = { ...poolExclusionPreference, draftId: nextState.courseId };
+    patch.poolExclusions = poolExclusionPreference;
+  }
+  if (Object.keys(patch).length) writeSettings(patch);
+}
+
 parser.on('state', (nextState) => {
+  const previousDraftId = draftState.draftId;
   draftState = nextState;
+  if (previousDraftId && nextState.draftId && previousDraftId !== nextState.draftId) {
+    selectedBuildId = null;
+    writeSettings({ selectedBuildId: null });
+  }
   visualGuideController?.contextChanged();
   sendState();
 });
+matchParser.on('state', (nextState) => {
+  if (!reviewArmed || !nextState?.matchId || nextState.gameNumber === null || nextState.gameNumber === undefined) return;
+  const context = reviewContext();
+  const matchKey = `${nextState.matchId}:${nextState.gameNumber}`;
+  let decision = reviewMatchDecisions.get(matchKey);
+  if (!decision || decision.status === 'pending') {
+    decision = draftDeckMatchDecision(nextState, context.deck);
+    reviewMatchDecisions.set(matchKey, decision);
+  }
+  if (decision.status === 'accepted') reviewTracker.consume(nextState, context);
+  else if (decision.status === 'rejected' && !decision.reported) {
+    reviewTracker.ignore(nextState, context, decision.reason);
+    reviewMatchDecisions.set(matchKey, { ...decision, reported: true });
+  }
+});
+reviewTracker.on('state', (nextState) => {
+  reviewState = nextState;
+  sendState();
+});
+reviewTracker.on('complete', () => writeGameReviews(reviewTracker.snapshot().reviews));
 sceneTracker.on('scene', (nextScene) => {
   if (nextScene.inDeckBuilder) {
     if (!suppressAutomaticBuildMode && buildModeSource !== 'manual') setCompactBuildMode(true, 'automatic');
@@ -471,9 +939,13 @@ sceneTracker.on('scene', (nextScene) => {
 tailer.on('data', (chunk) => {
   parser.feed(chunk);
   sceneTracker.feed(chunk);
+  if (reviewArmed) matchParser.feed(chunk);
 });
 tailer.on('rotate', () => {
   parser.reset();
+  matchParser.reset();
+  reviewMatchDecisions.clear();
+  reviewTracker.arm(reviewContext());
   sceneTracker.reset();
   draftState = parser.snapshot();
   if (buildModeSource === 'automatic') setCompactBuildMode(false);
@@ -483,9 +955,25 @@ tailer.on('status', (next) => setStatus(next));
 
 app.whenReady().then(async () => {
   loadSampleSources();
+  readManualArchetypeCorpus();
+  reviewTracker.hydrate(readGameReviews());
+  writeGameReviews(reviewTracker.snapshot().reviews);
   const saved = readSettings();
-  philosophy = { ...DEFAULT_PHILOSOPHY, ...(saved.philosophy || {}) };
-  selectedBuildId = ['golgari', 'jund', 'rakdos'].includes(saved.selectedBuildId) ? saved.selectedBuildId : 'golgari';
+  philosophy = {
+    ...CONTEXTUAL_PHILOSOPHY,
+    sourceBalance: Number.isFinite(Number(saved.philosophy?.sourceBalance)) ? Number(saved.philosophy.sourceBalance) : CONTEXTUAL_PHILOSOPHY.sourceBalance,
+    cardOverrides: saved.philosophy?.cardOverrides || CONTEXTUAL_PHILOSOPHY.cardOverrides
+  };
+  lanePreference = saved.lanePreference && ['lock-no-splash', 'lock-splash', 'stay-open'].includes(saved.lanePreference.mode)
+    ? saved.lanePreference
+    : null;
+  poolExclusionPreference = saved.poolExclusions && Array.isArray(saved.poolExclusions.names)
+    ? saved.poolExclusions
+    : null;
+  selectedBuildId = String(saved.selectedBuildId || '').trim() || null;
+  if (saved.archetypeCorpusPath && fs.existsSync(saved.archetypeCorpusPath)) {
+    try { loadArchetypeCorpus(saved.archetypeCorpusPath); } catch { /* Keep drafting if an old corpus moved or changed. */ }
+  }
   for (const source of ['seventeenLands', 'untapped']) {
     const savedPath = saved[`${source}Path`];
     if (savedPath && fs.existsSync(savedPath)) {

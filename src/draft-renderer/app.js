@@ -2,16 +2,17 @@
 
 let model = null;
 let selectedName = null;
-let selectedBuildId = 'golgari';
+let selectedBuildId = null;
 let activeView = 'draft';
-let lastFullView = 'decks';
 let viewInitialized = false;
-let philosophyTimer = null;
+let rankingMode = 'contextual';
 let recipeCopyTimer = null;
 let previewCopyTimer = null;
 let previewedCardName = null;
+let deckBoardResizeFrame = null;
+let deckBoardResizeObserver = null;
+let laneMenuOpen = false;
 
-const DECK_STACK_STEP = 28;
 const MANA_ACCENTS = Object.freeze({ W: '#d8cda9', U: '#4d9fc9', B: '#28252d', R: '#c85b48', G: '#4c925d' });
 
 const byId = (id) => document.getElementById(id);
@@ -27,6 +28,30 @@ function element(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+function iconElement(name, className = '') {
+  const node = element('i', className);
+  node.dataset.lucide = name;
+  node.setAttribute('aria-hidden', 'true');
+  return node;
+}
+
+function hydrateIcons(root = document) {
+  if (!window.lucide?.createIcons) return;
+  window.lucide.createIcons({
+    root,
+    attrs: {
+      'aria-hidden': 'true',
+      focusable: 'false',
+      'stroke-width': 1.8
+    }
+  });
+}
+
+function setIcon(node, name) {
+  node.replaceChildren(iconElement(name));
+  hydrateIcons(node.parentElement || document);
 }
 
 function percent(value) {
@@ -56,6 +81,19 @@ function configureImpactFlag(node, card, compact = false) {
   node.title = `${flag.detail}. Confidence ${card.metrics.drawImpactConfidence}%.`;
 }
 
+function configureOutlookFlag(node, card, compact = false) {
+  const outlook = rankingMode === 'contextual' ? card?.pickOutlook : null;
+  node.hidden = !outlook;
+  node.className = `outlook-flag ${outlook?.kind || ''}`;
+  if (!outlook) {
+    node.textContent = '';
+    node.removeAttribute('title');
+    return;
+  }
+  node.textContent = compact && outlook.fallback ? 'LIKELY OUT' : outlook.label;
+  node.title = outlook.detail;
+}
+
 function renderStatus() {
   byId('status-dot').className = `status-dot ${model.status?.kind || ''}`;
   setText('status-message', model.status?.message || 'Ready');
@@ -69,7 +107,112 @@ function renderStatus() {
   setText('source-ut-label', sourceLabel(sourceUt));
   byId('import-17lands').title = source17.label;
   byId('import-untapped').title = sourceUt.label;
+  const corpus = model.archetypeCorpus || {};
+  const corpusSource = corpus.source || { kind: 'empty', trophyCount: 0, label: 'No corpus' };
+  const corpusMatch = corpus.match || { trophyCount: 0, archetypeCount: 0 };
+  const corpusLabel = corpusSource.kind === 'empty'
+    ? 'Import corpus'
+    : (corpusMatch.trophyCount ? `${corpusMatch.trophyCount} match` : `${corpusSource.trophyCount} · no match`);
+  setText('source-meta-label', corpusLabel);
+  byId('import-archetypes').title = corpusSource.kind === 'empty'
+    ? 'Import an authorized trophy-deck corpus (CSV or JSON)'
+    : `${corpusSource.label} · ${corpusMatch.trophyCount} matching trophies across ${corpusMatch.archetypeCount} archetypes`;
   byId('restart-demo').hidden = model.status?.kind !== 'demo';
+}
+
+function corpusFormatValue(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('quick')) return 'QuickDraft';
+  if (normalized.includes('traditional')) return 'TraditionalDraft';
+  if (normalized.includes('pick-two') || normalized.includes('picktwo')) return 'PickTwoDraft';
+  return 'PremierDraft';
+}
+
+function setCorpusEntryMessage(message, kind = '') {
+  const node = byId('corpus-entry-message');
+  node.textContent = message;
+  node.className = `corpus-entry-message ${kind}`;
+}
+
+function seedCorpusForm() {
+  const defaults = model.archetypeCorpus?.defaults || {};
+  if (!byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || 'HOB';
+  if (!byId('corpus-event-date').value) byId('corpus-event-date').value = defaults.eventDate || '';
+  byId('corpus-format').value = corpusFormatValue(defaults.format);
+}
+
+function renderCorpusManager() {
+  const corpus = model.archetypeCorpus || {};
+  const manualDecks = corpus.manualDecks || [];
+  const match = corpus.match || { trophyCount: 0 };
+  setText('corpus-library-title', `${manualDecks.length} pasted deck${manualDecks.length === 1 ? '' : 's'}`);
+  const matchPill = byId('corpus-match-pill');
+  matchPill.textContent = match.trophyCount ? `${match.trophyCount} MATCHING` : 'NO ACTIVE MATCH';
+  matchPill.className = `corpus-match-pill ${match.trophyCount ? 'active' : ''}`;
+
+  const list = byId('corpus-manual-list');
+  list.replaceChildren();
+  for (const deck of [...manualDecks].reverse()) {
+    const row = element('article', 'corpus-manual-row');
+    const copy = element('div');
+    const splash = deck.splashColors?.length ? ` · ${deck.splashColors.join('/')} splash` : '';
+    copy.append(
+      element('strong', '', deck.archetype || 'Unknown archetype'),
+      element('small', '', `${deck.setCode} · ${deck.format} · ${deck.record} · ${deck.total} cards${splash}${deck.rank ? ` · ${deck.rank}` : ''}`)
+    );
+    const remove = element('button');
+    remove.type = 'button';
+    remove.title = 'Remove pasted deck';
+    remove.setAttribute('aria-label', 'Remove pasted deck');
+    remove.append(iconElement('trash-2'));
+    remove.addEventListener('click', async () => {
+      if (!window.confirm(`Remove the ${deck.archetype || deck.setCode} ${deck.record} deck from the local corpus?`)) return;
+      await updateFrom(() => window.draftCompanion.removeTrophyDeck(deck.id));
+    });
+    row.append(copy, remove);
+    list.append(row);
+  }
+  if (!manualDecks.length) list.append(element('p', 'corpus-manual-empty', 'No pasted decks yet. Copy a complete deck from a 17Lands trophy page to begin building the local library.'));
+  hydrateIcons(list);
+}
+
+function openCorpusManager() {
+  seedCorpusForm();
+  renderCorpusManager();
+  setCorpusEntryMessage('A complete main deck must contain at least 40 cards.');
+  const dialog = byId('corpus-dialog');
+  if (!dialog.open) dialog.showModal();
+  byId('corpus-deck-text').focus();
+}
+
+async function savePastedTrophyDeck() {
+  const button = byId('corpus-save');
+  button.disabled = true;
+  setCorpusEntryMessage('Validating deck and trophy record…');
+  try {
+    const next = await window.draftCompanion.addTrophyDeck({
+      setCode: byId('corpus-set-code').value,
+      format: byId('corpus-format').value,
+      record: byId('corpus-record').value,
+      eventDate: byId('corpus-event-date').value,
+      archetype: byId('corpus-archetype').value,
+      rank: byId('corpus-rank').value,
+      sourceUrl: byId('corpus-source-url').value,
+      deckText: byId('corpus-deck-text').value
+    });
+    model = next;
+    render();
+    byId('corpus-record').value = '';
+    byId('corpus-archetype').value = '';
+    byId('corpus-rank').value = '';
+    byId('corpus-source-url').value = '';
+    byId('corpus-deck-text').value = '';
+    setCorpusEntryMessage('Trophy deck saved to the local corpus.', 'success');
+  } catch (error) {
+    setCorpusEntryMessage(error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderDecision() {
@@ -79,10 +222,90 @@ function renderDecision() {
   setText('format-pill', String(model.draft.format || 'DRAFT').toUpperCase());
 }
 
+function renderLane() {
+  const lane = model.draftLane || {};
+  const card = byId('lane-card');
+  const inferredStatus = lane.automatic?.status || lane.status;
+  const visible = lane.manual || ['leaning', 'committed'].includes(inferredStatus);
+  card.hidden = !visible;
+  if (!visible) {
+    laneMenuOpen = false;
+    return;
+  }
+
+  const stayingOpen = lane.mode === 'stay-open';
+  const statusLabel = stayingOpen
+    ? 'STAYING OPEN'
+    : lane.status === 'locked'
+      ? 'LOCKED'
+      : lane.status === 'committed'
+        ? 'COMMITTED'
+        : 'LEANING';
+  const detail = stayingOpen
+    ? `Watching ${lane.label} signals without restricting the pack`
+    : lane.mode === 'lock-no-splash'
+      ? 'No splash · off-color cards are gated'
+      : lane.mode === 'lock-splash'
+        ? 'Locked · premium light splashes remain eligible'
+        : lane.status === 'committed'
+          ? 'Lane established · contextual ranking now works within it'
+          : 'Likely lane · lock it manually when you are ready';
+  card.className = `lane-card status-${lane.status || 'open'} mode-${lane.mode || 'auto'} ${laneMenuOpen ? 'menu-open' : ''}`;
+  setText('lane-status', statusLabel);
+  setText('lane-label', stayingOpen ? 'Signals unlocked' : lane.label);
+  setText('lane-detail', detail);
+  setText('lane-confidence', `${lane.confidence ?? 0}%`);
+  setIcon(byId('lane-glyph'), lane.status === 'locked' ? 'lock-keyhole' : lane.status === 'committed' ? 'scan-search' : 'unlock');
+  setText('lane-lock-name', `Lock in ${lane.label}`);
+  setText('lane-splash-name', `Lock in ${lane.label}`);
+  byId('lane-menu').hidden = !laneMenuOpen;
+  byId('lane-summary').setAttribute('aria-expanded', String(laneMenuOpen));
+  byId('lane-resume-auto').hidden = !lane.manual;
+  for (const option of document.querySelectorAll('[data-lane-mode]')) {
+    const active = lane.mode === option.dataset.laneMode;
+    option.classList.toggle('active', active);
+    option.setAttribute('aria-pressed', String(active));
+  }
+}
+
+function activeRecommendations() {
+  if (rankingMode === 'raw') {
+    return [...model.recommendations].sort((left, right) => left.rawRank - right.rawRank);
+  }
+  return model.recommendations;
+}
+
 function chosenCard() {
-  return model.recommendations.find((card) => card.name === selectedName && card.eligible)
-    || model.recommendations.find((card) => card.eligible)
+  const cards = activeRecommendations();
+  return cards.find((card) => card.name === selectedName && card.eligible)
+    || cards.find((card) => card.eligible)
     || null;
+}
+
+function rawReasons(card) {
+  if (card.dataScore === null || card.dataScore === undefined) return ['No usable imported in-hand data'];
+  const reasons = [];
+  if (card.metrics.seventeenLands?.gihWinRate !== null && card.metrics.seventeenLands?.gihWinRate !== undefined) {
+    reasons.push(`17L ${percent(card.metrics.seventeenLands.gihWinRate)} GIH`);
+  }
+  if (card.metrics.untapped?.inHandWinRate !== null && card.metrics.untapped?.inHandWinRate !== undefined) {
+    reasons.push(`Untapped ${percent(card.metrics.untapped.inHandWinRate)} in-hand`);
+  }
+  reasons.push(`${card.metrics.confidence || 0}% sample confidence`);
+  if (card.contextualRank !== card.rawRank) reasons.push(`Context moves this to #${card.contextualRank}`);
+  return reasons;
+}
+
+function renderRankingLens() {
+  const raw = rankingMode === 'raw';
+  setText('ranking-lens-title', raw ? 'Raw, in-a-vacuum ranking' : 'Contextual recommendation');
+  setText('ranking-lens-detail', raw
+    ? 'Confidence-adjusted 17Lands and Untapped results only. Your lane and pool are ignored.'
+    : 'Manual lane choice, active pool, curve, synergy, duplicates, and trophy patterns.');
+  for (const [id, active] of [['ranking-contextual', !raw], ['ranking-raw', raw]]) {
+    byId(id).classList.toggle('active', active);
+    byId(id).setAttribute('aria-pressed', String(active));
+  }
 }
 
 function renderHero() {
@@ -93,25 +316,39 @@ function renderHero() {
     setText('hero-name', 'Waiting for a draft pack');
     setText('hero-type', 'Arena draft events will appear here.');
     configureImpactFlag(byId('hero-impact-flag'), null);
+    configureOutlookFlag(byId('hero-outlook-flag'), null);
     return;
   }
-  const rank = model.recommendations.findIndex((entry) => entry.name === card.name) + 1;
+  const rank = rankingMode === 'raw' ? card.rawRank : card.contextualRank;
   const isTop = rank === 1;
   setText('hero-rank-label', isTop ? 'PICK' : `#${rank}`);
-  setText('hero-kicker', isTop ? 'TOP RECOMMENDATION' : 'INSPECTING RANKED CARD');
-  setText('hero-score', card.score.toFixed(1));
+  setText('hero-kicker', isTop
+    ? (rankingMode === 'raw' ? 'TOP RAW CARD' : (card.pickOutlook?.fallback ? 'BEST AVAILABLE FALLBACK' : 'TOP CONTEXTUAL PICK'))
+    : (rankingMode === 'raw' ? 'INSPECTING RAW RANK' : 'INSPECTING CONTEXTUAL RANK'));
+  setText('hero-score', Number(rankingMode === 'raw' ? card.dataScore : card.score).toFixed(1));
+  setText('hero-score-label', rankingMode === 'raw' ? 'RAW SCORE' : 'CONTEXT SCORE');
   setText('hero-name', card.name);
   setText('hero-mana', compactMana(card.manaCost));
   setText('hero-type', card.typeLine || `Arena ID ${card.grpId}`);
   setText('hero-17', percent(card.metrics.seventeenLands?.gihWinRate));
   setText('hero-ut', percent(card.metrics.untapped?.inHandWinRate));
-  setText('hero-delta', signed(card.philosophyDelta));
-  byId('hero-delta').style.color = card.philosophyDelta >= 0 ? 'var(--green)' : 'var(--red)';
+  if (rankingMode === 'raw') {
+    setText('hero-adjust-label', 'CONTEXT RANK · SCORE');
+    setText('hero-delta', `#${card.contextualRank} · ${card.score.toFixed(1)}`);
+    byId('hero-delta').style.color = 'var(--violet)';
+  } else {
+    setText('hero-adjust-label', 'RAW RANK · SCORE');
+    setText('hero-delta', `#${card.rawRank} · ${card.dataScore.toFixed(1)}`);
+    byId('hero-delta').style.color = 'var(--cyan)';
+  }
   configureImpactFlag(byId('hero-impact-flag'), card);
+  configureOutlookFlag(byId('hero-outlook-flag'), card);
 
   const reasons = byId('hero-reasons');
   reasons.replaceChildren();
-  for (const reason of card.reasons.slice(0, 4)) reasons.append(element('span', 'reason-chip', reason));
+  const activeReasons = rankingMode === 'raw' ? rawReasons(card) : card.reasons;
+  if (rankingMode === 'contextual' && card.pickOutlook) reasons.append(element('span', 'reason-chip outlook-reason', card.pickOutlook.detail));
+  for (const reason of activeReasons.slice(0, 4)) reasons.append(element('span', 'reason-chip', reason));
 }
 
 function sourceStat(label, value, className) {
@@ -130,11 +367,13 @@ function renderRanking() {
   setText('coverage-gate-message', model.recommendationGate.message);
   setText('coverage-gate-count', `${model.recommendationGate.coveredByBoth} / ${model.recommendationGate.total}`);
   setText('list-title', ready ? 'PACK RANKING' : 'PACK CONTENTS');
-  setText('list-context', ready ? 'DATA + YOUR RULES' : 'UNRANKED · MISSING DATA');
+  setText('list-context', ready
+    ? (rankingMode === 'raw' ? 'IN A VACUUM' : 'LANE + ACTIVE POOL')
+    : 'UNRANKED · MISSING DATA');
   byId('empty-pack').hidden = hasCards;
   document.querySelector('.list-heading').hidden = !hasCards;
 
-  model.recommendations.forEach((card, index) => {
+  activeRecommendations().forEach((card, index) => {
     const impactKind = card.metrics.impactFlag?.kind || '';
     const row = element('article', `rank-row ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
     row.tabIndex = 0;
@@ -147,7 +386,13 @@ function renderRanking() {
       configureImpactFlag(flag, card, true);
       title.append(flag);
     }
-    copy.append(title, element('span', 'rank-card-detail', `${compactMana(card.manaCost)} · ${card.reasons[0] || card.typeLine || 'No source row'}`));
+    if (rankingMode === 'contextual' && card.pickOutlook?.fallback) {
+      const flag = element('span', 'outlook-flag');
+      configureOutlookFlag(flag, card, true);
+      title.append(flag);
+    }
+    const detail = rankingMode === 'raw' ? rawReasons(card)[0] : card.reasons[0];
+    copy.append(title, element('span', 'rank-card-detail', `${compactMana(card.manaCost)} · ${detail || card.typeLine || 'No source row'}`));
     row.append(copy);
     const sources = element('div', 'rank-sources');
     sources.append(
@@ -155,9 +400,13 @@ function renderRanking() {
       sourceStat('UT', card.metrics.untapped?.inHandWinRate, 'ut')
     );
     row.append(sources);
-    const score = element('strong', `rank-score ${card.eligible ? '' : 'unranked-score'}`, card.eligible ? card.score.toFixed(1) : '—');
-    score.append(element('small', '', card.isBasicLand ? 'BASIC' : (card.eligible ? `${signed(card.philosophyDelta)} φ` : 'NO DATA')));
-    row.append(score);
+    const scores = element('div', `rank-dual-scores ${card.eligible ? '' : 'unranked-score'}`);
+    const contextScore = element('span', `rank-lens-score contextual ${rankingMode === 'contextual' ? 'active' : ''}`);
+    contextScore.append(element('small', '', `CTX #${card.contextualRank}`), element('strong', '', card.eligible ? card.score.toFixed(1) : '—'));
+    const rawScore = element('span', `rank-lens-score raw ${rankingMode === 'raw' ? 'active' : ''}`);
+    rawScore.append(element('small', '', `RAW #${card.rawRank}`), element('strong', '', card.dataScore === null ? '—' : card.dataScore.toFixed(1)));
+    scores.append(contextScore, rawScore);
+    row.append(scores);
     const select = () => { selectedName = card.name; renderHero(); renderRanking(); };
     row.addEventListener('click', select);
     row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') select(); });
@@ -165,19 +414,52 @@ function renderRanking() {
   });
 }
 
-function renderPhilosophy() {
-  for (const input of document.querySelectorAll('[data-setting]')) {
-    const value = model.philosophy[input.dataset.setting];
-    if (document.activeElement !== input) input.value = value;
-    const output = byId(`${input.dataset.setting}-output`);
-    output.textContent = input.dataset.setting === 'sourceBalance' ? `17L ${value} · UT ${100 - value}` : value;
+function normalizedCardName(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .replace(/[’‘]/g, "'")
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function poolManaValue(card) {
+  const tokens = String(card.manaCost || '').match(/\{([^}]+)\}/g) || [];
+  return tokens.reduce((total, token) => {
+    const value = token.slice(1, -1);
+    if (/^\d+$/.test(value)) return total + Number(value);
+    if (/^[XYZ]$/.test(value)) return total;
+    return total + 1;
+  }, 0);
+}
+
+function groupedPoolCards() {
+  const groups = new Map();
+  for (const original of model.draft.pool) {
+    const key = normalizedCardName(original.name);
+    const quantity = Math.max(1, Number(original.quantity) || 1);
+    const existing = groups.get(key);
+    if (existing) existing.quantity += quantity;
+    else groups.set(key, { ...enrichedCard(original), quantity, key });
   }
+  const arenaOrder = new Map(sortArenaCards([...groups.values()]).map((card, index) => [card.key, index]));
+  return [...groups.values()].sort((left, right) => {
+    const leftLand = /\bLand\b/i.test(left.typeLine || '');
+    const rightLand = /\bLand\b/i.test(right.typeLine || '');
+    if (leftLand !== rightLand) return leftLand ? 1 : -1;
+    return poolManaValue(left) - poolManaValue(right)
+      || (arenaOrder.get(left.key) || 0) - (arenaOrder.get(right.key) || 0)
+      || left.name.localeCompare(right.name);
+  });
 }
 
 function renderPool() {
   const summary = model.poolSummary;
   setText('pool-total', summary.total);
+  setText('pool-drafted-total', summary.draftedTotal);
   setText('creature-total', summary.creatures);
+  setText('pool-excluded-total', summary.excludedTotal);
 
   const pips = byId('color-pips');
   pips.replaceChildren();
@@ -199,7 +481,24 @@ function renderPool() {
   const pool = byId('pool-list');
   pool.replaceChildren();
   if (!model.draft.pool.length) pool.append(element('span', 'pool-empty', 'Your picks will collect here.'));
-  for (const card of model.draft.pool.slice(-5).reverse()) pool.append(element('span', 'pool-chip', card.name));
+  const excludedNames = new Set(model.poolPlan?.excludedNames || []);
+  for (const card of groupedPoolCards()) {
+    const excluded = excludedNames.has(card.key);
+    const land = /\bLand\b/i.test(card.typeLine || '');
+    const row = element('article', `pool-deck-row tone-${cardTone(card, land)} ${excluded ? 'excluded' : ''}`);
+    applyDeckManaStyle(row, card, land);
+    const quantity = element('span', 'pool-card-quantity', `${card.quantity}×`);
+    const copy = element('span', 'pool-card-copy');
+    copy.append(element('strong', '', card.name), element('small', '', `${compactMana(card.manaCost)}${card.typeLine ? ` · ${card.typeLine}` : ''}`));
+    const toggle = element('button', `pool-card-toggle ${excluded ? 'restore' : ''}`);
+    toggle.type = 'button';
+    toggle.title = excluded ? 'Return this card to the active pool' : 'Exclude this card from recommendations and deck builds';
+    toggle.setAttribute('aria-pressed', String(excluded));
+    toggle.append(iconElement(excluded ? 'eye' : 'eye-off'), element('span', '', excluded ? 'IN' : 'OUT'));
+    toggle.addEventListener('click', () => updateFrom(() => window.draftCompanion.setPoolCardExcluded(card.name, !excluded)));
+    row.append(quantity, copy, toggle);
+    pool.append(row);
+  }
   byId('next-demo').hidden = model.status?.kind !== 'demo';
 }
 
@@ -211,19 +510,20 @@ function chosenBuild() {
 function renderView() {
   const compact = Boolean(model.arena?.compactBuildMode);
   if (compact && activeView !== 'build') {
-    lastFullView = activeView;
     activeView = 'build';
   } else if (!compact && activeView === 'build') {
-    activeView = lastFullView || 'decks';
+    activeView = 'decks';
   }
   document.body.classList.toggle('build-mode', compact);
   byId('draft-view').hidden = activeView !== 'draft';
   byId('deck-view').hidden = activeView !== 'decks';
+  byId('play-view').hidden = activeView !== 'play';
   byId('build-view').hidden = activeView !== 'build';
   byId('show-draft').classList.toggle('active', activeView === 'draft');
   byId('show-decks').classList.toggle('active', activeView === 'decks');
-  byId('show-build').classList.toggle('active', activeView === 'build');
+  byId('show-play').classList.toggle('active', activeView === 'play');
   setText('deck-ready-count', (model.deckBuilds || []).length);
+  setText('play-count', (model.review?.reviews || []).length);
 }
 
 function hashString(value) {
@@ -283,7 +583,11 @@ function recipeDetail(task) {
 function recipeQueueRow(task, state, index, current) {
   const status = state.done.has(task.id) ? 'done' : state.skipped.has(task.id) ? 'skipped' : task.id === current?.id ? 'current' : '';
   const row = element('article', `recipe-queue-row ${task.kind} ${status}`);
-  row.append(element('span', 'recipe-queue-index', status === 'done' ? '✓' : status === 'skipped' ? '—' : String(index + 1).padStart(2, '0')));
+  const marker = element('span', 'recipe-queue-index');
+  if (status === 'done') marker.append(iconElement('check'));
+  else if (status === 'skipped') marker.append(iconElement('skip-forward'));
+  else marker.textContent = String(index + 1).padStart(2, '0');
+  row.append(marker);
   const copy = element('span', 'recipe-queue-copy');
   copy.append(element('b', '', task.card.name), element('small', '', `${task.phase} · ${task.kind === 'cut' ? '0' : task.target} TARGET`));
   row.append(copy, element('strong', 'recipe-queue-target', task.kind === 'cut' ? 'REMOVE' : `${task.target}×`));
@@ -293,10 +597,10 @@ function recipeQueueRow(task, state, index, current) {
 async function copyRecipeSearch(task) {
   if (!task) return;
   await window.draftCompanion.copySearch(task.card.name);
-  const button = byId('recipe-copy');
-  button.textContent = 'COPIED';
+  const label = byId('recipe-copy-label');
+  label.textContent = 'COPIED';
   clearTimeout(recipeCopyTimer);
-  recipeCopyTimer = setTimeout(() => { button.textContent = 'COPY SEARCH'; }, 900);
+  recipeCopyTimer = setTimeout(() => { label.textContent = 'COPY SEARCH'; }, 900);
 }
 
 async function advanceRecipe(status = 'done') {
@@ -382,7 +686,7 @@ function renderBuildOverlay() {
     setText('recipe-quantity', recipe.current.target);
     setText('recipe-card-name', recipe.current.card.name);
     setText('recipe-card-detail', recipeDetail(recipe.current));
-    setText('recipe-next', remaining === 1 ? 'DONE' : 'DONE + NEXT');
+    setText('recipe-next-label', remaining === 1 ? 'DONE' : 'DONE + NEXT');
   } else {
     const skipped = recipe.tasks.filter((task) => recipe.state.skipped.has(task.id)).length;
     byId('recipe-complete').querySelector('p').textContent = skipped
@@ -393,10 +697,15 @@ function renderBuildOverlay() {
   const list = byId('recipe-queue-list');
   list.replaceChildren();
   recipe.tasks.forEach((task, index) => list.append(recipeQueueRow(task, recipe.state, index, recipe.current)));
+  hydrateIcons(list);
 }
 
 function cardColorSymbols(card, land = false) {
   const symbols = land ? [...(card.colors || [])] : (String(card.manaCost || '').match(/[WUBRG]/g) || []);
+  if (land && !symbols.length) {
+    const manaAbilities = (String(card.rulesText || '').match(/\bAdd\b[^.\n]*/gi) || []).join(' ');
+    symbols.push(...(manaAbilities.match(/[WUBRG]/g) || []));
+  }
   const basicColor = { Plains: 'W', Island: 'U', Swamp: 'B', Mountain: 'R', Forest: 'G' }[card.name];
   if (!symbols.length && basicColor) symbols.push(basicColor);
   return [...new Set(symbols)];
@@ -410,13 +719,13 @@ function cardTone(card, land = false) {
 
 function cardGlyph(card, land = false) {
   const type = String(card.typeLine || '');
-  if (land || /\bLand\b/i.test(type)) return '◆';
-  if (/\bCreature\b/i.test(type)) return '✦';
-  if (/\bInstant\b/i.test(type)) return '↯';
-  if (/\bSorcery\b/i.test(type)) return '◈';
-  if (/\bArtifact\b/i.test(type)) return '⬡';
-  if (/\bEnchantment\b/i.test(type)) return '✧';
-  return '◇';
+  if (land || /\bLand\b/i.test(type)) return 'mountain';
+  if (/\bCreature\b/i.test(type)) return 'paw-print';
+  if (/\bInstant\b/i.test(type)) return 'zap';
+  if (/\bSorcery\b/i.test(type)) return 'scroll-text';
+  if (/\bArtifact\b/i.test(type)) return 'anvil';
+  if (/\bEnchantment\b/i.test(type)) return 'sparkles';
+  return 'diamond';
 }
 
 function applyDeckManaStyle(tile, card, land = false) {
@@ -461,7 +770,7 @@ function previewCard(card, land = false) {
   preview.className = `preview-card tone-${tone}`;
   setText('preview-card-name', displayCard.name);
   setText('preview-card-mana', land ? (cardColorSymbols(displayCard, true).join('/') || 'LAND') : compactMana(displayCard.manaCost));
-  setText('preview-card-glyph', cardGlyph(displayCard, land));
+  setIcon(byId('preview-card-glyph'), cardGlyph(displayCard, land));
   setText('preview-card-kind', land ? 'LAND' : String(displayCard.typeLine || 'SPELL').split('—')[0].trim().toUpperCase());
   setText('preview-card-type', displayCard.typeLine || (land ? 'Land' : 'Card'));
   setText('preview-card-quantity', `${card.quantity || 1}× IN DECK`);
@@ -527,7 +836,9 @@ function deckBoardCard(card, land = false, index = 0) {
     element('em', 'deck-mini-quantity', `${card.quantity || 1}×`)
   );
   const art = element('div', 'deck-mini-art');
-  art.append(element('span', '', cardGlyph(displayCard, land)), element('small', '', land ? 'LAND' : String(displayCard.typeLine || 'CARD').split('—')[0].trim().toUpperCase()));
+  const typeIcon = element('span', 'deck-mini-type-icon');
+  typeIcon.append(iconElement(cardGlyph(displayCard, land)));
+  art.append(typeIcon, element('small', '', land ? 'LAND' : String(displayCard.typeLine || 'CARD').split('—')[0].trim().toUpperCase()));
   const artUrl = displayCard.scryfall?.imageUris?.artCrop;
   if (artUrl) {
     art.classList.add('has-scryfall-art');
@@ -544,6 +855,24 @@ function deckBoardCard(card, land = false, index = 0) {
   tile.addEventListener('focus', inspect);
   tile.addEventListener('click', inspect);
   return tile;
+}
+
+function resizeDeckBoardCards() {
+  if (deckBoardResizeFrame !== null) cancelAnimationFrame(deckBoardResizeFrame);
+  deckBoardResizeFrame = requestAnimationFrame(() => {
+    deckBoardResizeFrame = null;
+    for (const stack of document.querySelectorAll('.deck-card-stack')) {
+      const width = stack.getBoundingClientRect().width;
+      if (!width) continue;
+      const count = Number(stack.dataset.cardCount || 0);
+      const cardHeight = width * 1.4;
+      const stackStep = Math.max(25, Math.min(42, width * 0.18));
+      const stackHeight = count ? cardHeight + Math.max(0, count - 1) * stackStep : cardHeight;
+      stack.style.setProperty('--deck-card-width', `${width}px`);
+      stack.style.setProperty('--deck-stack-step', `${stackStep}px`);
+      stack.style.height = `${Math.max(176, stackHeight)}px`;
+    }
+  });
 }
 
 function renderDeckBuilder() {
@@ -605,12 +934,13 @@ function renderDeckBuilder() {
     heading.append(element('span', '', bucket.label), element('b', '', total));
     const stack = element('div', 'deck-card-stack');
     const sortedCards = sortArenaCards(bucket.cards.map(enrichedCard), { lands: bucket.land });
-    stack.style.height = `${Math.max(176, 158 + Math.max(0, sortedCards.length - 1) * DECK_STACK_STEP)}px`;
+    stack.dataset.cardCount = String(sortedCards.length);
     sortedCards.forEach((card, index) => stack.append(deckBoardCard(card, bucket.land, index)));
     if (!bucket.cards.length) stack.append(element('span', 'deck-lane-empty', '—'));
     lane.append(heading, stack);
     board.append(lane);
   }
+  resizeDeckBoardCards();
 
   const allCards = [...build.mainDeck.map((card) => ({ card, land: false })), ...build.lands.map((card) => ({ card, land: true }))];
   const preferred = allCards.find((entry) => entry.card.name === previewedCardName) || allCards[0];
@@ -653,6 +983,123 @@ function renderDeckBuilder() {
   }
 }
 
+function renderReviewImpactList(id, cards, emptyText, formatter = null) {
+  const list = byId(id);
+  list.replaceChildren();
+  if (!cards?.length) {
+    list.append(element('span', 'review-list-empty', emptyText));
+    return;
+  }
+  for (const card of cards) {
+    const display = formatter ? formatter(card) : { label: card.label || '', detail: card.detail || '' };
+    const row = element('article', `review-impact-row${display.className ? ` ${display.className}` : ''}`);
+    const heading = element('div');
+    heading.append(element('strong', '', card.name), element('span', '', display.label));
+    row.append(heading, element('p', '', display.detail));
+    list.append(row);
+  }
+}
+
+function varianceLabel(entry) {
+  if (!entry || entry.level === 'LOW') return 'STABLE';
+  return `${entry.level} · ${String(entry.kind || '').toUpperCase()}`;
+}
+
+function renderReview() {
+  const reviewState = model.review || { status: 'off', reviews: [] };
+  const review = reviewState.latest;
+  const recording = review?.status === 'recording';
+  const ignored = Boolean(reviewState.lastIgnored) && !recording;
+  const content = byId('review-content');
+  byId('review-empty').hidden = Boolean(review);
+  content.hidden = !review;
+
+  const pill = byId('review-status-pill');
+  pill.className = `review-status-pill ${recording ? 'recording' : (ignored ? 'waiting' : (review ? 'complete' : 'waiting'))}`;
+  pill.textContent = recording ? 'RECORDING' : (ignored ? 'IGNORED' : (review ? 'COMPLETE' : 'WAITING'));
+
+  if (!review) {
+    setText('review-title', reviewState.message || 'Ready for your next Arena game');
+    setText('review-subtitle', reviewState.lastIgnored
+      ? `${reviewState.lastIgnored.reason} Pick 42 is still waiting for the registered draft deck.`
+      : reviewState.armed
+        ? 'Keep Pick 42 running while you play. Recording begins when Arena starts the next game.'
+      : 'Choose your Arena log to arm post-game review.');
+    return;
+  }
+
+  const result = recording ? 'IN PROGRESS' : (review.won === true ? 'WIN' : (review.won === false ? 'LOSS' : 'COMPLETE'));
+  setText('review-title', recording ? `Recording game ${review.gameNumber}` : `${result} · ${review.deck?.name || 'Limited deck'}`);
+  setText('review-subtitle', recording
+    ? 'Evidence is updating live. The final report will use only facts Arena exposes.'
+    : (ignored
+      ? `${reviewState.lastIgnored.reason} Showing the most recent matching draft game instead.`
+      : `${review.cardsSeenCount} cards were observed across ${review.yourTurnsObserved} of your turns. Hidden opponent cards are excluded.`));
+  setText('review-result', result);
+  setText('review-turns', review.turns || '—');
+  setText('review-seat', review.onPlay === null ? '—' : (review.onPlay ? 'PLAY' : 'DRAW'));
+  setText('review-mulligans', review.mulligans === null || review.mulligans === undefined ? '—' : review.mulligans);
+
+  const analysis = review.postGame || {};
+  const gameShape = analysis.gameShape || {};
+  const shapeStat = byId('review-shape-stat');
+  setText('review-shape', recording ? 'LIVE' : (gameShape.label || 'UNRATED'));
+  shapeStat.className = `review-shape-stat ${recording ? 'live' : (gameShape.tier || 'unrated')}`;
+  shapeStat.title = gameShape.detail || '';
+  const turningPoint = analysis.turningPoint || {};
+  const turningPointCard = byId('review-turning-point-card');
+  turningPointCard.hidden = !turningPoint.detected;
+  if (turningPoint.detected) {
+    setText('review-turning-point-label', turningPoint.label || 'TACTICAL EXPOSURE');
+    setText('review-turning-point-title', turningPoint.title || 'A tactical exposure changed the game');
+    setText('review-turning-point-confidence', turningPoint.confidence || 'HIGH · ACTION AND LETHAL LINE CONFIRMED');
+    setText('review-turning-point-summary', turningPoint.summary || 'The recorded combat action directly opened the immediately following lethal line.');
+    setText('review-turning-point-action', turningPoint.action || 'Treat this as tactical evidence, not proof that the deck failed.');
+  }
+  const variance = analysis.variance || {};
+  const varianceLevel = String(variance.level || 'LOW').toLowerCase();
+  setText('review-variance-title', variance.headline || 'Collecting mana evidence');
+  setText('review-variance-summary', variance.summary || 'Waiting for both players to complete turns.');
+  const variancePill = byId('review-variance-level');
+  variancePill.className = `review-variance-level ${varianceLevel}`;
+  variancePill.textContent = String(variance.level || 'LOW').toUpperCase();
+  setText('review-you-variance', varianceLabel(variance.you));
+  setText('review-you-variance-detail', variance.you?.detail || 'No reliable mana record yet.');
+  setText('review-opponent-variance', varianceLabel(variance.opponent));
+  setText('review-opponent-variance-detail', variance.opponent?.detail || 'No reliable opponent mana record yet.');
+
+  const drawQuality = analysis.drawQuality || {};
+  setText('review-iih-summary', drawQuality.summary || 'Waiting for matching 17Lands IIH data.');
+  setText('review-iih-note', drawQuality.note || 'IIH is historical correlation, not causal credit.');
+  renderReviewImpactList('review-iih-cards', drawQuality.cards, 'No reliable IIH comparison was available.', (card) => ({
+    label: `${card.iih > 0 ? '+' : ''}${Number(card.iih).toFixed(1)}pp IIH`,
+    detail: `${card.category} · ${card.quantity ? `${card.quantity} cop${card.quantity === 1 ? 'y' : 'ies'} observed · ` : ''}${Number(card.gamesInHand || 0).toLocaleString()} games in hand`,
+    className: String(card.category || '').includes('NOT DRAWN')
+      ? 'not-drawn'
+      : (String(card.category || '').includes('LIABILITY') ? 'liability' : 'drawn')
+  }));
+
+  const contributions = analysis.contributions || {};
+  renderReviewImpactList('review-mvp-list', contributions.mvp, contributions.mvpEmpty || 'No evidence-backed MVP yet.');
+  renderReviewImpactList('review-lvp-list', contributions.lvp, contributions.lvpEmpty || 'No evidence-backed LVP.');
+  const verdict = analysis.verdict || {};
+  const series = analysis.series || {};
+  const verdictCard = byId('review-verdict-card');
+  verdictCard.className = `review-card review-verdict-card ${verdict.tone || 'neutral'}`;
+  setText('review-verdict-eyebrow', verdict.scope === 'series' ? 'SERIES VERDICT' : 'GAME VERDICT');
+  setText('review-verdict-label', verdict.label || 'PENDING');
+  setText('review-verdict-title', verdict.title || 'Verdict pending');
+  setText('review-verdict-evidence', verdict.scope === 'series'
+    ? `${series.games} GAMES · ${series.record} · SAME DECK VERSION`
+    : (recording && series.games ? `GAME IN PROGRESS · ${series.games} PRIOR MATCHING GAME${series.games === 1 ? '' : 'S'}` : '1 GAME · CURRENT DECK VERSION'));
+  setText('review-verdict-summary', verdict.summary || 'Waiting for enough evidence.');
+  setText('review-verdict-action', verdict.action || 'Keep playing.');
+  byId('review-disclaimer').replaceChildren(
+    iconElement('shield-check'),
+    element('span', '', 'Pick 42 reports observable evidence and does not assign causal credit from one game.')
+  );
+}
+
 function render() {
   if (!model) return;
   if (model.selectedBuildId && (model.deckBuilds || []).some((build) => build.id === model.selectedBuildId)) selectedBuildId = model.selectedBuildId;
@@ -663,13 +1110,17 @@ function render() {
   if (selectedName && !model.recommendations.some((card) => card.name === selectedName)) selectedName = null;
   renderStatus();
   renderDecision();
+  renderLane();
+  renderRankingLens();
   renderHero();
   renderRanking();
-  renderPhilosophy();
   renderPool();
+  renderCorpusManager();
   renderDeckBuilder();
+  renderReview();
   renderBuildOverlay();
   renderView();
+  hydrateIcons();
 }
 
 async function updateFrom(action) {
@@ -682,32 +1133,63 @@ async function updateFrom(action) {
   }
 }
 
-for (const input of document.querySelectorAll('[data-setting]')) {
-  input.addEventListener('input', () => {
-    const output = byId(`${input.dataset.setting}-output`);
-    output.textContent = input.dataset.setting === 'sourceBalance' ? `17L ${input.value} · UT ${100 - Number(input.value)}` : input.value;
-    clearTimeout(philosophyTimer);
-    philosophyTimer = setTimeout(() => updateFrom(() => window.draftCompanion.updatePhilosophy({ [input.dataset.setting]: Number(input.value) })), 70);
+byId('import-17lands').addEventListener('click', () => updateFrom(() => window.draftCompanion.importSource('seventeenLands')));
+byId('ranking-contextual').addEventListener('click', () => {
+  rankingMode = 'contextual';
+  renderRankingLens();
+  renderHero();
+  renderRanking();
+});
+byId('ranking-raw').addEventListener('click', () => {
+  rankingMode = 'raw';
+  renderRankingLens();
+  renderHero();
+  renderRanking();
+});
+byId('lane-summary').addEventListener('click', () => {
+  laneMenuOpen = !laneMenuOpen;
+  renderLane();
+});
+for (const option of document.querySelectorAll('[data-lane-mode]')) {
+  option.addEventListener('click', () => {
+    laneMenuOpen = false;
+    updateFrom(() => window.draftCompanion.setLanePreference(option.dataset.laneMode));
   });
 }
-
-byId('import-17lands').addEventListener('click', () => updateFrom(() => window.draftCompanion.importSource('seventeenLands')));
+byId('lane-resume-auto').addEventListener('click', () => {
+  laneMenuOpen = false;
+  updateFrom(() => window.draftCompanion.setLanePreference('auto'));
+});
 byId('import-untapped').addEventListener('click', () => updateFrom(() => window.draftCompanion.importSource('untapped')));
+byId('import-archetypes').addEventListener('click', openCorpusManager);
+byId('corpus-close').addEventListener('click', () => byId('corpus-dialog').close());
+byId('corpus-paste').addEventListener('click', async () => {
+  const button = byId('corpus-paste');
+  button.disabled = true;
+  try {
+    const result = await window.draftCompanion.readClipboard();
+    byId('corpus-deck-text').value = result?.text || '';
+    setCorpusEntryMessage(result?.text ? 'Deck list pasted from the clipboard.' : 'The clipboard is empty.', result?.text ? 'success' : 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+byId('corpus-save').addEventListener('click', savePastedTrophyDeck);
+byId('corpus-deck-text').addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') savePastedTrophyDeck();
+});
+byId('corpus-import-file').addEventListener('click', () => updateFrom(() => window.draftCompanion.importArchetypeCorpus()));
 byId('choose-log').addEventListener('click', () => updateFrom(() => window.draftCompanion.chooseLog()));
 byId('restart-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
 byId('empty-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
 byId('next-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.advanceDemo()));
 byId('show-draft').addEventListener('click', () => { activeView = 'draft'; renderView(); });
 byId('show-decks').addEventListener('click', () => { activeView = 'decks'; renderView(); });
-byId('show-build').addEventListener('click', () => {
-  lastFullView = activeView === 'build' ? 'decks' : activeView;
-  updateFrom(() => window.draftCompanion.enterBuildMode());
-});
+byId('show-play').addEventListener('click', () => { activeView = 'play'; renderView(); });
 byId('build-expand').addEventListener('click', () => updateFrom(() => window.draftCompanion.exitBuildMode()));
 byId('build-empty-expand').addEventListener('click', () => updateFrom(() => window.draftCompanion.exitBuildMode()));
 byId('build-minimize').addEventListener('click', () => window.draftCompanion.minimize());
-byId('deck-recipe-button').addEventListener('click', () => {
-  lastFullView = activeView === 'build' ? 'decks' : activeView;
+byId('deck-side-panel-button').addEventListener('click', () => {
   updateFrom(() => window.draftCompanion.enterBuildMode());
 });
 byId('build-reset').addEventListener('click', () => {
@@ -726,10 +1208,10 @@ byId('recipe-undo').addEventListener('click', () => undoRecipe());
 byId('preview-copy-name').addEventListener('click', async () => {
   if (!previewedCardName) return;
   await window.draftCompanion.copySearch(previewedCardName);
-  const button = byId('preview-copy-name');
-  button.textContent = 'COPIED';
+  const label = byId('preview-copy-name-label');
+  label.textContent = 'COPIED';
   clearTimeout(previewCopyTimer);
-  previewCopyTimer = setTimeout(() => { button.textContent = 'COPY NAME'; }, 900);
+  previewCopyTimer = setTimeout(() => { label.textContent = 'COPY NAME'; }, 900);
 });
 byId('minimize-button').addEventListener('click', () => window.draftCompanion.minimize());
 byId('close-button').addEventListener('click', () => window.draftCompanion.close());
@@ -746,5 +1228,7 @@ window.draftCompanion.onRecipeCommand((command) => {
 window.draftCompanion.bootstrap().then((initial) => {
   model = initial;
   render();
+  deckBoardResizeObserver = new ResizeObserver(resizeDeckBoardCards);
+  deckBoardResizeObserver.observe(byId('deck-columns'));
   window.draftCompanion.onState((next) => { model = next; render(); });
 });

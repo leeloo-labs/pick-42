@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DraftLogParser } = require('../src/draft/draft-log-parser.cjs');
+const { buildLimitedDecks } = require('../src/draft/deck-builder.cjs');
 
 const root = path.resolve(__dirname, '..');
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'fixtures', 'demo-draft-cards.json'), 'utf8'));
@@ -34,6 +35,8 @@ test('recognizes zero-based Quick Draft status payloads', () => {
   const state = parser.snapshot();
 
   assert.equal(state.draftId, 'QuickDraft_HOB_20260820');
+  assert.equal(state.courseId, null);
+  assert.equal(state.eventName, 'QuickDraft_HOB_20260820');
   assert.equal(state.format, 'Quick Draft');
   assert.equal(state.setCode, 'HOB');
   assert.equal(state.packNumber, 1);
@@ -62,6 +65,96 @@ test('does not treat changing RPC request ids as new drafts', () => {
   const state = parser.snapshot();
 
   assert.equal(state.draftId, 'QuickDraft_HOB_20260820');
+  assert.equal(state.courseId, null);
+  assert.equal(state.eventName, 'QuickDraft_HOB_20260820');
   assert.deepEqual(state.pool.map((card) => card.name), ['Fíli the Pathfinder']);
   assert.deepEqual(state.pack.map((card) => card.name), ['Gollum, Riddle Master']);
+});
+
+test('restores the completed pool when a saved draft is reopened', () => {
+  const parser = new DraftLogParser({ catalog });
+  const log = fs.readFileSync(path.join(root, 'fixtures', 'completed-draft-reopen.log'), 'utf8');
+  parser.feed(log);
+  const state = parser.snapshot();
+
+  assert.equal(state.draftId, 'sanitized-quick-course');
+  assert.equal(state.courseId, 'sanitized-quick-course');
+  assert.equal(state.eventName, 'QuickDraft_HOB_20260820');
+  assert.equal(state.format, 'Quick Draft');
+  assert.equal(state.setCode, 'HOB');
+  assert.equal(state.packNumber, 3);
+  assert.equal(state.pickNumber, 14);
+  assert.deepEqual(state.pack, []);
+  assert.equal(state.pool.length, 42);
+  assert.deepEqual(state.pool.slice(0, 3).map((card) => card.name), [
+    'Fíli the Pathfinder',
+    'Kíli the Resourceful',
+    'Gollum, Riddle Master'
+  ]);
+  assert.equal(buildLimitedDecks({ pool: state.pool }).length, 3);
+});
+
+test('restores the exact registered Arena course deck when it is present', () => {
+  const parser = new DraftLogParser({ catalog });
+  parser.feed(JSON.stringify({
+    Courses: [{
+      CourseId: 'sanitized-course',
+      InternalEventName: 'QuickDraft_HOB_20260820',
+      CurrentModule: 'CreateMatch',
+      CardPool: [103382, 103385, 103444],
+      CourseDeck: {
+        MainDeck: [
+          { cardId: 103382, quantity: 2 },
+          { cardId: 103385, quantity: 1 }
+        ],
+        Sideboard: [{ cardId: 103444, quantity: 1 }]
+      }
+    }]
+  }));
+
+  const state = parser.snapshot();
+  assert.deepEqual(state.arenaDeck.mainDeck.map((card) => [card.name, card.quantity]), [
+    ['Fíli the Pathfinder', 2],
+    ['Kíli the Resourceful', 1]
+  ]);
+  assert.deepEqual(state.arenaDeck.sideboard.map((card) => [card.name, card.quantity]), [
+    ['Gollum, Riddle Master', 1]
+  ]);
+});
+
+test('selects the newest course when consecutive drafts reuse the same event name', () => {
+  const parser = new DraftLogParser({ catalog });
+  const oldPool = Array.from({ length: 42 }, (_, index) => index % 2 ? 103382 : 103385);
+  const newPool = Array.from({ length: 42 }, (_, index) => index % 3 ? 103397 : 103489);
+
+  parser.feed(JSON.stringify({
+    Courses: [
+      {
+        CourseId: 'older-course',
+        InternalEventName: 'QuickDraft_HOB_20260820',
+        CurrentModule: 'Complete',
+        CardPool: oldPool,
+        CourseDeck: { MainDeck: [{ cardId: 103382, quantity: 20 }] }
+      },
+      {
+        CourseId: 'newest-course',
+        InternalEventName: 'QuickDraft_HOB_20260820',
+        CurrentModule: 'DeckSelect',
+        CardPool: newPool
+      }
+    ]
+  }));
+
+  const state = parser.snapshot();
+  assert.equal(state.draftId, 'newest-course');
+  assert.equal(state.courseId, 'newest-course');
+  assert.equal(state.eventName, 'QuickDraft_HOB_20260820');
+  assert.deepEqual(state.pool.slice(0, 4).map((card) => card.name), [
+    'Smaug the Magnificent',
+    'An Unexpected Party',
+    'An Unexpected Party',
+    'Smaug the Magnificent'
+  ]);
+  assert.deepEqual(state.arenaDeck.mainDeck, []);
+  assert.deepEqual(state.arenaDeck.sideboard, []);
 });

@@ -102,7 +102,7 @@ function createWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     hasShadow: false,
     skipTaskbar: true,
@@ -115,10 +115,6 @@ function createWindow() {
     }
   });
 
-  overlayWindow.setAlwaysOnTop(true, process.platform === 'darwin' ? 'floating' : 'screen-saver');
-  if (process.platform === 'darwin') {
-    overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  }
   positionOverlay();
   overlayWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   overlayWindow.webContents.on('did-finish-load', () => {

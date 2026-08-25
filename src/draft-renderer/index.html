@@ -16,18 +16,19 @@
           <span>DRAFT COMPANION</span>
         </div>
         <nav class="view-switch" aria-label="Companion view">
-          <button id="show-draft" class="view-button active">DRAFT</button>
-          <button id="show-decks" class="view-button">DECKS <span id="deck-ready-count">0</span></button>
-          <button id="show-build" class="view-button build-button">BUILD</button>
+          <button id="show-draft" class="view-button active"><i data-lucide="drafting-compass"></i><span class="view-button-label">DRAFT</span></button>
+          <button id="show-decks" class="view-button"><i data-lucide="layers-3"></i><span class="view-button-label">DECKS</span><span id="deck-ready-count" class="view-count">0</span></button>
+          <button id="show-play" class="view-button"><i data-lucide="swords"></i><span class="view-button-label">PLAY</span><span id="play-count" class="view-count">0</span></button>
         </nav>
         <div class="source-actions">
-          <button id="import-17lands" class="source-button"><b>17L</b><span id="source-17-label">Sample loaded</span></button>
-          <button id="import-untapped" class="source-button"><b>UT</b><span id="source-ut-label">Sample loaded</span></button>
-          <button id="choose-log" class="source-button log"><b>LOG</b><span>Arena</span></button>
+          <button id="import-17lands" class="source-button"><i data-lucide="chart-no-axes-column-increasing"></i><span class="source-button-copy"><b>17L</b><small id="source-17-label">Sample loaded</small></span></button>
+          <button id="import-untapped" class="source-button"><i data-lucide="chart-spline"></i><span class="source-button-copy"><b>UT</b><small id="source-ut-label">Sample loaded</small></span></button>
+          <button id="import-archetypes" class="source-button meta"><i data-lucide="trophy"></i><span class="source-button-copy"><b>META</b><small id="source-meta-label">Import corpus</small></span></button>
+          <button id="choose-log" class="source-button log"><i data-lucide="file-search"></i><span class="source-button-copy"><b>LOG</b><small>Arena</small></span></button>
         </div>
         <div class="window-actions">
-          <button id="minimize-button" class="icon-button" aria-label="Minimize">—</button>
-          <button id="close-button" class="icon-button" aria-label="Close">×</button>
+          <button id="minimize-button" class="icon-button" aria-label="Minimize"><i data-lucide="minus"></i></button>
+          <button id="close-button" class="icon-button" aria-label="Close"><i data-lucide="x"></i></button>
         </div>
       </header>
 
@@ -36,21 +37,72 @@
         <span id="status-message">Starting draft companion</span>
         <span class="status-spacer"></span>
         <span id="coverage-label" class="coverage-label">0 / 0 cards covered by both sources</span>
-        <button id="restart-demo" class="quiet-button">RESET SAMPLE</button>
+        <button id="restart-demo" class="quiet-button"><i data-lucide="rotate-ccw"></i><span>RESET SAMPLE</span></button>
       </div>
 
       <main id="draft-view" class="workspace">
         <section class="recommendations-panel">
           <header class="decision-heading">
             <div>
-              <span class="eyebrow">CURRENT DECISION</span>
+              <span class="eyebrow icon-label"><i data-lucide="crosshair"></i>CURRENT DECISION</span>
               <h1><span id="set-name">HOB</span> <em>·</em> Pack <span id="pack-number">1</span>, Pick <span id="pick-number">1</span></h1>
             </div>
             <div id="format-pill" class="format-pill">PLAYER DRAFT</div>
           </header>
 
+          <article id="lane-card" class="lane-card" hidden>
+            <button id="lane-summary" class="lane-summary" type="button" aria-expanded="false">
+              <span id="lane-glyph" class="lane-glyph" aria-hidden="true"><i data-lucide="scan-search"></i></span>
+              <span class="lane-summary-copy">
+                <span id="lane-status" class="eyebrow violet">LEANING</span>
+                <strong id="lane-label">Boros Dwarves</strong>
+                <small id="lane-detail">Pick 42 sees a likely lane · click to choose</small>
+              </span>
+              <span id="lane-confidence" class="lane-confidence">72%</span>
+              <i class="lane-caret" data-lucide="chevron-down" aria-hidden="true"></i>
+            </button>
+            <div id="lane-menu" class="lane-menu" hidden>
+              <header>
+                <div>
+                  <span class="eyebrow">LANE COMMITMENT</span>
+                  <p>Your manual lane choice is the draft policy. You can change it any time.</p>
+                </div>
+                <button id="lane-resume-auto" class="lane-auto-button" type="button"><i data-lucide="rotate-ccw"></i><span>RESUME AUTO</span></button>
+              </header>
+              <div class="lane-options">
+                <button class="lane-option" data-lane-mode="lock-no-splash" type="button">
+                  <span class="lane-option-mark"><i data-lucide="lock-keyhole"></i></span>
+                  <span><strong id="lane-lock-name">Lock in Boros Dwarves</strong><small>No splash · reject ordinary off-color cards</small></span>
+                  <span class="lane-option-check"><i data-lucide="check"></i></span>
+                </button>
+                <button class="lane-option" data-lane-mode="lock-splash" type="button">
+                  <span class="lane-option-mark split"><i data-lucide="sparkles"></i></span>
+                  <span><strong id="lane-splash-name">Lock in Boros Dwarves</strong><small>Open to a high-value, light splash</small></span>
+                  <span class="lane-option-check"><i data-lucide="check"></i></span>
+                </button>
+                <button class="lane-option" data-lane-mode="stay-open" type="button">
+                  <span class="lane-option-mark open"><i data-lucide="unlock"></i></span>
+                  <span><strong>Stay open</strong><small>Keep interpreting signals without a lane gate</small></span>
+                  <span class="lane-option-check"><i data-lucide="check"></i></span>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <section id="ranking-lens" class="ranking-lens">
+            <div class="ranking-lens-copy">
+              <span class="eyebrow icon-label"><i data-lucide="sliders-horizontal"></i>RANKING VIEW</span>
+              <strong id="ranking-lens-title">Contextual recommendation</strong>
+              <small id="ranking-lens-detail">Lane, active pool, curve, synergy, duplicates, and trophy patterns.</small>
+            </div>
+            <div class="ranking-mode-switch" role="group" aria-label="Ranking view">
+              <button id="ranking-contextual" class="active" type="button" aria-pressed="true"><i data-lucide="sparkles"></i><strong>CONTEXTUAL</strong><small>WHAT TO PICK</small></button>
+              <button id="ranking-raw" type="button" aria-pressed="false"><i data-lucide="chart-no-axes-column-increasing"></i><strong>RAW DATA</strong><small>IN A VACUUM</small></button>
+            </div>
+          </section>
+
           <article id="coverage-gate" class="coverage-gate" hidden>
-            <div class="gate-icon" aria-hidden="true">!</div>
+            <div class="gate-icon" aria-hidden="true"><i data-lucide="triangle-alert"></i></div>
             <div>
               <span class="eyebrow">SOURCE CHECK</span>
               <h2>Recommendations paused</h2>
@@ -63,12 +115,15 @@
             <div class="hero-rank">
               <span id="hero-rank-label">PICK</span>
               <strong id="hero-score">—</strong>
-              <small>PICK 42 SCORE</small>
+              <small id="hero-score-label">CONTEXT SCORE</small>
             </div>
             <div class="hero-copy">
               <div class="hero-kicker-line">
                 <span id="hero-kicker" class="eyebrow violet">TOP RECOMMENDATION</span>
-                <span id="hero-impact-flag" class="impact-flag" hidden></span>
+                <span class="hero-flags">
+                  <span id="hero-outlook-flag" class="outlook-flag" hidden></span>
+                  <span id="hero-impact-flag" class="impact-flag" hidden></span>
+                </span>
               </div>
               <div class="hero-title-line">
                 <h2 id="hero-name">Waiting for a draft pack</h2>
@@ -89,7 +144,7 @@
                 <small>IN-HAND WR</small>
               </div>
               <div class="metric-foot">
-                <span>PHILOSOPHY</span>
+                <span id="hero-adjust-label">CONTEXT ADJUST</span>
                 <strong id="hero-delta">—</strong>
               </div>
             </div>
@@ -101,80 +156,30 @@
           </div>
           <div id="ranking-list" class="ranking-list"></div>
           <div id="empty-pack" class="empty-state" hidden>
-            <span>◇</span>
+            <span><i data-lucide="package-open"></i></span>
             <h3>No active draft pack</h3>
             <p>Choose Player.log or load the sample pack.</p>
-            <button id="empty-demo" class="primary-button">LOAD SAMPLE PACK</button>
+            <button id="empty-demo" class="primary-button"><i data-lucide="flask-conical"></i><span>LOAD SAMPLE PACK</span></button>
           </div>
         </section>
 
         <aside class="inspector-panel">
-          <section class="side-card philosophy-card">
-            <header class="side-heading">
-              <div>
-                <span class="eyebrow">YOUR DRAFTING PHILOSOPHY</span>
-                <h2>Stay open, then commit</h2>
-              </div>
-              <span class="live-pill">LIVE</span>
-            </header>
-            <p class="side-intro">Tune the instincts. Rankings recalculate immediately and keep every adjustment visible.</p>
-
-            <label class="slider-row source-slider">
-              <span><b>Source balance</b><output id="sourceBalance-output">17L 55 · UT 45</output></span>
-              <input id="sourceBalance" data-setting="sourceBalance" type="range" min="0" max="100" step="1">
-              <small><i>UNTAPPED</i><i>17LANDS</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Raw power</b><output id="powerPriority-output">82</output></span>
-              <input id="powerPriority" data-setting="powerPriority" type="range" min="0" max="100" step="1">
-              <small><i>CONTEXTUAL</i><i>BEST CARD</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Stay open early</b><output id="stayOpen-output">76</output></span>
-              <input id="stayOpen" data-setting="stayOpen" type="range" min="0" max="100" step="1">
-              <small><i>COMMIT</i><i>FLEXIBLE</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Color discipline</b><output id="colorDiscipline-output">72</output></span>
-              <input id="colorDiscipline" data-setting="colorDiscipline" type="range" min="0" max="100" step="1">
-              <small><i>SPECULATE</i><i>STAY ON-RAILS</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Curve discipline</b><output id="curveDiscipline-output">56</output></span>
-              <input id="curveDiscipline" data-setting="curveDiscipline" type="range" min="0" max="100" step="1">
-              <small><i>POWER</i><i>FILL GAPS</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Signals &amp; urgency</b><output id="signalSensitivity-output">44</output></span>
-              <input id="signalSensitivity" data-setting="signalSensitivity" type="range" min="0" max="100" step="1">
-              <small><i>IGNORE</i><i>READ TABLE</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Synergy requirements</b><output id="synergyPriority-output">90</output></span>
-              <input id="synergyPriority" data-setting="synergyPriority" type="range" min="0" max="100" step="1">
-              <small><i>SPECULATE</i><i>REQUIRE SUPPORT</i></small>
-            </label>
-            <label class="slider-row">
-              <span><b>Premium interaction</b><output id="interactionPriority-output">80</output></span>
-              <input id="interactionPriority" data-setting="interactionPriority" type="range" min="0" max="100" step="1">
-              <small><i>DATA ONLY</i><i>PRIORITIZE REMOVAL</i></small>
-            </label>
-          </section>
-
-          <section class="side-card pool-card">
+          <section class="side-card pool-card expanded">
             <header class="side-heading compact">
               <div>
-                <span class="eyebrow">CURRENT POOL</span>
-                <h2><span id="pool-total">0</span> cards <em>·</em> <span id="creature-total">0</span> creatures</h2>
+                <span class="eyebrow icon-label"><i data-lucide="layers-3"></i>ACTIVE POOL</span>
+                <h2><span id="pool-total">0</span> active <em>·</em> <span id="pool-drafted-total">0</span> drafted</h2>
               </div>
-              <button id="next-demo" class="next-button">NEXT PICK <span>→</span></button>
+              <button id="next-demo" class="next-button"><span>NEXT PICK</span><i data-lucide="arrow-right"></i></button>
             </header>
+            <p class="pool-guidance">Click <b>OUT</b> on cards you do not intend to play. They remain visible but stop affecting recommendations and deck builds.</p>
+            <div class="pool-plan-summary"><span><b id="creature-total">0</b> creatures</span><span><b id="pool-excluded-total">0</b> marked out</span></div>
             <div id="color-pips" class="color-pips"></div>
             <div id="curve-chart" class="curve-chart"></div>
             <div id="pool-list" class="pool-list"><span class="pool-empty">Your picks will collect here.</span></div>
           </section>
 
-          <p class="local-note"><span>⌁</span> Local only. Pick 42 reads Arena's visible draft events and imported files; it does not send picks or access hidden information.</p>
+          <p class="local-note"><i data-lucide="shield-check"></i><span>Local only. Pick 42 reads Arena's visible draft events and imported files; it does not send picks or access hidden information.</span></p>
         </aside>
       </main>
 
@@ -182,17 +187,22 @@
         <section class="deck-panel">
           <header class="deck-heading">
             <div>
-              <span class="eyebrow">LIMITED DECK BUILDER</span>
+              <span class="eyebrow icon-label"><i data-lucide="layout-dashboard"></i>LIMITED DECK BUILDER</span>
               <div class="deck-title-line">
                 <h1 id="deck-name">Waiting for a complete pool</h1>
                 <span id="deck-label" class="format-pill">40 CARDS</span>
-                <button id="deck-recipe-button" class="deck-recipe-button">OPEN RECIPE</button>
               </div>
               <p id="deck-description">Pick 42 will generate color-pair suggestions after enough cards have been drafted.</p>
             </div>
-            <div class="deck-score-block">
-              <span>BUILD SCORE</span>
-              <strong id="deck-score">—</strong>
+            <div class="deck-heading-actions">
+              <button id="deck-side-panel-button" class="deck-side-panel-button" title="Collapse Pick 42 into a compact side panel beside Arena">
+                <i data-lucide="panel-right-close"></i>
+                <span>COLLAPSE TO SIDE PANEL</span>
+              </button>
+              <div class="deck-score-block">
+                <span>BUILD SCORE</span>
+                <strong id="deck-score">—</strong>
+              </div>
             </div>
           </header>
 
@@ -217,7 +227,7 @@
             <div id="deck-columns" class="deck-board"></div>
           </section>
           <div id="deck-empty" class="empty-state deck-empty" hidden>
-            <span>◇</span>
+            <span><i data-lucide="layers-3"></i></span>
             <h3>Keep drafting</h3>
             <p>Deck suggestions unlock when Pick 42 sees at least 23 playable nonbasic cards.</p>
           </div>
@@ -227,10 +237,10 @@
           <section class="side-card card-preview-panel">
             <header class="side-heading compact preview-heading">
               <div>
-                <span class="eyebrow">CARD PREVIEW</span>
+                <span class="eyebrow icon-label"><i data-lucide="scan-search"></i>CARD PREVIEW</span>
                 <h2>Hover the deck</h2>
               </div>
-              <button id="preview-copy-name" class="preview-copy-button">COPY NAME</button>
+              <button id="preview-copy-name" class="preview-copy-button"><i data-lucide="copy"></i><span id="preview-copy-name-label">COPY NAME</span></button>
             </header>
             <article id="deck-card-preview" class="preview-card tone-colorless">
               <img id="preview-card-image" class="preview-card-image" alt="" hidden>
@@ -240,7 +250,7 @@
                   <span id="preview-card-mana">—</span>
                 </header>
                 <div class="preview-card-art">
-                  <span id="preview-card-glyph">◇</span>
+                  <span id="preview-card-glyph"><i data-lucide="diamond"></i></span>
                   <small id="preview-card-kind">DECK CARD</small>
                 </div>
                 <div class="preview-card-type">
@@ -267,7 +277,7 @@
           <section class="side-card mana-card">
             <header class="side-heading compact">
               <div>
-                <span class="eyebrow">MANA BASE</span>
+                <span class="eyebrow icon-label"><i data-lucide="droplets"></i>MANA BASE</span>
                 <h2><span id="mana-stability">—</span> <em>·</em> <span id="mana-land-total">17</span> lands</h2>
               </div>
             </header>
@@ -278,7 +288,7 @@
           <section class="side-card deck-curve-card">
             <header class="side-heading compact">
               <div>
-                <span class="eyebrow">SPELL CURVE</span>
+                <span class="eyebrow icon-label"><i data-lucide="chart-no-axes-column-increasing"></i>SPELL CURVE</span>
                 <h2>Where the deck lives</h2>
               </div>
             </header>
@@ -288,15 +298,110 @@
           <section class="side-card cuts-card">
             <header class="side-heading compact">
               <div>
-                <span class="eyebrow">ON-COLOR CUTS</span>
+                <span class="eyebrow icon-label"><i data-lucide="scissors"></i>ON-COLOR CUTS</span>
                 <h2>Next cards out</h2>
               </div>
             </header>
             <div id="deck-cuts" class="deck-cuts"></div>
           </section>
 
-          <p class="local-note"><span>⌁</span> Suggestions use your drafted pool, imported performance data, curve needs, card roles, and mana requirements.</p>
+          <p class="local-note"><i data-lucide="shield-check"></i><span>Suggestions use your drafted pool, imported performance data, curve needs, card roles, and mana requirements.</span></p>
         </aside>
+      </main>
+
+      <main id="play-view" class="review-workspace" hidden>
+        <section class="review-main">
+          <header class="review-heading">
+            <div>
+              <span class="eyebrow icon-label"><i data-lucide="activity"></i>PLAY ANALYSIS</span>
+              <h1 id="review-title">Ready for your next Arena game</h1>
+              <p id="review-subtitle">Keep Pick 42 running while you play. It will record only information Arena writes to Player.log.</p>
+            </div>
+            <span id="review-status-pill" class="review-status-pill waiting">WAITING</span>
+          </header>
+
+          <section id="review-empty" class="review-empty">
+            <span class="review-radar" aria-hidden="true"><i></i></span>
+            <h2>Play one game with this draft deck</h2>
+            <p>Pick 42 is armed after the initial log scan, so old matches will not be counted. Leave the companion open; your report will appear here when Arena records the result.</p>
+            <div class="review-empty-checks">
+              <span><i data-lucide="circle-check-big"></i>Mana variance for both players</span>
+              <span><i data-lucide="circle-check-big"></i>Draw quality against 17Lands IIH</span>
+              <span><i data-lucide="circle-check-big"></i>Evidence-backed MVPs and LVPs</span>
+            </div>
+          </section>
+
+          <div id="review-content" hidden>
+            <div class="review-stat-strip">
+              <div><span>RESULT</span><strong id="review-result">—</strong></div>
+              <div><span>SEAT</span><strong id="review-seat">—</strong></div>
+              <div><span>GAME TURNS</span><strong id="review-turns">—</strong></div>
+              <div><span>MULLIGANS</span><strong id="review-mulligans">—</strong></div>
+              <div id="review-shape-stat"><span>GAME SHAPE</span><strong id="review-shape">—</strong></div>
+            </div>
+
+            <section id="review-turning-point-card" class="review-card review-turning-point-card" hidden>
+              <header class="review-section-heading">
+                <div><span class="eyebrow icon-label"><i data-lucide="route"></i>TURNING POINT</span><h2 id="review-turning-point-title">A tactical exposure changed the game</h2></div>
+                <span id="review-turning-point-label">TACTICAL EXPOSURE</span>
+              </header>
+              <p id="review-turning-point-confidence" class="review-verdict-evidence">HIGH CONFIDENCE</p>
+              <p id="review-turning-point-summary" class="review-analysis-summary">—</p>
+              <strong id="review-turning-point-action" class="review-verdict-action">—</strong>
+            </section>
+
+            <section class="review-card review-variance-card">
+              <header class="review-section-heading">
+                <div><span class="eyebrow icon-label"><i data-lucide="gauge"></i>MANA VARIANCE</span><h2 id="review-variance-title">No strong mana-variance signal</h2></div>
+                <span id="review-variance-level" class="review-variance-level low">LOW</span>
+              </header>
+              <p id="review-variance-summary" class="review-analysis-summary"></p>
+              <div class="review-player-grid">
+                <article class="review-player-card">
+                  <div><span>YOU</span><strong id="review-you-variance">STABLE</strong></div>
+                  <p id="review-you-variance-detail">—</p>
+                </article>
+                <article class="review-player-card">
+                  <div><span>OPPONENT</span><strong id="review-opponent-variance">STABLE</strong></div>
+                  <p id="review-opponent-variance-detail">—</p>
+                </article>
+              </div>
+            </section>
+
+            <section class="review-card review-draw-card">
+              <header class="review-section-heading">
+                <div><span class="eyebrow icon-label"><i data-lucide="trending-up"></i>DRAW QUALITY</span><h2>What your IIH cards say</h2></div>
+                <span>17LANDS</span>
+              </header>
+              <p id="review-iih-summary" class="review-analysis-summary">—</p>
+              <div id="review-iih-cards" class="review-impact-list"></div>
+              <p id="review-iih-note" class="review-analysis-note"></p>
+            </section>
+
+            <div class="review-contribution-grid">
+              <section class="review-card review-contribution-card mvp">
+                <header class="review-section-heading"><div><span class="eyebrow icon-label"><i data-lucide="award"></i>MVP CANDIDATES</span><h2>Strongest visible contribution</h2></div></header>
+                <div id="review-mvp-list" class="review-impact-list"></div>
+              </section>
+              <section class="review-card review-contribution-card lvp">
+                <header class="review-section-heading"><div><span class="eyebrow icon-label"><i data-lucide="triangle-alert"></i>LVP CANDIDATES</span><h2>Supported negative evidence only</h2></div></header>
+                <div id="review-lvp-list" class="review-impact-list"></div>
+              </section>
+            </div>
+
+            <section id="review-verdict-card" class="review-card review-verdict-card neutral">
+              <header class="review-section-heading">
+                <div><span class="eyebrow icon-label"><i data-lucide="scale"></i><span id="review-verdict-eyebrow">VERDICT</span></span><h2 id="review-verdict-title">Verdict pending</h2></div>
+                <span id="review-verdict-label">IN PROGRESS</span>
+              </header>
+              <p id="review-verdict-evidence" class="review-verdict-evidence">CURRENT GAME</p>
+              <p id="review-verdict-summary" class="review-analysis-summary">—</p>
+              <strong id="review-verdict-action" class="review-verdict-action">Keep playing.</strong>
+            </section>
+
+            <p id="review-disclaimer" class="local-note review-footnote"><i data-lucide="shield-check"></i><span>Pick 42 reports observable evidence and does not assign causal credit from one game.</span></p>
+          </div>
+        </section>
       </main>
 
       <main id="build-view" class="build-overlay" hidden>
@@ -308,16 +413,16 @@
           </div>
           <span id="build-scene-pill" class="build-scene-pill">MANUAL</span>
           <div class="build-window-actions">
-            <button id="build-expand" class="build-icon-button" aria-label="Open full companion" title="Open full companion">↗</button>
-            <button id="build-minimize" class="build-icon-button" aria-label="Minimize">—</button>
+            <button id="build-expand" class="build-icon-button" aria-label="Return to full Decks view" title="Return to full Decks view"><i data-lucide="panel-right-open"></i></button>
+            <button id="build-minimize" class="build-icon-button" aria-label="Minimize"><i data-lucide="minus"></i></button>
           </div>
         </header>
 
         <section id="build-empty" class="build-empty" hidden>
-          <span>◇</span>
+          <span><i data-lucide="layers-3"></i></span>
           <h1>No complete build yet</h1>
           <p>Pick 42 needs at least 23 drafted playables before it can produce the checklist.</p>
-          <button id="build-empty-expand" class="build-expand-button">OPEN FULL COMPANION</button>
+          <button id="build-empty-expand" class="build-expand-button"><i data-lucide="panel-right-open"></i><span>RETURN TO DECKS</span></button>
         </section>
 
         <div id="build-content" class="build-content">
@@ -355,7 +460,7 @@
                 <span>RECIPE QUEUE</span>
                 <strong id="recipe-step-count">0 / 0</strong>
               </div>
-              <button id="build-reset" class="build-reset-button">RESET</button>
+              <button id="build-reset" class="build-reset-button"><i data-lucide="rotate-ccw"></i><span>RESET</span></button>
             </header>
             <section id="recipe-current" class="recipe-current">
               <div class="recipe-current-heading">
@@ -369,15 +474,15 @@
               <h2 id="recipe-card-name">Waiting for a build</h2>
               <p id="recipe-card-detail">Choose a target deck to create its deterministic Arena recipe.</p>
               <div class="recipe-actions">
-                <button id="recipe-undo" class="recipe-secondary">UNDO</button>
-                <button id="recipe-copy" class="recipe-copy">COPY SEARCH</button>
-                <button id="recipe-skip" class="recipe-secondary">SKIP</button>
-                <button id="recipe-next" class="recipe-next">DONE + NEXT</button>
+                <button id="recipe-undo" class="recipe-secondary"><i data-lucide="undo-2"></i><span>UNDO</span></button>
+                <button id="recipe-copy" class="recipe-copy"><i data-lucide="copy"></i><span id="recipe-copy-label">COPY SEARCH</span></button>
+                <button id="recipe-skip" class="recipe-secondary"><i data-lucide="skip-forward"></i><span>SKIP</span></button>
+                <button id="recipe-next" class="recipe-next"><i data-lucide="check"></i><span id="recipe-next-label">DONE + NEXT</span></button>
               </div>
               <p class="recipe-shortcuts"><b>⌘⇧C</b> copy · <b>⌘⇧→</b> done + next · <b>⌘⇧←</b> undo</p>
             </section>
             <div id="recipe-complete" class="recipe-complete" hidden>
-              <span>✓</span>
+              <span><i data-lucide="circle-check-big"></i></span>
               <strong>Recipe complete</strong>
               <p>Every target quantity has been confirmed. Check Arena shows 40 cards before continuing.</p>
             </div>
@@ -386,6 +491,52 @@
         </div>
       </main>
     </section>
+
+    <dialog id="corpus-dialog" class="corpus-dialog">
+      <section class="corpus-dialog-shell">
+        <header class="corpus-dialog-heading">
+          <div>
+            <span class="eyebrow">ARCHETYPE CORPUS</span>
+            <h1>Paste a trophy deck</h1>
+            <p>On a 17Lands deck page, choose <b>Copy Deck</b>, then paste the Arena-format list here. Pick 42 stores it only on this computer.</p>
+          </div>
+          <button id="corpus-close" class="corpus-close" type="button" aria-label="Close corpus manager"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="corpus-dialog-body">
+          <section class="corpus-entry-panel">
+            <div class="corpus-field-grid">
+              <label><span>SET CODE</span><input id="corpus-set-code" maxlength="10" placeholder="HOB"></label>
+              <label><span>FORMAT</span><select id="corpus-format"><option value="PremierDraft">Premier Draft</option><option value="QuickDraft">Quick Draft</option><option value="TraditionalDraft">Traditional Draft</option><option value="PickTwoDraft">Pick-Two Draft</option></select></label>
+              <label><span>FINAL RECORD</span><input id="corpus-record" maxlength="10" placeholder="7-2"></label>
+              <label><span>EVENT DATE</span><input id="corpus-event-date" type="date"></label>
+              <label><span>ARCHETYPE <i>OPTIONAL</i></span><input id="corpus-archetype" maxlength="60" placeholder="Auto-detect colors"></label>
+              <label><span>RANK <i>OPTIONAL</i></span><input id="corpus-rank" maxlength="40" placeholder="Diamond"></label>
+            </div>
+            <label class="corpus-url-field"><span>17LANDS DECK URL <i>OPTIONAL</i></span><input id="corpus-source-url" type="url" placeholder="https://www.17lands.com/deck/…"></label>
+            <label class="corpus-deck-field"><span>ARENA DECK LIST</span><textarea id="corpus-deck-text" spellcheck="false" placeholder="Deck&#10;2 Dori, Bearer of Friends (HOB) 123&#10;1 Dwarven Mattock (HOB) 456&#10;…"></textarea></label>
+            <div class="corpus-entry-actions">
+              <button id="corpus-paste" class="corpus-secondary" type="button"><i data-lucide="clipboard-paste"></i><span>PASTE CLIPBOARD</span></button>
+              <span id="corpus-entry-message" class="corpus-entry-message">A complete main deck must contain at least 40 cards.</span>
+              <button id="corpus-save" class="corpus-primary" type="button"><i data-lucide="save"></i><span>SAVE TROPHY DECK</span></button>
+            </div>
+          </section>
+
+          <aside class="corpus-library-panel">
+            <header>
+              <div><span class="eyebrow">LOCAL LIBRARY</span><h2 id="corpus-library-title">0 pasted decks</h2></div>
+              <span id="corpus-match-pill" class="corpus-match-pill">NO ACTIVE MATCH</span>
+            </header>
+            <div id="corpus-manual-list" class="corpus-manual-list"></div>
+            <div class="corpus-file-import">
+              <span>Have an already normalized corpus?</span>
+              <button id="corpus-import-file" type="button"><i data-lucide="file-input"></i><span>IMPORT CSV / JSON</span></button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </dialog>
+    <script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>
     <script src="../draft/recipe-queue.js"></script>
     <script src="../draft/arena-sort.js"></script>
     <script src="app.js"></script>

@@ -94,12 +94,16 @@ class ArenaLogParser extends EventEmitter {
 
   #clearGameState({ connected, localSeatId }) {
     this.objects = new Map();
+    this.objectRoots = new Map();
     this.zones = new Map();
     this.players = new Map();
     this.seenCardIds = new Set();
+    this.pendingCombatChoice = null;
+    this.combatSequence = 0;
     this.state = {
       connected,
       complete: false,
+      result: null,
       matchId: null,
       gameNumber: null,
       stage: null,
@@ -116,8 +120,12 @@ class ArenaLogParser extends EventEmitter {
       zones: [],
       battlefield: [],
       hand: [],
+      graveyard: [],
+      exile: [],
       stack: [],
       knownOpponentCards: [],
+      visibleOpponentCards: [],
+      combatChoices: [],
       availableActions: [],
       events: [],
       lastUpdatedAt: null
@@ -155,6 +163,9 @@ class ArenaLogParser extends EventEmitter {
       if (typeof value.type === 'string' && value.type.startsWith('GREMessageType_')) {
         this.#handleGreMessage(value);
       }
+      if (value.type === 'ClientMessageType_DeclareAttackersResp') {
+        this.#handleClientMessage(value);
+      }
 
       for (const [key, child] of Object.entries(value)) {
         if (child && typeof child === 'object') {
@@ -190,6 +201,64 @@ class ArenaLogParser extends EventEmitter {
     }
   }
 
+  #handleClientMessage(message) {
+    const selected = message.declareAttackersResp?.selectedAttackers;
+    const turn = Number(this.state.turn?.number || 0);
+    if (!Array.isArray(selected) || !selected.length || !turn || !this.state.matchId || !this.state.localSeatId) return;
+    if (this.state.turn?.activeSeatId && Number(this.state.turn.activeSeatId) !== Number(this.state.localSeatId)) return;
+
+    if (!this.pendingCombatChoice || Number(this.pendingCombatChoice.turn) !== turn) {
+      this.combatSequence += 1;
+      const opponentSeatId = [...this.players.keys()].find((seatId) => Number(seatId) !== Number(this.state.localSeatId))
+        || (Number(this.state.localSeatId) === 1 ? 2 : 1);
+      this.pendingCombatChoice = {
+        id: `${this.state.matchId}:${this.state.gameNumber ?? 1}:combat:${turn}:${this.combatSequence}`,
+        turn,
+        localSeatId: Number(this.state.localSeatId),
+        opponentSeatId: Number(opponentSeatId),
+        attackersById: new Map(),
+        board: {
+          you: this.#combatBoardSnapshot(this.state.localSeatId),
+          opponent: this.#combatBoardSnapshot(opponentSeatId)
+        }
+      };
+    }
+
+    for (const entry of selected) {
+      const instanceId = Number(entry.attackerInstanceId || 0);
+      if (!instanceId) continue;
+      if (entry.selectedDamageRecipient) {
+        this.pendingCombatChoice.attackersById.set(instanceId, this.#cardForObject(this.objects.get(instanceId)));
+      } else {
+        this.pendingCombatChoice.attackersById.delete(instanceId);
+      }
+    }
+
+    const choice = {
+      id: this.pendingCombatChoice.id,
+      turn: this.pendingCombatChoice.turn,
+      localSeatId: this.pendingCombatChoice.localSeatId,
+      opponentSeatId: this.pendingCombatChoice.opponentSeatId,
+      board: clone(this.pendingCombatChoice.board),
+      attackers: [...this.pendingCombatChoice.attackersById.values()].filter(Boolean).map(clone)
+    };
+    this.state.combatChoices = [
+      ...this.state.combatChoices.filter((entry) => entry.id !== choice.id),
+      choice
+    ].slice(-12);
+    this.#emitState();
+  }
+
+  #combatBoardSnapshot(seatId) {
+    const player = this.players.get(Number(seatId)) || {};
+    return {
+      life: Number.isFinite(Number(player.lifeTotal)) ? Number(player.lifeTotal) : null,
+      creatures: this.#cardsInZone('ZoneType_Battlefield')
+        .filter((card) => Number(card.controllerSeatId) === Number(seatId))
+        .filter((card) => /\bCreature\b/i.test(String(card.typeLine || '')))
+    };
+  }
+
   #applyGameState(update) {
     const nextMatchId = update.gameInfo?.matchID || update.gameInfo?.matchId || null;
     const nextGameNumber = update.gameInfo?.gameNumber ?? null;
@@ -214,6 +283,8 @@ class ArenaLogParser extends EventEmitter {
     this.#applyDeletedObjects(update.diffDeletedInstanceIds);
     this.#applyZones(update.zones, wasInitialized);
     this.#applyTurn(update.turnInfo, previousTurn, wasInitialized);
+    this.#reconcileCombatChoice();
+    if (previousTurn.step === 'Declare attackers' && this.state.turn.step !== 'Declare attackers') this.pendingCombatChoice = null;
     this.#applyActions(update.actions);
     this.#applyAnnotations(update.annotations);
 
@@ -234,6 +305,11 @@ class ArenaLogParser extends EventEmitter {
       const winner = result.winningTeamId || result.winningSeatId;
       if (winner) {
         this.state.complete = true;
+        this.state.result = {
+          winnerSeatId: Number(winner),
+          won: Number(winner) === this.state.localSeatId,
+          reason: enumLabel(result.reason, 'ResultReason_', 'Result recorded')
+        };
         this.state.availableActions = [];
         this.#addEvent({
           kind: 'result',
@@ -278,6 +354,7 @@ class ArenaLogParser extends EventEmitter {
       if (!instanceId) continue;
       const previous = this.objects.get(instanceId) || {};
       const next = { ...previous, ...patch, instanceId };
+      if (!this.objectRoots.has(instanceId)) this.objectRoots.set(instanceId, instanceId);
       if (next.grpId) this.seenCardIds.add(Number(next.grpId));
       this.objects.set(instanceId, next);
     }
@@ -338,6 +415,19 @@ class ArenaLogParser extends EventEmitter {
     }
   }
 
+  #reconcileCombatChoice() {
+    const turn = Number(this.state.turn?.number || 0);
+    if (!this.pendingCombatChoice || Number(this.pendingCombatChoice.turn) !== turn) return;
+    if (Number(this.state.turn?.activeSeatId || 0) !== Number(this.state.localSeatId || 0)) return;
+    const attacking = this.#cardsInZone('ZoneType_Battlefield')
+      .filter((card) => Number(card.controllerSeatId) === Number(this.state.localSeatId))
+      .filter((card) => ['AttackState_Declared', 'AttackState_Attacking'].includes(card.attackState));
+    if (!attacking.length) return;
+    for (const card of attacking) this.pendingCombatChoice.attackersById.set(Number(card.instanceId), card);
+    const existing = this.state.combatChoices.find((entry) => entry.id === this.pendingCombatChoice.id);
+    if (existing) existing.attackers = [...this.pendingCombatChoice.attackersById.values()].filter(Boolean).map(clone);
+  }
+
   #applyActions(actions) {
     if (!Array.isArray(actions)) return;
     const localActions = actions
@@ -355,16 +445,41 @@ class ArenaLogParser extends EventEmitter {
     if (!Array.isArray(annotations)) return;
     for (const annotation of annotations) {
       const types = Array.isArray(annotation.type) ? annotation.type : [annotation.type];
+      if (!types.includes('AnnotationType_ObjectIdChanged')) continue;
+      const originalId = this.#annotationNumber(annotation, ['orig_id']);
+      const newId = this.#annotationNumber(annotation, ['new_id']);
+      if (!originalId || !newId) continue;
+      this.objectRoots.set(originalId, this.#stableInstanceId(originalId));
+      this.objectRoots.set(newId, this.#stableInstanceId(originalId));
+    }
+    for (const annotation of annotations) {
+      const types = Array.isArray(annotation.type) ? annotation.type : [annotation.type];
       if (!types.includes('AnnotationType_DamageDealt')) continue;
       const amount = this.#annotationNumber(annotation, ['damage', 'amount']);
       const sourceId = Number(annotation.affectorId || annotation.sourceId || 0);
       const source = this.#cardForObject(this.objects.get(sourceId));
+      const affectedIds = (annotation.affectedIds || []).map(Number).filter(Number.isFinite);
       this.#addEvent({
         kind: 'damage',
         title: amount ? `${amount} damage dealt` : 'Damage dealt',
-        detail: source?.name || 'Combat or spell damage'
+        detail: source?.name || 'Combat or spell damage',
+        amount,
+        sourceCard: source,
+        affectedIds
       });
     }
+  }
+
+  #stableInstanceId(instanceId) {
+    let current = Number(instanceId || 0) || null;
+    const visited = new Set();
+    while (current && this.objectRoots.has(current) && !visited.has(current)) {
+      visited.add(current);
+      const next = this.objectRoots.get(current);
+      if (!next || next === current) break;
+      current = next;
+    }
+    return current;
   }
 
   #annotationNumber(annotation, keys) {
@@ -414,12 +529,23 @@ class ArenaLogParser extends EventEmitter {
     if (!object) return null;
     const grpId = Number(object.grpId || 0);
     const catalogCard = this.catalog[String(grpId)] || {};
+    const abilitySourceGrpIds = [...new Set((object.abilityOriginalCardGrpIds || []).map(Number).filter(Number.isFinite))];
+    const abilitySourceCards = abilitySourceGrpIds
+      .map((sourceGrpId) => ({ grpId: sourceGrpId, ...(this.catalog[String(sourceGrpId)] || {}) }))
+      .filter((card) => card.name || card.rulesText);
+    const effectiveRulesText = [catalogCard.rulesText, ...abilitySourceCards.map((card) => card.rulesText)]
+      .filter(Boolean)
+      .join('\n');
     return {
       instanceId: object.instanceId,
+      stableId: this.#stableInstanceId(object.instanceId),
       grpId: grpId || null,
       name: catalogCard.name || (grpId ? `Arena card ${grpId}` : 'Unknown card'),
       manaCost: catalogCard.manaCost || '',
       typeLine: catalogCard.typeLine || objectTypeLine(object),
+      rulesText: catalogCard.rulesText || '',
+      effectiveRulesText,
+      abilitySourceCards,
       objectType: object.type || null,
       image: catalogCard.image || null,
       ownerSeatId: Number(object.ownerSeatId || 0) || null,
@@ -427,6 +553,8 @@ class ArenaLogParser extends EventEmitter {
       power: characteristicValue(object.power ?? object.attackPower),
       toughness: characteristicValue(object.toughness ?? object.defense),
       tapped: Boolean(object.isTapped || object.tapped),
+      attackState: object.attackState || null,
+      blockState: object.blockState || null,
       zoneId: object.zoneId || null
     };
   }
@@ -457,7 +585,8 @@ class ArenaLogParser extends EventEmitter {
         seatId: player.seatId,
         label: this.#seatLabel(player.seatId),
         life: player.lifeTotal ?? null,
-        maxHandSize: player.maxHandSize ?? null
+        maxHandSize: player.maxHandSize ?? null,
+        mulligans: player.mulliganCount ?? player.mulligansTaken ?? null
       }))
       .sort((a, b) => a.seatId - b.seatId);
 
@@ -470,6 +599,8 @@ class ArenaLogParser extends EventEmitter {
       exile: this.#countZone('ZoneType_Exile', seatId)
     }));
     this.state.hand = localSeat ? this.#cardsInZone('ZoneType_Hand', localSeat) : [];
+    this.state.graveyard = localSeat ? this.#cardsInZone('ZoneType_Graveyard', localSeat) : [];
+    this.state.exile = localSeat ? this.#cardsInZone('ZoneType_Exile', localSeat) : [];
     this.state.battlefield = this.#cardsInZone('ZoneType_Battlefield');
     this.state.stack = this.#cardsInZone('ZoneType_Stack');
 
@@ -480,6 +611,24 @@ class ArenaLogParser extends EventEmitter {
       if (card.ownerSeatId === opponentSeat && card.grpId && isCard) known.set(card.grpId, card);
     }
     this.state.knownOpponentCards = [...known.values()];
+    const publicZoneTypes = new Set([
+      'ZoneType_Battlefield',
+      'ZoneType_Exile',
+      'ZoneType_Graveyard',
+      'ZoneType_Revealed',
+      'ZoneType_Stack'
+    ]);
+    const visibleOpponent = new Map();
+    for (const zone of this.zones.values()) {
+      if (!publicZoneTypes.has(zone.type)) continue;
+      for (const instanceId of zone.objectInstanceIds || []) {
+        const card = this.#cardForObject(this.objects.get(Number(instanceId)) || { instanceId });
+        const isCard = !card.objectType || card.objectType === 'GameObjectType_Card';
+        if (card.ownerSeatId !== opponentSeat || !card.grpId || !isCard) continue;
+        visibleOpponent.set(card.stableId || card.instanceId, card);
+      }
+    }
+    this.state.visibleOpponentCards = [...visibleOpponent.values()];
     this.state.lastUpdatedAt = new Date().toISOString();
     this.emit('state', this.snapshot());
   }

@@ -11,36 +11,25 @@ const {
 } = require('./blend-engine.cjs');
 
 const COLOR_NAMES = { W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest' };
-
-const ARCHETYPES = Object.freeze([
-  {
-    id: 'golgari',
-    name: 'Golgari',
-    colors: ['B', 'G'],
-    baseColors: ['B', 'G'],
-    splashColors: [],
-    label: 'B/G FEROCIOUS',
-    description: 'The deepest creature build. Mirkwood supports the Wolf package while black supplies premium removal.'
-  },
-  {
-    id: 'jund',
-    name: 'Jund',
-    colors: ['B', 'G', 'R'],
-    baseColors: ['B', 'G'],
-    splashColors: ['R'],
-    label: 'B/G + RED SPLASH',
-    description: 'The highest ceiling. It splashes efficient red interaction, accepting a tighter mana base.'
-  },
-  {
-    id: 'rakdos',
-    name: 'Rakdos',
-    colors: ['B', 'R'],
-    baseColors: ['B', 'R'],
-    splashColors: [],
-    label: 'B/R INTERACTION',
-    description: 'The most removal-dense build. Red adds reach and tempo while black carries the creature base.'
-  }
+const COLOR_WORDS = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+const COLOR_ORDER = ['W', 'U', 'B', 'R', 'G'];
+const COLOR_PAIRS = Object.freeze([
+  { id: 'azorius', name: 'Azorius', colors: ['W', 'U'] },
+  { id: 'dimir', name: 'Dimir', colors: ['U', 'B'] },
+  { id: 'rakdos', name: 'Rakdos', colors: ['B', 'R'] },
+  { id: 'gruul', name: 'Gruul', colors: ['R', 'G'] },
+  { id: 'selesnya', name: 'Selesnya', colors: ['W', 'G'] },
+  { id: 'orzhov', name: 'Orzhov', colors: ['W', 'B'] },
+  { id: 'izzet', name: 'Izzet', colors: ['U', 'R'] },
+  { id: 'golgari', name: 'Golgari', colors: ['B', 'G'] },
+  { id: 'boros', name: 'Boros', colors: ['W', 'R'] },
+  { id: 'simic', name: 'Simic', colors: ['U', 'G'] }
 ]);
+const THREE_COLOR_NAMES = Object.freeze({
+  WUB: ['esper', 'Esper'], UBR: ['grixis', 'Grixis'], BRG: ['jund', 'Jund'], WRG: ['naya', 'Naya'],
+  WUG: ['bant', 'Bant'], WBG: ['abzan', 'Abzan'], WUR: ['jeskai', 'Jeskai'], UBG: ['sultai', 'Sultai'],
+  WBR: ['mardu', 'Mardu'], URG: ['temur', 'Temur']
+});
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -205,7 +194,7 @@ function marginalValue(card, selected, archetype, creaturePass = false) {
 
   const duplicateCount = selected.filter((entry) => entry.name === card.name).length;
   if (duplicateCount >= 2 && !card.roles.premiumRemoval) value -= (duplicateCount - 1) * 1.5;
-  if (archetype.id === 'jund' && card.splashBurden) value -= card.splashBurden * 0.5;
+  if (archetype.splashColors.length && card.splashBurden) value -= card.splashBurden * 0.5;
   return value;
 }
 
@@ -380,18 +369,114 @@ function buildOne({ pool, seventeenLands, untapped, philosophy, archetype }) {
   };
 }
 
-function buildLimitedDecks({ pool = [], seventeenLands = [], untapped = [], philosophy = {} }) {
+function orderedColors(colors) {
+  return [...new Set(colors)].sort((left, right) => COLOR_ORDER.indexOf(left) - COLOR_ORDER.indexOf(right));
+}
+
+function colorSupport(card, color) {
+  const profile = manaProfile(card);
+  let support = profile.fixedPips[color] || 0;
+  for (const group of profile.hybridGroups) {
+    if (group.includes(color)) support += 1 / group.length;
+  }
+  return support;
+}
+
+function pairDepth(pool, pair) {
+  const spells = pool.filter((card) => !isLand(card) && canPlay(card, pair.colors));
+  const support = Object.fromEntries(pair.colors.map((color) => [
+    color,
+    spells.reduce((total, card) => total + colorSupport(card, color), 0)
+  ]));
+  const landBonus = pool.filter((card) => {
+    const produced = landColors(card);
+    return pair.colors.every((color) => produced.includes(color));
+  }).length * 10;
+  const interaction = spells.reduce((total, card) => total + Number(cardRoles(card).interaction), 0);
+  const minimumDepth = Math.min(...Object.values(support));
+  return {
+    ...pair,
+    spells,
+    support,
+    score: minimumDepth * 4 + Object.values(support).reduce((sum, value) => sum + value, 0) * 1.2 + spells.length * 0.2 + interaction * 0.25 + landBonus
+  };
+}
+
+function pairArchetype(pair, preferredLane, position = 0) {
+  const preferred = preferredLane?.colors?.length === 2
+    && orderedColors(preferredLane.colors).join('') === orderedColors(pair.colors).join('');
+  return {
+    id: pair.id,
+    name: preferred && preferredLane.label ? preferredLane.label : pair.name,
+    colors: [...pair.colors],
+    baseColors: [...pair.colors],
+    splashColors: [],
+    label: `${pair.colors.join('/')} · ${preferred ? 'CURRENT LANE' : (position ? 'ALTERNATIVE' : 'DEEPEST POOL')}`,
+    description: preferred
+      ? `The current ${preferredLane.label || pair.name} lane, built directly from the newest Arena draft pool.`
+      : `${position ? 'An alternative' : 'The deepest'} two-color build detected in the newest Arena draft pool.`
+  };
+}
+
+function splashArchetype(pool, basePair) {
+  const candidates = COLOR_ORDER
+    .filter((color) => !basePair.colors.includes(color))
+    .map((color) => {
+      const colors = [...basePair.colors, color];
+      const additions = pool.filter((card) => !isLand(card) && canPlay(card, colors) && !canPlay(card, basePair.colors));
+      const interaction = additions.reduce((total, card) => total + Number(cardRoles(card).interaction), 0);
+      return { color, additions, score: additions.length * 3 + interaction };
+    })
+    .sort((left, right) => right.score - left.score || COLOR_ORDER.indexOf(left.color) - COLOR_ORDER.indexOf(right.color));
+  const splash = candidates[0];
+  if (!splash || splash.additions.length < 2) return null;
+  const colors = orderedColors([...basePair.colors, splash.color]);
+  const [id, name] = THREE_COLOR_NAMES[colors.join('')] || [`${basePair.id}-${splash.color.toLowerCase()}`, `${basePair.name} + ${COLOR_WORDS[splash.color]}`];
+  return {
+    id,
+    name,
+    colors,
+    baseColors: [...basePair.colors],
+    splashColors: [splash.color],
+    label: `${basePair.colors.join('/')} + ${COLOR_WORDS[splash.color].toUpperCase()} SPLASH`,
+    description: `Keeps the ${basePair.name} core and splashes the strongest ${COLOR_WORDS[splash.color].toLowerCase()} cards from the newest pool.`
+  };
+}
+
+function inferDeckArchetypes(pool, preferredLane = null) {
+  const preferredKey = preferredLane?.colors?.length === 2 ? orderedColors(preferredLane.colors).join('') : null;
+  const pairs = COLOR_PAIRS
+    .map((pair) => pairDepth(pool, pair))
+    .sort((left, right) => {
+      const leftPreferred = orderedColors(left.colors).join('') === preferredKey;
+      const rightPreferred = orderedColors(right.colors).join('') === preferredKey;
+      return Number(rightPreferred) - Number(leftPreferred) || right.score - left.score || left.id.localeCompare(right.id);
+    });
+  if (!pairs.length) return [];
+  const base = pairs[0];
+  const splash = splashArchetype(pool, base);
+  const archetypes = [pairArchetype(base, preferredLane, 0)];
+  if (splash) archetypes.push(splash);
+  for (const pair of pairs.slice(1)) {
+    if (archetypes.length >= 3) break;
+    archetypes.push(pairArchetype(pair, preferredLane, archetypes.length));
+  }
+  return archetypes;
+}
+
+function buildLimitedDecks({ pool = [], seventeenLands = [], untapped = [], philosophy = {}, preferredLane = null }) {
   if (pool.filter((card) => !isBasicLand(card)).length < 23) return [];
-  return ARCHETYPES.map((archetype) => buildOne({ pool, seventeenLands, untapped, philosophy, archetype }));
+  return inferDeckArchetypes(pool, preferredLane).map((archetype) => buildOne({ pool, seventeenLands, untapped, philosophy, archetype }));
 }
 
 module.exports = {
-  ARCHETYPES,
+  ARCHETYPES: COLOR_PAIRS,
   allocateLands,
   buildLimitedDecks,
   canPlay,
   cardRoles,
   excludedCards,
+  inferDeckArchetypes,
   landColors,
   lowCurveLandCount
 };

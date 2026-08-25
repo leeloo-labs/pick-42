@@ -1,99 +1,149 @@
-# Pick 42 Arena Companion
+# Pick 42
 
-Pick 42 is a local-first, transparent desktop overlay for MTG Arena. This first vertical slice tails Arena's `Player.log`, reconstructs visible match state from GRE messages, loads card names from Arena's installed local card database, and presents a live timeline, legal-action context, visible zone counts, your hand, and known opponent cards.
+Pick 42 is a local-first MTG Arena draft companion from **Leeloo Labs LLC**. It turns Arena's visible draft and game logs into transparent pick recommendations, 40-card limited builds, and conservative post-game analysis.
+
+The current product flow is:
+
+1. **Draft** — compare contextual and in-a-vacuum card rankings.
+2. **Decks** — build and visually reproduce a 40-card Arena deck.
+3. **Play** — review mana variance, IIH draw quality, visible contributions, and repeated signals across games.
+
+Pick 42 is advisory. It does not connect to private Arena services, reveal hidden cards, automate game input, scrape 17Lands or Untapped, or upload your `Player.log`.
 
 Pick 42 is proprietary software owned by Leeloo Labs LLC. It is not licensed for public use, copying, modification, or distribution. See [LICENSE](LICENSE).
 
-It does not connect to Arena's private servers, modify the client, automate input, or attempt to reveal hidden information.
-
-## Run the prototype
+## Run Pick 42
 
 Requirements: Node.js 22 or newer and npm.
 
 ```bash
 npm install
-npm start
-```
-
-If Pick 42 finds Arena's standard `Player.log`, it opens that automatically. Otherwise it starts with the bundled sample match. Use **Choose Log** to select a custom location.
-
-Enable Arena logging under **Options → Account → Detailed Logs** and restart Arena before testing a real match.
-
-Standard log locations:
-
-- macOS: `~/Library/Logs/Wizards Of The Coast/MTGA/Player.log`
-- Windows: `%USERPROFILE%\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log`
-- Linux/Proton: inside the Arena Steam prefix under `AppData/LocalLow/Wizards Of The Coast/MTGA/Player.log`
-
-Arena works best in windowed or borderless-windowed mode while an overlay is visible.
-
-## Draft companion prototype
-
-The draft companion is a separate launch mode, so the match overlay remains unchanged:
-
-```bash
 npm run draft
 ```
 
-It starts with a small HOB sample pack and representative source fixtures. Click **17L** or **UT** in the title bar to import a current card-data CSV, and **LOG** to choose Arena's `Player.log`. **Next pick** walks through the deterministic sample and demonstrates how pool context changes the ranking.
+Enable Arena logging under **Options → Account → Detailed Logs**, then restart Arena. Pick 42 automatically watches the standard `Player.log` location when it can find it; use **LOG** in the title bar to select another file.
 
-The current source workflow is deliberately import-first. 17Lands publishes downloadable data and usage guidelines; Untapped exposes public card-data pages and CSV export to eligible accounts, but neither source is treated as a private or undocumented API. Pick 42 does not scrape either service.
+Standard locations:
 
-Each recommendation shows:
+- macOS: `~/Library/Logs/Wizards Of The Coast/MTGA/Player.log`
+- Windows: `%USERPROFILE%\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log`
+- Linux/Proton: the Arena Steam prefix under `AppData/LocalLow/Wizards Of The Coast/MTGA/Player.log`
 
-- the 17Lands games-in-hand win rate;
-- the Untapped in-hand win rate;
-- a confidence-aware blended data score;
-- the signed adjustment from color fit, flexibility, curve, signals, and your philosophy settings.
+The original live match-overlay prototype remains available with `npm start`, but active development is focused on limited drafting, deck construction, and post-game review.
 
-Live recommendations fail closed. Pick 42 pauses ranking unless at least 90% of the nonbasic cards in the current pack match rows from **both** imported sources. Missing cards remain unranked instead of receiving a fabricated neutral score, and basic lands are never promoted by the colorless-card flexibility rule. Bundled sample rows are only active in sample mode.
+## Product principles
 
-The bundled CSV files are a compact, representative UI/test fixture rather than a complete or automatically updating dataset. Replace them with exports before making real draft decisions.
+- **Local first:** logs, imported statistics, trophy decks, recipe progress, and game reviews stay on the computer.
+- **Visible information only:** no hidden opponent cards or private Arena endpoints.
+- **Inspectable rankings:** source metrics and every material contextual adjustment remain visible.
+- **Fail closed:** real recommendations pause when imported data is incomplete or does not match the active set.
+- **Advisory, never automatic:** Pick 42 recommends; the player makes every draft and gameplay decision.
 
-### Limited deck builder
+## Draft
 
-Once Pick 42 sees at least 23 playable nonbasic cards, the **DECKS** view generates 40-card suggestions from the drafted pool. For the current HOB prototype it compares Golgari, Jund, and Rakdos builds and shows:
+### Source data
 
-- the 23 selected spells and on-color cuts;
+Use the title-bar source controls to import:
+
+- **17L** — 17Lands card-performance CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when available.
+- **UT** — Untapped card-stat CSV data, including in-hand win rate, in-hand win-rate difference, and sample counts when available.
+- **META** — a manually collected local corpus of trophy decks.
+- **LOG** — Arena's `Player.log`.
+
+Live rankings require usable matching rows from both statistical sources for at least 90% of the nonbasic cards in the active pack. Blank values do not count as coverage, missing cards remain unranked, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
+
+Pick 42 does not scrape 17Lands or Untapped and does not depend on undocumented APIs. Current data is imported by the user.
+
+### Contextual and raw rankings
+
+Every pack exposes two views:
+
+- **Contextual** answers “What should I pick?” using the manual lane, active pool, draft timing, curve, interaction, synergy, duplicate pressure, splash burden, IIH, and matching trophy patterns.
+- **Raw Data** answers “How strong is this card in a vacuum?” using only the confidence-adjusted 17Lands and Untapped blend.
+
+Both ranks and scores stay visible so a contextual move can be inspected rather than accepted as a black box.
+
+IIH is shrunk toward zero based on sample confidence before it changes a recommendation. Reliable extremes surface as **High Impact**, **Positive IIH**, **Draw Liability**, or **Negative IIH**. Weak samples are labeled **Low-Sample IIH** instead of receiving a confident adjustment.
+
+### Lane commitment and active pool
+
+Pick 42 can infer that a pool is leaning toward or has committed to an archetype, but the drafting policy is manual. The lane menu offers:
+
+1. Lock the inferred lane with no splash.
+2. Lock the lane while remaining open to a light premium splash.
+3. Stay open.
+
+A locked lane gates ordinary off-color cards. Only a truly exceptional, data-backed bomb can overcome it. When no card in the pack realistically fits, Pick 42 still identifies the best fallback but labels it **Likely Sideboard**, **Speculative Splash**, or **Speculative Pick** instead of pretending it belongs in the deck.
+
+The active-pool panel is an abbreviated deck list. Marking a card **OUT** keeps it visible but removes it from lane inference, recommendations, and deck construction. That choice carries forward when another copy appears later in the same draft, unless strong new evidence provides an explicit reason to reconsider.
+
+### Trophy-deck corpus
+
+Open **META** to paste trophy decks copied from individual 17Lands deck pages. Pick 42 validates the main deck and record, infers primary colors from fixed mana requirements and the mana base, distinguishes splashes from true three-color decks, and stores the result locally.
+
+Hybrid payment options do not create phantom colors. Corpus examples are filtered to the active set and draft format before they affect a recommendation. See [docs/ARCHETYPE_CORPUS.md](docs/ARCHETYPE_CORPUS.md) for the full workflow and normalized CSV/JSON schema.
+
+## Decks
+
+Once the latest draft contains at least 23 playable nonbasic cards, Pick 42 generates complete 40-card suggestions. The current manual lane is the primary build, followed by viable splash or alternate-color options.
+
+Each build includes:
+
+- 23 selected spells and explicit on-color cuts;
 - 17 lands by default, dropping to 16 only for a genuinely low curve with card flow;
-- creature and effective-body counts, interaction density, and spell curve;
-- a basic-land recommendation that counts drafted fixing such as Mirkwood;
-- explicit mana warnings when a three-color build cannot meet every modeled source target.
+- creature and effective-body counts, interaction density, average mana value, and spell curve;
+- color-source targets that count drafted fixing and dual lands;
+- explicit warnings when a splash cannot meet its modeled mana requirements.
 
-Card selection combines the imported performance rows with card roles, curve coverage, real synergy enablers, duplicate pressure, and splash burden. Hybrid costs can be paid through either half; ordinary multicolor costs require every color.
+Hybrid mana can be paid by either color. Gold cards require every listed color. Hard subtype requirements, premium removal, duplicate pressure, real synergy enablers, and splash burden are modeled directly.
 
-The full **DECKS** view presents each suggestion as an Arena-style seven-column board: one through five mana, six-plus, and lands. Cards stack like Arena's deck builder and show their exact quantities. Pick 42 enriches HOB cards with Scryfall's Oracle text and image URLs: the board uses art crops and the hover panel shows the complete, undistorted card image with its artist attribution, blended rating, and deck quantity. **COPY NAME** puts the previewed card on the clipboard for Arena search.
+### Arena-style deck board
 
-Scryfall set data is fetched from the public HOB API with the required request headers and cached in Electron's user-data directory for at least 24 hours. The cache contains compact metadata and image URLs, not proxied image files. If Scryfall is offline or a card does not match, Pick 42 falls back to Arena's local rules text and the color-framed card treatment. Arena's local `grpId` catalog remains the identity source; Scryfall is only a presentation enrichment layer.
+The full **DECKS** view uses Arena's seven-column ordering: one through five mana, six-plus, and lands. Cards stack like the Arena client, quantities remain visible, colors stay grouped, and hover or keyboard focus opens an enlarged preview.
+
+Public Scryfall set data enriches the local Arena card identity with Oracle text, card images, art crops, and artist attribution. The data is cached in Electron's user-data directory. If Scryfall is unavailable, Pick 42 falls back to Arena's local card text and color-framed placeholders.
+
+The interface uses a pinned local [Lucide](https://lucide.dev) package for navigation, actions, lane state, card types, and review cues. It does not load icon assets from a CDN.
 
 ### Recipe Mode
 
-When Arena enters its `DeckBuilder` scene, Pick 42 automatically becomes a compact, always-on-top recipe at the right edge of the current display. Choose Golgari, Jund, or Rakdos. Pick 42 then walks through one deterministic instruction at a time:
+Use **Collapse to Side Panel** from **DECKS** to open the compact Recipe Mode beside Arena. It gives deterministic quantity instructions in this order:
 
-1. Set every excluded drafted card to zero.
-2. Set each spell to its exact target quantity.
+1. Remove excluded drafted cards.
+2. Set every selected spell to its target quantity.
 3. Set drafted utility lands.
-4. Set the final basic-land quantities.
+4. Set final basic-land quantities.
 
-Use **COPY SEARCH** to put the current card name on the clipboard, paste it into Arena's search field, make the quantity match the large **SET TO** number, and press **DONE + NEXT**. **SKIP** leaves a step for manual review; **UNDO** restores the previous step. Progress is saved locally for that draft and archetype, and the final screen reminds you to verify Arena shows 40 cards.
+**Copy Search** places the current card name on the clipboard. After matching the large **Set To** quantity in Arena, use **Done + Next**. **Skip** leaves a step for review and **Undo** restores the previous step. Progress is saved locally for the current draft and build.
 
-You can also open Recipe Mode manually with **OPEN RECIPE**. It does not inspect the screen, wait for card positions, or depend on Arena's grid remaining stable.
+Recipe Mode does not inspect card positions or depend on Arena's grid ordering. The earlier positional OCR overlay remains experimental and disabled during normal startup.
 
 Keyboard shortcuts:
 
-- `Cmd/Ctrl + Shift + C`: copy the current card name
-- `Cmd/Ctrl + Shift + Right`: confirm and move to the next instruction
-- `Cmd/Ctrl + Shift + Left`: undo the previous instruction
-- `Cmd/Ctrl + Shift + D`: hide or restore Pick 42
+- `Cmd/Ctrl + Shift + C` — copy the current card name
+- `Cmd/Ctrl + Shift + Right` — complete the current instruction
+- `Cmd/Ctrl + Shift + Left` — undo the previous instruction
+- `Cmd/Ctrl + Shift + D` — hide or restore Pick 42
 
-The earlier positional OCR guide remains in the source as an experimental prototype, but it is disabled and is no longer part of normal startup. Build it manually with `npm run build:vision` if you want to continue experimenting with it later.
+## Play
 
-## Overlay controls
+Leave `npm run draft` open while playing the drafted deck, then open **PLAY**. Pick 42 only reviews a game when Arena's registered deck size and opening-hand evidence match the current limited deck. An unrelated constructed or limited game is ignored.
 
-- `Cmd/Ctrl + Shift + O`: show or hide Pick 42
-- `Cmd/Ctrl + Shift + Space`: toggle click-through mode
-- Drag the Pick 42 title bar to reposition it
-- Use **Replay demo** to reset the bundled sample match
+The report intentionally focuses on evidence that can change a decision:
+
+- a compact result, play/draw, game-turn, mulligan, and game-shape summary;
+- low, moderate, or high mana-variance analysis for both players;
+- the deck's four highest reliable 17Lands IIH cards, each marked drawn or not drawn;
+- additional reliable negative-IIH cards only when they were actually drawn;
+- MVP candidates supported by attributable recorded damage;
+- LVP candidates only when concrete negative evidence exists;
+- a plain-language verdict recommending whether to run it back or test a reversible change.
+
+Games from the exact same deck version are combined into a series verdict. Changing the deck version starts a new evidence series rather than mixing incompatible results.
+
+Game shape distinguishes **Close**, **Competitive**, **Decisive**, and conservative wire-to-wire **Blowout** wins using life, board, power, hand pressure, lead changes, and contested turns—not final life totals alone. A turning-point section appears only when a logged tactical action and the immediately following lethal line meet a deliberately high confidence threshold.
+
+IIH remains historical correlation, not causal credit. Hidden opponent cards remain excluded, and Pick 42 will not call a support card bad merely because it dealt no damage or died.
 
 ## Development
 
@@ -102,35 +152,29 @@ npm test
 npm run check
 ```
 
-The project deliberately keeps the parser separate from Electron:
+The current suite contains 105 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
-```text
-Player.log → balanced JSON stream → Arena event normalization
-           → visible match-state model → Electron overlay
-```
+Important paths:
 
-Important files:
-
-- `src/core/json-entry-stream.cjs`: extracts multiline JSON from mixed Arena logs
-- `src/core/arena-log-parser.cjs`: applies GRE full/diff messages to visible state
-- `src/core/log-tailer.cjs`: follows live log writes and handles rotation
-- `src/main.cjs`: Electron lifecycle, hotkeys and local data source selection
-- `src/renderer/`: overlay interface
-- `src/draft-main.cjs`: separate Electron lifecycle and import workflow for drafting
-- `src/draft/`: CSV adapters, draft-log parser, transparent blend engine, and limited deck builder
-- `src/draft-renderer/`: glanceable pack ranking and philosophy controls
-- `src/vision/arcane-vision.swift`: local macOS window discovery and Vision OCR helper
-- `src/visual-renderer/`: click-through visual-guide annotations rendered over Arena
-- `fixtures/demo-match.log`: deterministic sample replay
-- `fixtures/demo-draft.log`: deterministic sample draft decisions
+- `src/core/` — Arena log streaming and visible match-state reconstruction
+- `src/draft/blend-engine.cjs` — confidence-aware source blend and contextual recommendation engine
+- `src/draft/draft-log-parser.cjs` — active and completed draft reconstruction
+- `src/draft/archetype-corpus.cjs` — manual trophy-deck normalization and matching
+- `src/draft/pool-plan.cjs` — persisted active-pool exclusions
+- `src/draft/deck-builder.cjs` — limited builds and mana-base modeling
+- `src/draft/game-review.cjs` — conservative single-game and series analysis
+- `src/draft-renderer/` — Draft, Decks, Play, Recipe Mode, and local Lucide integration
+- `fixtures/` — deterministic sanitized Arena-log fixtures
+- `test/` — Node test suite and recommendation regressions
 
 ## Current limitations
 
-- Cards missing from Arena's current local database fall back to `Arena card <id>`.
-- GRE annotations vary by client release; the MVP recognizes core state, zone, turn, life, action, and damage events.
-- Arena does not publish or version the log schema, so real logs from multiple formats and releases are needed as sanitized fixtures.
-- The overlay reports facts present in the local log. Deeper coaching and post-game analysis are intentionally separate future layers.
+- Arena does not publish or version the `Player.log` schema, so new client shapes require sanitized fixtures and parser updates.
+- Statistical quality depends on current, correctly matched 17Lands and Untapped exports.
+- Trophy decks are imported manually; Pick 42 does not crawl trophy pages.
+- Tactical review is deliberately conservative and cannot know hidden cards, player intent, or unlogged decision alternatives.
+- The positional OCR deck-builder overlay is experimental and disabled because Arena reorders and virtualizes its card grid.
 
 ## Privacy
 
-Arena logs can contain display names, account identifiers, session metadata, machine paths, and credentials. Pick 42 reads them locally and does not upload anything. Never attach a raw `Player.log` to an issue; sanitize it first.
+Arena logs can contain display names, account identifiers, session metadata, machine paths, and credentials. Pick 42 reads them locally and does not upload them. Never commit or attach a raw `Player.log`; add only minimal sanitized fixtures for newly observed log shapes.
