@@ -53,6 +53,8 @@ const sceneTracker = new ArenaSceneTracker();
 const tailer = new LogTailer();
 
 let draftWindow;
+let watchedLogPath = null;
+let lastLogActivityAt = null;
 let normalWindowBounds = null;
 let compactBuildMode = false;
 let buildModeSource = null;
@@ -682,6 +684,12 @@ function viewModel() {
     philosophy,
     draftLane,
     status,
+    arenaLog: {
+      path: watchedLogPath,
+      source: watchedLogPath ? (defaultLogCandidates().includes(watchedLogPath) ? 'standard' : 'custom') : 'none',
+      lastActivityAt: lastLogActivityAt,
+      standardAvailable: defaultLogCandidates().some((entry) => fs.existsSync(entry))
+    },
     arena: {
       ...sceneTracker.snapshot(),
       compactBuildMode,
@@ -742,6 +750,7 @@ function advanceDemo() {
 }
 
 async function watchLog(logPath) {
+  watchedLogPath = logPath;
   reviewArmed = false;
   matchParser.reset();
   reviewMatchDecisions.clear();
@@ -922,6 +931,15 @@ function registerIpc() {
     if (!result.canceled && result.filePaths[0]) await watchLog(result.filePaths[0]);
     return viewModel();
   });
+  ipcMain.handle('draft:use-standard-log', async () => {
+    const candidate = defaultLogCandidates().find((entry) => fs.existsSync(entry));
+    if (!candidate) {
+      setStatus({ kind: 'error', message: 'No Arena Player.log was found in the standard location. Choose the file manually.' });
+      return viewModel();
+    }
+    await watchLog(candidate);
+    return viewModel();
+  });
   ipcMain.handle('draft:set-lane-preference', (_event, requestedMode) => {
     const mode = String(requestedMode || 'auto');
     if (mode === 'auto') {
@@ -1048,6 +1066,7 @@ sceneTracker.on('scene', (nextScene) => {
   sendState();
 });
 tailer.on('data', (chunk) => {
+  lastLogActivityAt = Date.now();
   parser.feed(chunk);
   sceneTracker.feed(chunk);
   if (reviewArmed) matchParser.feed(chunk);

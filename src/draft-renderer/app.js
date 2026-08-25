@@ -154,6 +154,9 @@ function renderStatus() {
   setText('source-ut-label', sourceLabel(sourceUt));
   byId('import-17lands').title = `${source17.label} · click to manage imports per draft type`;
   byId('import-untapped').title = `${sourceUt.label} · click to manage imports per draft type`;
+  const arenaLog = model.arenaLog || {};
+  setText('source-log-label', arenaLog.source === 'standard' ? 'watching' : (arenaLog.source === 'custom' ? 'custom file' : 'not found'));
+  byId('choose-log').title = arenaLog.path ? `Following ${arenaLog.path}` : 'No Arena Player.log found';
   const corpus = model.archetypeCorpus || {};
   const corpusSource = corpus.source || { kind: 'empty', trophyCount: 0, label: 'No corpus' };
   const corpusMatch = corpus.match || { trophyCount: 0, archetypeCount: 0 };
@@ -1312,6 +1315,71 @@ const SOURCE_FORMAT_ROWS = [
 ];
 let sourceMenuOpen = null;
 
+function relativeTime(timestamp) {
+  if (!timestamp) return 'nothing yet this session';
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (seconds < 10) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.round(minutes / 60)}h ago`;
+}
+
+function renderLogMenu(menu) {
+  const arenaLog = model?.arenaLog || {};
+  const heading = element('header');
+  heading.append(
+    element('strong', '', 'ARENA LOG'),
+    element('small', '', 'Pick 42 follows this file live to track your drafts and games. Nothing is uploaded.')
+  );
+  menu.append(heading);
+
+  const state = element('div', 'source-menu-status');
+  const dot = element('span', `log-dot ${arenaLog.source === 'standard' ? '' : (arenaLog.source === 'custom' ? 'custom' : 'none')}`);
+  const stateTitle = element('strong');
+  stateTitle.append(dot, document.createTextNode(
+    arenaLog.source === 'standard'
+      ? 'Watching the standard Arena location'
+      : (arenaLog.source === 'custom' ? 'Watching a custom file' : 'No log file found')
+  ));
+  state.append(stateTitle);
+  if (arenaLog.path) state.append(element('small', '', arenaLog.path));
+  state.append(element('small', '', `Last activity: ${relativeTime(arenaLog.lastActivityAt)}`));
+  menu.append(state);
+
+  const standardRow = element('button', 'source-menu-row');
+  standardRow.type = 'button';
+  const standardCopy = element('span', 'source-menu-copy');
+  standardCopy.append(
+    element('strong', '', 'Use the standard location'),
+    element('small', '', arenaLog.standardAvailable ? 'Re-detect and rescan the default Arena log' : 'No log found in the default location yet')
+  );
+  standardRow.append(standardCopy, element('span', 'source-menu-action', 'RESCAN'));
+  standardRow.addEventListener('click', () => {
+    sourceMenuOpen = null;
+    renderSourceMenu();
+    updateFrom(() => window.draftCompanion.useStandardLog());
+  });
+  menu.append(standardRow);
+
+  const chooseRow = element('button', 'source-menu-row');
+  chooseRow.type = 'button';
+  const chooseCopy = element('span', 'source-menu-copy');
+  chooseCopy.append(
+    element('strong', '', 'Choose a different file…'),
+    element('small', '', 'Point Pick 42 at another Player.log')
+  );
+  chooseRow.append(chooseCopy, element('span', 'source-menu-action', 'BROWSE'));
+  chooseRow.addEventListener('click', () => {
+    sourceMenuOpen = null;
+    renderSourceMenu();
+    updateFrom(() => window.draftCompanion.chooseLog());
+  });
+  menu.append(chooseRow);
+
+  menu.append(element('small', 'source-menu-note', 'Seeing nothing during a draft? In Arena, enable Options → Account → Detailed Logs, then restart Arena.'));
+}
+
 function renderSourceMenu() {
   const menu = byId('source-menu');
   if (!sourceMenuOpen) {
@@ -1319,10 +1387,14 @@ function renderSourceMenu() {
     menu.replaceChildren();
     return;
   }
-  const source = sourceMenuOpen;
-  const view = model?.sources?.[source];
   menu.hidden = false;
   menu.replaceChildren();
+  if (sourceMenuOpen === 'log') {
+    renderLogMenu(menu);
+    return;
+  }
+  const source = sourceMenuOpen;
+  const view = model?.sources?.[source];
   const heading = element('header');
   heading.append(
     element('strong', '', source === 'seventeenLands' ? '17LANDS IMPORTS' : 'UNTAPPED IMPORTS'),
@@ -1406,7 +1478,7 @@ byId('corpus-deck-text').addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') savePastedTrophyDeck();
 });
 byId('corpus-import-file').addEventListener('click', () => updateFrom(() => window.draftCompanion.importArchetypeCorpus()));
-byId('choose-log').addEventListener('click', () => updateFrom(() => window.draftCompanion.chooseLog()));
+byId('choose-log').addEventListener('click', (event) => toggleSourceMenu('log', event));
 byId('restart-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
 byId('empty-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
 byId('next-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.advanceDemo()));

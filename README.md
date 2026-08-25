@@ -21,7 +21,7 @@ npm install
 npm run draft
 ```
 
-Enable Arena logging under **Options → Account → Detailed Logs**, then restart Arena. Pick 42 automatically watches the standard `Player.log` location when it can find it; use **LOG** in the title bar to select another file.
+Enable Arena logging under **Options → Account → Detailed Logs**, then restart Arena. Pick 42 automatically watches the standard `Player.log` location when it can find it. The **LOG** button shows the connection state and opens a status menu with the watched path, the time of the last log activity, a rescan of the standard location, and a file picker for non-standard installs.
 
 Standard locations:
 

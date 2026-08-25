@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   removeTrophyDeck: (deckId) => ipcRenderer.invoke('draft:remove-trophy-deck', deckId),
   readClipboard: () => ipcRenderer.invoke('draft:read-clipboard'),
   chooseLog: () => ipcRenderer.invoke('draft:choose-log'),
+  useStandardLog: () => ipcRenderer.invoke('draft:use-standard-log'),
   setLanePreference: (mode) => ipcRenderer.invoke('draft:set-lane-preference', mode),
   setPoolCardExcluded: (cardName, excluded) => ipcRenderer.invoke('draft:set-pool-card-excluded', cardName, excluded),
   startDemo: () => ipcRenderer.invoke('draft:start-demo'),
