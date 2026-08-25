@@ -194,3 +194,45 @@ test('tracks a live Pick Two pack and a two-card selection', () => {
   assert.deepEqual(state.pool.map((card) => card.grpId), [103382, 103444]);
   assert.equal(state.pack.length, 2);
 });
+
+test('reconstructs a live Pick Two draft from human-draft log shapes', () => {
+  const parser = new DraftLogParser({ catalog });
+  const lines = fs.readFileSync(path.join(root, 'fixtures', 'pick-two-live-draft.log'), 'utf8').trim().split('\n');
+
+  // Course join: empty CardPool, active PlayerDraft module, explicit session DraftId.
+  parser.feed(`${lines[0]}\n`);
+  let state = parser.snapshot();
+  assert.equal(state.format, 'Pick Two Draft');
+  assert.equal(state.draftId, 'pick-two-course-0001');
+
+  // First pack arrives as a comma-separated PackCards string under the session id.
+  parser.feed(`${lines[1]}\n`);
+  state = parser.snapshot();
+  assert.equal(state.draftId, 'pick-two-course-0001');
+  assert.equal(state.pack.length, 8);
+  assert.equal(state.packNumber, 1);
+  assert.equal(state.pickNumber, 1);
+  assert.equal(state.pack[0].name, 'Fíli the Pathfinder');
+
+  // A wrapped EventPlayerDraftMakePick takes two cards; a replayed request is ignored.
+  parser.feed(`${lines[2]}\n${lines[3]}\n`);
+  state = parser.snapshot();
+  assert.deepEqual(state.pool.map((card) => card.name), ['Fíli the Pathfinder', 'Gollum, Riddle Master']);
+  assert.equal(state.pack.length, 6);
+
+  // A periodic snapshot of the same course must not wipe live progress.
+  parser.feed(`${lines[4]}\n`);
+  assert.equal(parser.snapshot().pool.length, 2);
+
+  // The next round can pick a second copy of an already-drafted card.
+  parser.feed(`${lines[5]}\n${lines[6]}\n`);
+  state = parser.snapshot();
+  assert.equal(state.pickNumber, 2);
+  assert.deepEqual(state.pool.map((card) => card.name), [
+    'Fíli the Pathfinder',
+    'Gollum, Riddle Master',
+    'Fíli the Pathfinder',
+    'An Unexpected Party'
+  ]);
+  assert.equal(state.format, 'Pick Two Draft');
+});

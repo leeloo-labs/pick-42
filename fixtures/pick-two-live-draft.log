@@ -1,0 +1,7 @@
+{"Courses":[{"CourseId":"pick-two-course-0001","InternalEventName":"PickTwoDraft_HOB_20260811","CurrentModule":"PlayerDraft","ModulePayload":"","CardPool":[],"DraftId":"pick-two-session-0002"}]}
+[UnityCrossThreadLogger]Draft.Notify {"draftId":"pick-two-session-0002","SelfPick":1,"SelfPack":1,"PackCards":"103382,103444,103385,103397,103438,103375,103467,103489"}
+[UnityCrossThreadLogger]==> EventPlayerDraftMakePick {"id":"sanitized-req-1","request":"{\"DraftId\":\"pick-two-session-0002\",\"GrpIds\":[103382,103444],\"Pack\":1,\"Pick\":1}"}
+[UnityCrossThreadLogger]==> EventPlayerDraftMakePick {"id":"sanitized-req-1-replay","request":"{\"DraftId\":\"pick-two-session-0002\",\"GrpIds\":[103382,103444],\"Pack\":1,\"Pick\":1}"}
+{"Courses":[{"CourseId":"pick-two-course-0001","InternalEventName":"PickTwoDraft_HOB_20260811","CurrentModule":"PlayerDraft","ModulePayload":"","CardPool":[],"DraftId":"pick-two-session-0002"}]}
+[UnityCrossThreadLogger]Draft.Notify {"draftId":"pick-two-session-0002","SelfPick":2,"SelfPack":1,"PackCards":"103382,103397,103438,103499,103509,103520"}
+[UnityCrossThreadLogger]==> EventPlayerDraftMakePick {"id":"sanitized-req-2","request":"{\"DraftId\":\"pick-two-session-0002\",\"GrpIds\":[103382,103397],\"Pack\":1,\"Pick\":2}"}

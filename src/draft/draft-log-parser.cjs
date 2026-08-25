@@ -8,6 +8,8 @@ function eventLabel(value) {
 }
 
 function cardIds(value) {
+  // Human-draft Draft.Notify messages send PackCards as one comma-separated string.
+  if (typeof value === 'string') return value.split(',').map((entry) => Number(entry.trim())).filter(Number.isFinite);
   if (!Array.isArray(value)) return [];
   return value.map((entry) => Number(typeof entry === 'object' ? entry.grpId ?? entry.GrpId ?? entry.cardId : entry)).filter(Number.isFinite);
 }
@@ -48,11 +50,16 @@ function sameDraftContext(context, eventName) {
 
 function courseModulePriority(course) {
   const module = String(course?.CurrentModule ?? course?.currentModule ?? '').toLowerCase();
+  if (module === 'playerdraft') return 6;
   if (module === 'botdraft') return 5;
   if (module === 'deckselect') return 4;
   if (module === 'creatematch') return 3;
   if (module === 'complete') return 0;
   return 1;
+}
+
+function activeDraftingModule(course) {
+  return ['playerdraft', 'botdraft'].includes(String(course?.CurrentModule ?? course?.currentModule ?? '').toLowerCase());
 }
 
 class DraftLogParser extends EventEmitter {
@@ -70,6 +77,8 @@ class DraftLogParser extends EventEmitter {
   }
 
   #resetDraftState() {
+    this.liveDraftId = null;
+    this.processedPickRounds = new Set();
     this.state = {
       draftId: null,
       courseId: null,
@@ -148,6 +157,7 @@ class DraftLogParser extends EventEmitter {
     const restoredPool = cardIds(message.CardPool ?? message.cardPool);
     const courseSnapshot = message.CourseId !== undefined || message.courseId !== undefined || message.InternalEventName !== undefined || message.internalEventName !== undefined;
     const courseId = String(message.CourseId ?? message.courseId ?? '').trim() || null;
+    const sameActiveCourse = Boolean(courseSnapshot && eventInfo && courseId && this.state.courseId === courseId);
     if (courseSnapshot && eventInfo && courseId) {
       if (this.state.courseId && courseId !== this.state.courseId) this.#resetDraftState();
       this.state.courseId = courseId;
@@ -155,6 +165,9 @@ class DraftLogParser extends EventEmitter {
       this.state.draftId = courseId;
       this.state.format = formatForKind(eventInfo.kind);
       this.state.setCode = eventInfo.setCode ?? this.state.setCode;
+      // Human drafts run under a separate session id; the course links them explicitly.
+      const sessionId = String(message.DraftId ?? message.draftId ?? '').trim();
+      if (sessionId && sessionId !== courseId) this.liveDraftId = sessionId;
     }
     if (courseSnapshot && eventInfo && restoredPool.length) {
       this.state.draftId = courseId || String(message.draftId ?? message.DraftId ?? eventName);
@@ -174,6 +187,11 @@ class DraftLogParser extends EventEmitter {
       return;
     }
     if (courseSnapshot && eventInfo && courseId) {
+      if (sameActiveCourse && (this.state.packCardIds.length || this.state.pickedCardIds.length)) {
+        // A periodic snapshot of the course already being drafted must not wipe live state.
+        this.emit('state', this.snapshot());
+        return;
+      }
       this.state.packCardIds = [];
       this.state.pickedCardIds = [];
       this.state.arenaMainDeck = [];
@@ -186,8 +204,20 @@ class DraftLogParser extends EventEmitter {
     const inferredDraftId = /^(QuickDraft|PickTwoDraft|PremierDraft|TraditionalDraft)_/i.test(eventName) ? eventName : null;
     const associatedCourseId = inferredDraftId && this.state.eventName === eventName ? this.state.courseId : null;
     const draftId = message.draftId ?? message.DraftId ?? associatedCourseId ?? inferredDraftId;
-    if (draftId && this.state.draftId && String(draftId) !== this.state.draftId) this.#resetDraftState();
-    if (draftId) this.state.draftId = String(draftId);
+    const messageDraftId = draftId ? String(draftId) : null;
+    const liveHumanShape = message.PackCards !== undefined || message.packCards !== undefined
+      || message.GrpIds !== undefined || message.grpIds !== undefined;
+    if (messageDraftId && messageDraftId !== this.state.draftId) {
+      if (messageDraftId === this.liveDraftId) {
+        // The joined course's drafting session id; the course id stays canonical.
+      } else if (liveHumanShape && this.state.courseId && !this.liveDraftId) {
+        // Older snapshots may omit the course's DraftId; bind the first live session id seen.
+        this.liveDraftId = messageDraftId;
+      } else {
+        if (this.state.draftId) this.#resetDraftState();
+        this.state.draftId = messageDraftId;
+      }
+    }
     if (eventInfo) this.state.eventName = eventName;
 
     const quickDraft = /^QuickDraft_/i.test(eventName) || message.DraftPack !== undefined || message.draftPack !== undefined;
@@ -214,15 +244,27 @@ class DraftLogParser extends EventEmitter {
       return;
     }
 
-    const selection = cardIds(message.CardIds ?? message.cardIds);
+    const selection = cardIds(message.CardIds ?? message.cardIds ?? message.GrpIds ?? message.grpIds);
     const singleSelection = Number(message.GrpId ?? message.grpId ?? message.CardId ?? message.cardId);
-    if (/makepick|draftpick/i.test(label) || (/draft/i.test(label) && (selection.length || Number.isFinite(singleSelection)))) {
+    const humanPick = (message.GrpIds !== undefined || message.grpIds !== undefined)
+      && (message.DraftId !== undefined || message.draftId !== undefined);
+    if (/makepick|draftpick/i.test(label) || humanPick || (/draft/i.test(label) && (selection.length || Number.isFinite(singleSelection)))) {
       const selected = selection.length ? selection : [singleSelection].filter(Number.isFinite);
+      const packField = message.Pack ?? message.pack;
+      const pickField = message.Pick ?? message.pick;
+      const roundKey = humanPick && packField !== undefined && pickField !== undefined
+        ? `${messageDraftId || this.liveDraftId || this.state.draftId}:${packField}:${pickField}`
+        : null;
+      if (roundKey && this.processedPickRounds.has(roundKey)) return;
+      if (roundKey) this.processedPickRounds.add(roundKey);
       let changed = false;
       for (const pickedId of selected) {
-        if (this.state.pickedCardIds.includes(pickedId)) continue;
+        // Round-keyed picks may legitimately add a second copy of an already-picked card;
+        // unkeyed shapes keep the value check as their only replay protection.
+        if (!roundKey && this.state.pickedCardIds.includes(pickedId)) continue;
         this.state.pickedCardIds.push(pickedId);
-        this.state.packCardIds = this.state.packCardIds.filter((id) => id !== pickedId);
+        const packIndex = this.state.packCardIds.indexOf(pickedId);
+        if (packIndex !== -1) this.state.packCardIds.splice(packIndex, 1);
         this.#record(`Picked ${this.#card(pickedId).name}`, `Pack ${this.state.packNumber}, pick ${this.state.pickNumber}`);
         changed = true;
       }
@@ -233,7 +275,8 @@ class DraftLogParser extends EventEmitter {
   #selectDraftCourse(courses) {
     const candidates = courses.filter((course) => {
       const eventName = course?.InternalEventName ?? course?.internalEventName;
-      return draftEventInfo(eventName) && cardIds(course?.CardPool ?? course?.cardPool).length;
+      // A draft that is still running carries an empty CardPool; the active module marks it live.
+      return draftEventInfo(eventName) && (cardIds(course?.CardPool ?? course?.cardPool).length || activeDraftingModule(course));
     });
     if (!candidates.length) return null;
 

@@ -159,7 +159,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 117 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 118 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 
@@ -177,7 +177,6 @@ Important paths:
 ## Current limitations
 
 - Arena does not publish or version the `Player.log` schema, so new client shapes require sanitized fixtures and parser updates.
-- Pick Two support is verified against a real completed Pick Two course; the mid-draft pick messages reuse the parser's generic pack and multi-card-pick paths but have not yet been captured live, so the first Pick Two draft played with Pick 42 open confirms them.
 - Statistical quality depends on current, correctly matched 17Lands and Untapped exports.
 - Trophy decks are imported manually; Pick 42 does not crawl trophy pages.
 - Tactical review is deliberately conservative and cannot know hidden cards, player intent, or unlogged decision alternatives.
