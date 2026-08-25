@@ -1139,48 +1139,85 @@ function varianceLabel(entry) {
   return `${entry.level} · ${String(entry.kind || '').toUpperCase()}`;
 }
 
+let expandedEventId = null;
+
+function reviewEventGroupCard(group, displayed, latest) {
+  const section = element('div', `review-event-group ${group.status}`);
+  const heading = element('div', 'review-event-heading');
+  const title = element('div', 'review-event-title');
+  if (group.trophy) {
+    const icon = element('span', 'review-event-trophy');
+    icon.append(iconElement('trophy'));
+    title.append(icon);
+  }
+  title.append(element('strong', '', group.name));
+  if (group.formatLabel) title.append(element('small', '', group.formatLabel));
+  const record = element('span', `review-event-record ${group.status}`);
+  record.textContent = group.trophy
+    ? `TROPHY · ${group.record}`
+    : (group.status === 'eliminated'
+      ? `${group.record} · ENDED`
+      : (group.status === 'live' ? `${group.record} · LIVE` : group.record));
+  heading.append(title, record);
+  const chips = element('div', 'review-event-games');
+  for (const entry of group.games) {
+    const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
+    const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
+    chip.type = 'button';
+    const concedeNote = entry.earlyConcession ? ' · conceded early' : (/concede/i.test(String(entry.result?.reason || '')) ? ' · concede' : '');
+    chip.append(
+      element('strong', '', `G${entry.draftGameNumber} · ${entry.won === true ? 'WIN' : (entry.won === false ? 'LOSS' : '—')}`),
+      element('small', '', `${entry.turns ? `${entry.turns} turns` : '—'}${concedeNote}`)
+    );
+    if (entry.completedAt) chip.title = new Date(entry.completedAt).toLocaleString();
+    chip.addEventListener('click', () => {
+      selectedReviewId = latest && entry.id === latest.id ? null : entry.id;
+      renderReview();
+    });
+    chips.append(chip);
+  }
+  section.append(heading, chips);
+  return section;
+}
+
 function renderReviewGameStrip(groups, displayed, latest) {
   const strip = byId('review-game-strip');
   strip.replaceChildren();
   const totalGames = groups.reduce((sum, group) => sum + group.games.length, 0);
   strip.hidden = totalGames < 1;
   if (strip.hidden) return;
-  for (const group of groups) {
-    const section = element('div', `review-event-group ${group.status}`);
-    const heading = element('div', 'review-event-heading');
-    const title = element('div', 'review-event-title');
-    if (group.trophy) {
-      const icon = element('span', 'review-event-trophy');
-      icon.append(iconElement('trophy'));
-      title.append(icon);
-    }
-    title.append(element('strong', '', group.name));
-    if (group.formatLabel) title.append(element('small', '', group.formatLabel));
-    const record = element('span', `review-event-record ${group.status}`);
-    record.textContent = group.trophy
-      ? `TROPHY · ${group.record}`
-      : (group.status === 'eliminated'
-        ? `${group.record} · ENDED`
-        : (group.status === 'live' ? `${group.record} · LIVE` : group.record));
-    heading.append(title, record);
-    const chips = element('div', 'review-event-games');
-    for (const entry of group.games) {
-      const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
-      const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
-      chip.type = 'button';
-      chip.append(
-        element('strong', '', `G${entry.draftGameNumber} · ${entry.won === true ? 'WIN' : (entry.won === false ? 'LOSS' : '—')}`),
-        element('small', '', entry.turns ? `${entry.turns} turns` : '—')
-      );
-      if (entry.completedAt) chip.title = new Date(entry.completedAt).toLocaleString();
-      chip.addEventListener('click', () => {
-        selectedReviewId = latest && entry.id === latest.id ? null : entry.id;
+
+  const featured = [];
+  let past = [];
+  for (const group of groups) (group.isCurrent ? featured : past).push(group);
+  if (!featured.length && past.length) featured.push(past.shift());
+
+  for (const group of featured) strip.append(reviewEventGroupCard(group, displayed, latest));
+
+  if (past.length) {
+    const bar = element('div', 'review-past-events');
+    bar.append(element('span', 'review-past-label', `PREVIOUS EVENTS · ${past.length}`));
+    const holdsSelection = displayed ? past.find((group) => group.games.some((entry) => entry.id === displayed.id)) : null;
+    const openId = expandedEventId || holdsSelection?.draftId || null;
+    for (const group of past) {
+      const pill = element('button', `review-past-pill ${group.status} ${openId === group.draftId ? 'open' : ''}`);
+      pill.type = 'button';
+      if (group.trophy) {
+        const icon = element('span', 'review-event-trophy');
+        icon.append(iconElement('trophy'));
+        pill.append(icon);
+      }
+      pill.append(element('strong', '', group.name), element('span', '', group.record));
+      pill.title = `${group.name}${group.formatLabel ? ` · ${group.formatLabel}` : ''} · ${group.games.length} recorded game${group.games.length === 1 ? '' : 's'}`;
+      pill.addEventListener('click', () => {
+        expandedEventId = expandedEventId === group.draftId ? null : group.draftId;
         renderReview();
       });
-      chips.append(chip);
+      bar.append(pill);
     }
-    section.append(heading, chips);
-    strip.append(section);
+    strip.append(bar);
+    const open = past.find((group) => group.draftId === openId);
+    if (open) strip.append(reviewEventGroupCard(open, displayed, latest));
   }
   hydrateIcons(strip);
 }

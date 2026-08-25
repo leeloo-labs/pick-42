@@ -14,6 +14,7 @@ const {
   dominanceAnalysis,
   draftDeckMatchDecision,
   gameShapeAnalysis,
+  isEarlyConcession,
   replaceRebuiltReviewInPlace,
   reviewDeckIdentity,
   reviewEventGroups,
@@ -909,4 +910,33 @@ test('traditional drafts derive match records and trophy at three match wins', (
   const [group] = reviewEventGroups(games, {});
   assert.equal(group.record, '3-0');
   assert.equal(group.trophy, true);
+});
+
+test('an early concession carries no deck evidence but keeps its place in the record', () => {
+  const conceded = {
+    status: 'complete',
+    won: false,
+    draftId: 'p2c',
+    turns: 8,
+    yourTurnsObserved: 4,
+    result: { reason: 'Concede' },
+    completedAt: '2026-08-25T01:00:00Z',
+    deck: { name: 'Golgari', total: 40, fingerprint: 'p2c-1' },
+    drawnCards: [],
+    cardsPlayed: [],
+    stranded: [{ name: 'Wandering Ent', turns: 2, kind: 'curve' }],
+    playerMana: { you: { timeline: [{ playerTurn: 1, lands: 1 }] }, opponent: { timeline: [] } }
+  };
+  assert.equal(isEarlyConcession(conceded), true);
+  assert.equal(isEarlyConcession({ ...conceded, won: true }), false);
+  assert.equal(isEarlyConcession({ ...conceded, yourTurnsObserved: 9 }), false);
+  assert.equal(isEarlyConcession({ ...conceded, result: { reason: 'Defeated' } }), false);
+
+  const analyzed = analyzePostGameReview(conceded, {});
+  assert.equal(analyzed.postGame.verdict.label, 'LIMITED EVIDENCE');
+  assert.match(analyzed.postGame.verdict.summary, /still counts toward the event record/);
+
+  const [group] = reviewEventGroups([conceded], { currentDraftId: 'p2c', currentFormat: 'Pick Two Draft' });
+  assert.equal(group.record, '0-1');
+  assert.equal(group.games[0].earlyConcession, true);
 });

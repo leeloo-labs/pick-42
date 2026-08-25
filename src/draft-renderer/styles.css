@@ -970,6 +970,15 @@ button { color: inherit; }
 .review-event-record.trophy { color: var(--gold); }
 .review-event-record.live { color: var(--violet); }
 .review-event-games { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.review-past-events { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.review-past-label { color: var(--quiet); font-size: 9px; font-weight: 850; letter-spacing: .1em; margin-right: 2px; }
+.review-past-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.26); cursor: pointer; }
+.review-past-pill strong { font-size: 11px; font-weight: 700; }
+.review-past-pill > span:last-child { color: var(--quiet); font-size: 10px; font-weight: 800; }
+.review-past-pill .review-event-trophy .lucide { width: 12px; height: 12px; }
+.review-past-pill:hover { border-color: rgba(112,84,179,.32); }
+.review-past-pill.open { border-color: rgba(112,84,179,.45); background: rgba(112,84,179,.1); }
+.review-past-pill.trophy { border-color: rgba(150,101,30,.4); }
 .review-game-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.28); text-align: left; cursor: pointer; }
 .review-game-chip strong { font-size: 11px; font-weight: 800; letter-spacing: .05em; }
 .review-game-chip small { color: var(--quiet); font-size: 10px; }

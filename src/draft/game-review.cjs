@@ -674,6 +674,14 @@ function celebrateBlowout(review, dominance, baseVerdict, series) {
   };
 }
 
+// A loss conceded within the first few of the player's turns reads as an abandoned
+// game (an interruption, a misclick queue), not a test of the deck.
+function isEarlyConcession(review) {
+  if (review?.won !== false) return false;
+  if (!/concede/i.test(String(review.result?.reason || ''))) return false;
+  return Number(review.yourTurnsObserved ?? Number.POSITIVE_INFINITY) <= 4;
+}
+
 function verdictAnalysis(review, { variance, drawQuality, contributions }) {
   if (review.status === 'recording' || review.won === null || review.won === undefined) {
     return {
@@ -682,6 +690,16 @@ function verdictAnalysis(review, { variance, drawQuality, contributions }) {
       title: 'Verdict pending',
       summary: 'Pick 42 will weigh the result, mana variance, IIH draw quality, and observable card contribution when the game ends.',
       action: 'Keep playing.'
+    };
+  }
+
+  if (isEarlyConcession(review)) {
+    return {
+      tone: 'retry',
+      label: 'LIMITED EVIDENCE',
+      title: 'Early concession.',
+      summary: 'You conceded within your first few turns, so this game says almost nothing about the deck. The loss still counts toward the event record.',
+      action: 'Run it back when you can play a full game.'
     };
   }
 
@@ -905,7 +923,9 @@ function reviewSeriesAnalysis(review, relatedReviews, seventeenLands) {
     };
   }
 
-  const entries = completed.map((candidate) => ({
+  // Early concessions keep their place in the record but contribute no card-level
+  // evidence: an abandoned game must not feed repeated-signal conclusions.
+  const entries = completed.filter((candidate) => !isEarlyConcession(candidate)).map((candidate) => ({
     review: candidate,
     variance: varianceAnalysis(candidate),
     drawQuality: drawQualityAnalysis(candidate, seventeenLands),
@@ -944,6 +964,7 @@ function reviewSeriesAnalysis(review, relatedReviews, seventeenLands) {
     strongDrawLosses: entries.filter((entry) => !entry.review.won && !entry.turningPoint.detected && ['near-ceiling', 'exceptional', 'strong'].includes(entry.drawQuality.tier)).length,
     drawTiers: entries.reduce((counts, entry) => ({ ...counts, [entry.drawQuality.tier]: (counts[entry.drawQuality.tier] || 0) + 1 }), {}),
     repeatedLvp: repeatedLvp?.count >= 2 ? repeatedLvp : null,
+    abandonedLosses: completed.filter((candidate) => isEarlyConcession(candidate)).length,
     changeSuggestion: relevantSuggestion || null
   };
   return {
@@ -997,7 +1018,7 @@ function deviationPhrase(deviation) {
 function applyDeviationToVerdict(verdict, review, deviation, contributions) {
   if (!deviation?.comparable || !deviation.differs || !verdict) return verdict;
   const next = { ...verdict, deviation: { ...deviation, phrase: deviationPhrase(deviation) } };
-  if (review.won !== false) return next;
+  if (review.won !== false || isEarlyConcession(review)) return next;
   const addedNames = new Set(deviation.added.map((entry) => entry.name));
   const lvp = contributions?.lvp?.[0] || null;
   const restore = deviation.cut[0]?.name || null;
@@ -1066,7 +1087,7 @@ function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = nul
       status: trophy ? 'trophy' : (eliminated ? 'eliminated' : (isCurrent ? 'live' : 'ended')),
       isCurrent,
       latestAt: ordered.length ? String(ordered[ordered.length - 1].completedAt || '') : '',
-      games: ordered.map((game, index) => ({ ...game, draftGameNumber: index + 1 }))
+      games: ordered.map((game, index) => ({ ...game, draftGameNumber: index + 1, earlyConcession: isEarlyConcession(game) }))
     });
   }
 
@@ -1585,6 +1606,7 @@ module.exports = {
   draftDeckMatchDecision,
   gameShapeAnalysis,
   hasConditionalCostReduction,
+  isEarlyConcession,
   reanalyzePersistedReview,
   replaceRebuiltReviewInPlace,
   reviewClearlyMismatchesDeck,
