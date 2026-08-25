@@ -24,7 +24,7 @@ const {
   trophyThreshold
 } = require('./draft/archetype-corpus.cjs');
 const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
-const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, replaceRebuiltReviewInPlace, reviewDeckIdentity, reviewEventGroups } = require('./draft/game-review.cjs');
+const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, eventWrapUpVerdict, replaceRebuiltReviewInPlace, reviewDeckIdentity, reviewEventGroups } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
@@ -477,12 +477,24 @@ function presentedReviewState() {
   const completed = reviewState.reviews || [];
   const activeRelated = reviewState.active ? [reviewState.active, ...completed] : completed;
   const analyzed = completed.map((review) => analyzePostGameReview(review, { seventeenLands: activeSources.seventeenLands, relatedReviews: completed }));
+  const eventGroups = reviewEventGroups(analyzed, { currentDraftId: draftState.draftId, currentFormat: draftState.format });
+  const latest = analyzePostGameReview(reviewState.latest, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated });
+  // The final game of a decided event carries the draft wrap-up instead of advice
+  // about a deck that has no next game.
+  for (const group of eventGroups) {
+    const wrapUp = eventWrapUpVerdict(group);
+    if (!wrapUp) continue;
+    const finalGameId = group.games[group.games.length - 1]?.id;
+    for (const target of [analyzed.find((review) => review.id === finalGameId), latest?.id === finalGameId ? latest : null]) {
+      if (target?.postGame) target.postGame.verdict = { ...wrapUp, deviation: target.postGame.verdict?.deviation };
+    }
+  }
   return {
     ...reviewState,
     active: analyzePostGameReview(reviewState.active, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
-    latest: analyzePostGameReview(reviewState.latest, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
+    latest,
     reviews: analyzed,
-    eventGroups: reviewEventGroups(analyzed, { currentDraftId: draftState.draftId, currentFormat: draftState.format })
+    eventGroups
   };
 }
 

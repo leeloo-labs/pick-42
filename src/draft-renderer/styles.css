@@ -1072,6 +1072,7 @@ button { color: inherit; }
 .review-verdict-card.caution { border-color: rgba(150,101,30,.3); background: linear-gradient(145deg, rgba(250,248,245,.84), rgba(241,232,213,.72)); }
 .review-verdict-card.change { border-color: rgba(166,68,58,.28); background: linear-gradient(145deg, rgba(250,248,245,.84), rgba(242,224,220,.7)); }
 .review-verdict-card.celebration { position: relative; overflow: hidden; border-color: rgba(150,101,30,.44); background: radial-gradient(circle at 88% 10%, rgba(226,181,62,.24), transparent 28%), linear-gradient(135deg, rgba(248,244,226,.94), rgba(230,224,245,.82) 56%, rgba(220,239,226,.78)); box-shadow: 0 12px 34px rgba(112,84,179,.12); }
+.review-verdict-card.wrap { border-color: rgba(112,84,179,.3); background: linear-gradient(145deg, rgba(250,248,245,.86), rgba(230,226,241,.7)); }
 .review-verdict-card.celebration::after { position: absolute; width: 150px; height: 220%; top: -60%; left: -190px; transform: rotate(18deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,.42), transparent); content: ""; animation: verdict-victory-shine 3.8s ease-in-out infinite; pointer-events: none; }
 .review-verdict-card.celebration > .review-section-heading > span { color: #805716; background: rgba(226,181,62,.18); }
 @keyframes verdict-victory-shine { 0%, 55% { left: -190px; } 85%, 100% { left: calc(100% + 80px); } }

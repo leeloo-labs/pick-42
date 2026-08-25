@@ -150,6 +150,7 @@ The report intentionally focuses on evidence that can change a decision:
 - LVP candidates only when concrete negative evidence exists;
 - a build-vs-model note when the registered deck differs from the recommended Pick 42 build, listing exactly what was added and cut;
 - a plain-language verdict recommending whether to run it back or test a reversible change. When a loss's clearest negative evidence points at a card the player added over the model, the verdict suggests the specific reversible swap back; a deviation alone is context, never evidence.
+- Once the event is decided, the final game's verdict becomes a **Draft wrap-up** instead of advice about a deck with no next game: a trophy celebration or a completion summary with the run's repeatable signals, framed as reads for the next draft.
 
 Games from the exact same deck version are combined into a series verdict. Changing the deck version starts a new evidence series rather than mixing incompatible results.
 
@@ -164,7 +165,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 125 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 126 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 

@@ -13,6 +13,7 @@ const {
   castingProblem,
   dominanceAnalysis,
   draftDeckMatchDecision,
+  eventWrapUpVerdict,
   gameShapeAnalysis,
   isEarlyConcession,
   replaceRebuiltReviewInPlace,
@@ -939,4 +940,46 @@ test('an early concession carries no deck evidence but keeps its place in the re
   const [group] = reviewEventGroups([conceded], { currentDraftId: 'p2c', currentFormat: 'Pick Two Draft' });
   assert.equal(group.record, '0-1');
   assert.equal(group.games[0].earlyConcession, true);
+});
+
+test('a decided event replaces the final verdict with a draft wrap-up', () => {
+  const game = (index, won, extra = {}) => ({
+    id: `wrap:${index}`,
+    draftId: 'wrap',
+    won,
+    status: 'complete',
+    completedAt: `2026-08-25T0${index}:00:00Z`,
+    deck: { name: 'Golgari' },
+    postGame: {
+      variance: { you: { level: 'LOW', kind: 'stable' } },
+      contributions: { mvp: [], lvp: [] },
+      ...extra.postGame
+    },
+    ...extra
+  });
+
+  const eliminated = reviewEventGroups([
+    game(1, false, { result: { reason: 'Concede' }, yourTurnsObserved: 3 }),
+    game(2, true),
+    game(3, true),
+    game(4, false, { postGame: { variance: { you: { level: 'LOW', kind: 'stable' } }, contributions: { mvp: [], lvp: [{ name: 'Wandering Ent' }] } } })
+  ], { currentDraftId: 'wrap', currentFormat: 'Pick Two Draft' });
+  const group = eliminated[0];
+  assert.equal(group.eliminated, true);
+  const wrap = eventWrapUpVerdict(group);
+  assert.equal(wrap.scope, 'event');
+  assert.equal(wrap.label, 'DRAFT COMPLETE');
+  assert.match(wrap.title, /2-2: this event is over/);
+  assert.match(wrap.action, /No more games with this deck/);
+
+  const trophyGroup = reviewEventGroups(
+    [game(1, true), game(2, true), game(3, false), game(4, true), game(5, true)],
+    { currentDraftId: 'wrap', currentFormat: 'Pick Two Draft' }
+  )[0];
+  assert.equal(trophyGroup.trophy, true);
+  const trophyWrap = eventWrapUpVerdict(trophyGroup);
+  assert.equal(trophyWrap.label, 'TROPHY');
+  assert.equal(trophyWrap.tone, 'celebration');
+
+  assert.equal(eventWrapUpVerdict(reviewEventGroups([game(1, true)], { currentDraftId: 'wrap', currentFormat: 'Pick Two Draft' })[0]), null);
 });

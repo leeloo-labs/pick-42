@@ -1338,12 +1338,14 @@ function renderReview() {
   const series = analysis.series || {};
   const verdictCard = byId('review-verdict-card');
   verdictCard.className = `review-card review-verdict-card ${verdict.tone || 'neutral'}`;
-  setText('review-verdict-eyebrow', verdict.scope === 'series' ? 'SERIES VERDICT' : 'GAME VERDICT');
+  setText('review-verdict-eyebrow', verdict.scope === 'event' ? 'DRAFT WRAP-UP' : (verdict.scope === 'series' ? 'SERIES VERDICT' : 'GAME VERDICT'));
   setText('review-verdict-label', verdict.label || 'PENDING');
   setText('review-verdict-title', verdict.title || 'Verdict pending');
-  setText('review-verdict-evidence', verdict.scope === 'series'
-    ? `${series.games} GAMES · ${series.record} · SAME DECK VERSION`
-    : (recording && series.games ? `GAME IN PROGRESS · ${series.games} PRIOR MATCHING GAME${series.games === 1 ? '' : 'S'}` : '1 GAME · CURRENT DECK VERSION'));
+  setText('review-verdict-evidence', verdict.scope === 'event'
+    ? (verdict.evidence || 'EVENT COMPLETE')
+    : (verdict.scope === 'series'
+      ? `${series.games} GAMES · ${series.record} · SAME DECK VERSION`
+      : (recording && series.games ? `GAME IN PROGRESS · ${series.games} PRIOR MATCHING GAME${series.games === 1 ? '' : 'S'}` : '1 GAME · CURRENT DECK VERSION')));
   setText('review-verdict-summary', verdict.summary || 'Waiting for enough evidence.');
   const verdictDeviation = byId('review-verdict-deviation');
   verdictDeviation.hidden = !verdict.deviation;

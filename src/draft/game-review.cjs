@@ -1094,6 +1094,63 @@ function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = nul
   return result.sort((left, right) => right.latestAt.localeCompare(left.latestAt));
 }
 
+// Once an event is decided there is no next game for this deck, so the final game's
+// verdict becomes a wrap-up of the run instead of a change suggestion. Takeaways are
+// framed for the next draft; the deck itself is finished.
+function eventWrapUpVerdict(group) {
+  if (!group || (!group.trophy && !group.eliminated)) return null;
+  const games = (group.games || []).filter((game) => game.postGame);
+  const losses = games.filter((game) => game.won === false);
+  const abandoned = games.filter((game) => game.earlyConcession).length;
+  const varianceLosses = losses.filter((game) => !game.earlyConcession
+    && game.postGame?.variance?.you?.level !== 'LOW'
+    && ['flooded', 'starved'].includes(game.postGame?.variance?.you?.kind)).length;
+
+  const tally = (pick) => {
+    const counts = new Map();
+    for (const game of games) {
+      if (game.earlyConcession) continue;
+      for (const card of pick(game) || []) {
+        const key = normalizeCardName(card.name);
+        const current = counts.get(key) || { name: card.name, count: 0 };
+        current.count += 1;
+        counts.set(key, current);
+      }
+    }
+    const top = [...counts.values()].sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))[0];
+    return top && top.count >= 2 ? top : null;
+  };
+  const repeatedMvp = tally((game) => game.postGame?.contributions?.mvp);
+  const repeatedLvp = tally((game) => game.postGame?.contributions?.lvp);
+
+  const evidence = `${games.length} GAMES · ${group.record} · ${group.trophy ? 'TROPHY' : 'EVENT COMPLETE'}`;
+  if (group.trophy) {
+    return {
+      scope: 'event',
+      tone: 'celebration',
+      label: 'TROPHY',
+      title: `Trophy: ${group.record} with ${group.name}.`,
+      evidence,
+      summary: `You finished the event at ${group.record}.${repeatedMvp ? ` ${repeatedMvp.name} delivered attributable damage in ${repeatedMvp.count} of the wins.` : ''}${varianceLosses ? ` ${varianceLosses === 1 ? 'The loss' : 'Some losses'} came with a mana-variance excuse.` : ''}`,
+      action: 'Bank it. This deck is finished — bring the run to a fresh draft.'
+    };
+  }
+  const summaryParts = [`You finished the event at ${group.record}${abandoned ? `, including ${abandoned} early concession${abandoned === 1 ? '' : 's'} that carried no deck evidence` : ''}.`];
+  if (varianceLosses) summaryParts.push(`${varianceLosses} of the ${losses.length} losses crossed a mana-variance threshold, which limits deck-level conclusions.`);
+  if (repeatedLvp) summaryParts.push(`${repeatedLvp.name} drew concrete negative evidence in ${repeatedLvp.count} games — the clearest repeatable signal of the run.`);
+  return {
+    scope: 'event',
+    tone: 'wrap',
+    label: 'DRAFT COMPLETE',
+    title: `${group.record}: this event is over.`,
+    evidence,
+    summary: summaryParts.join(' '),
+    action: repeatedLvp
+      ? `No more games with this deck. In the next draft, be slower to main-deck ${repeatedLvp.name} on similar data.`
+      : 'No more games with this deck — take the reads into your next draft.'
+  };
+}
+
 function analyzePostGameReview(review, { seventeenLands = [], relatedReviews = [] } = {}) {
   if (!review) return null;
   const variance = varianceAnalysis(review);
@@ -1605,6 +1662,7 @@ module.exports = {
   dominanceAnalysis,
   draftDeckMatchDecision,
   gameShapeAnalysis,
+  eventWrapUpVerdict,
   hasConditionalCostReduction,
   isEarlyConcession,
   reanalyzePersistedReview,
