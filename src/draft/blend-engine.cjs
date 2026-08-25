@@ -1172,7 +1172,7 @@ function scoreDraftPack({
     if (score !== null && Math.abs(duplicateDelta) >= 0.6 && duplicate.detail) {
       reasons.push(`${signed(duplicateDelta)} duplicate: ${duplicate.detail}`);
     }
-    if (lands?.gihWinRate !== null && lands?.gihWinRate !== undefined) reasons.push(`17L ${rounded(lands.gihWinRate)}% GIH`);
+    if (lands?.gihWinRate !== null && lands?.gihWinRate !== undefined) reasons.push(`17L ${rounded(lands.gihWinRate)}% ${lands.winRateBasis || 'GIH'}`);
     if (tapped?.inHandWinRate !== null && tapped?.inHandWinRate !== undefined) reasons.push(`Untapped ${rounded(tapped.inHandWinRate)}% in-hand`);
     if (score !== null) {
       if (Math.abs(colorDelta) >= 0.6) reasons.push(`${signed(colorDelta)} ${fit.reason}`);

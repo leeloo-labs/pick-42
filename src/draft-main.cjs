@@ -476,6 +476,19 @@ function recommendationGate(recommendations) {
     };
   }
   if (coverage < 0.9) {
+    // Early in a set the sources legitimately lack rows for fringe cards. When almost
+    // every card is covered by at least one import, rank with what exists and say so
+    // instead of pausing; cards with no data at all stay visibly unranked.
+    const coveredByAny = draftable.filter((card) => card.sourceCoverage >= 1).length;
+    if (coveredByAny / draftable.length >= 0.9) {
+      return {
+        ready: true,
+        kind: 'partial',
+        message: `Partial data · ${coveredByBoth}/${draftable.length} cards match both imports; single-source ratings fill the gaps`,
+        coveredByBoth,
+        total: draftable.length
+      };
+    }
     return {
       ready: false,
       kind: 'low-coverage',

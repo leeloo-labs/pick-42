@@ -656,3 +656,22 @@ test('a Pick Two pair may take the second copy of the best card', () => {
   // Only one physical copy leaves the pack; the second selection is scored over the rest.
   assert.ok(['Fíli the Pathfinder', 'Gollum, Riddle Master'].includes(pair.second.name));
 });
+
+test('falls back to GP win rate when 17Lands blanks low-sample GIH cells', () => {
+  const csv = [
+    '"Name","Color","Rarity","# GP","% GP","GP WR","# GIH","GIH WR","# GNS","GNS WR","IIH"',
+    '"Covered Common","W","C","1000","70%","61.5%","400","","600","58.0%",""',
+    '"Popular Card","U","C","900","65%","64.0%","800","65.2%","700","57.0%","8.2"'
+  ].join('\n');
+  const cards = parseSeventeenLandsCsv(csv);
+  const fallback = cards.find((card) => card.name === 'Covered Common');
+  assert.equal(fallback.gihWinRate, 61.5);
+  assert.equal(fallback.winRateBasis, 'GP');
+  assert.equal(fallback.gamesInHand, 1000);
+  assert.equal(fallback.improvementInHand, null);
+  const direct = cards.find((card) => card.name === 'Popular Card');
+  assert.equal(direct.winRateBasis, 'GIH');
+  assert.equal(direct.gihWinRate, 65.2);
+  assert.equal(direct.gamesInHand, 800);
+  assert.equal(direct.improvementInHand, 8.2);
+});

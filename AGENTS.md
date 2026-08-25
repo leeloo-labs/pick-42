@@ -85,7 +85,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 118 passing tests.
+- The test suite currently contains 119 passing tests.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
 - Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.
