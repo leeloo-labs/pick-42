@@ -1562,7 +1562,7 @@ function renderSourceMenu() {
   const linkCopy = element('span', 'source-menu-copy');
   linkCopy.append(
     element('strong', '', source === 'seventeenLands' ? 'Get a fresh export' : 'Get a fresh export'),
-    element('small', '', source === 'seventeenLands' ? '17lands.com · Card Data · export CSV' : 'mtga.untapped.gg · Cards · export CSV')
+    element('small', '', source === 'seventeenLands' ? '17lands.com · Card Data · export CSV' : 'mtga.untapped.gg · Limited card data · export CSV')
   );
   const linkAction = element('span', 'source-menu-action');
   linkAction.append(iconElement('external-link'));

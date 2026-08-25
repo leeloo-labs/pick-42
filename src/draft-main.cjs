@@ -1132,7 +1132,8 @@ function registerIpc() {
   const EXTERNAL_LINKS = {
     seventeenLandsCardData: 'https://www.17lands.com/card_data',
     seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
-    untappedCardData: 'https://mtga.untapped.gg/cards'
+    // Untapped's limited card data is per-set; update the slug when a new set arrives.
+    untappedCardData: 'https://mtga.untapped.gg/limited/draft/the-hobbit/card-data'
   };
   ipcMain.handle('draft:open-link', (_event, key) => {
     const url = EXTERNAL_LINKS[String(key || '')];
