@@ -857,7 +857,9 @@ button { color: inherit; }
 .corpus-entry-panel textarea { min-height: 210px; resize: vertical; padding: 10px; font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .corpus-entry-panel input:focus, .corpus-entry-panel select:focus, .corpus-entry-panel textarea:focus { border-color: rgba(112,84,179,.52); box-shadow: 0 0 0 3px rgba(112,84,179,.08); }
 .corpus-url-field, .corpus-deck-field { margin-top: 11px; }
-.corpus-entry-actions { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; margin-top: 11px; }
+.corpus-entry-actions { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: 10px; margin-top: 11px; }
+.source-menu-link { border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; margin-top: 4px; }
+.source-menu-link .source-menu-action .lucide { width: 12px; height: 12px; }
 .corpus-secondary, .corpus-primary, .corpus-file-import button { min-height: 34px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; font-size: 10px; font-weight: 850; letter-spacing: .07em; cursor: pointer; }
 .corpus-secondary, .corpus-primary, .corpus-file-import button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .corpus-secondary .lucide, .corpus-primary .lucide, .corpus-file-import button .lucide { width: 11px; height: 11px; }

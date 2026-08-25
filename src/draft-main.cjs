@@ -203,14 +203,26 @@ function readManualArchetypeCorpus() {
   rebuildArchetypeCorpus();
 }
 
+// A kill or crash mid-write must never truncate a local store: writing a settings
+// file partially once flattened every saved preference on the next merge-write.
+function writeFileAtomic(filePath, contents) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporary = `${filePath}.tmp`;
+  fs.writeFileSync(temporary, contents);
+  fs.renameSync(temporary, filePath);
+}
+
+function writeJsonAtomic(filePath, value) {
+  writeFileAtomic(filePath, JSON.stringify(value, null, 2));
+}
+
 function writeManualArchetypeCorpus() {
-  fs.mkdirSync(path.dirname(manualArchetypeCorpusPath()), { recursive: true });
-  fs.writeFileSync(manualArchetypeCorpusPath(), JSON.stringify({
+  writeJsonAtomic(manualArchetypeCorpusPath(), {
     version: 1,
     source: 'Manually pasted trophy deck lists',
     generatedAt: new Date().toISOString(),
     decks: manualArchetypeDecks
-  }, null, 2));
+  });
 }
 
 function manualDeckId(value, cards) {
@@ -275,9 +287,7 @@ function readSettings() {
 }
 
 function writeSettings(patch) {
-  const next = { ...readSettings(), ...patch };
-  fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
-  fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2));
+  writeJsonAtomic(settingsPath(), { ...readSettings(), ...patch });
 }
 
 function readGameReviews() {
@@ -285,15 +295,20 @@ function readGameReviews() {
 }
 
 function writeGameReviews(reviews) {
-  fs.mkdirSync(path.dirname(gameReviewsPath()), { recursive: true });
-  fs.writeFileSync(gameReviewsPath(), JSON.stringify(reviews, null, 2));
+  writeJsonAtomic(gameReviewsPath(), reviews);
 }
 
-function loadCsv(source, filePath, format = 'any') {
+function loadCsv(source, filePath, format = 'any', label = null) {
   const text = fs.readFileSync(filePath, 'utf8');
   const data = source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
-  sourceImports[source][format] = { label: path.basename(filePath), count: data.length, path: filePath, data };
+  sourceImports[source][format] = { label: label || path.basename(filePath), count: data.length, path: filePath, data };
   return data;
+}
+
+// Imports are copied into the app's own storage so they keep working after the
+// original download is moved, deleted, or blocked by macOS folder permissions.
+function importedCsvStoragePath(source, format) {
+  return path.join(app.getPath('userData'), 'imports', `${source}-${format}.csv`);
 }
 
 function loadSampleSources() {
@@ -341,7 +356,7 @@ function sourceImportPathsForSettings() {
   for (const source of ['seventeenLands', 'untapped']) {
     payload[source] = {};
     for (const [format, entry] of Object.entries(sourceImports[source])) {
-      if (entry?.path) payload[source][format] = entry.path;
+      if (entry?.path) payload[source][format] = { path: entry.path, label: entry.label };
     }
   }
   return payload;
@@ -964,7 +979,12 @@ function registerIpc() {
     });
     if (result.canceled || !result.filePaths[0]) return viewModel();
     try {
-      const data = loadCsv(source, result.filePaths[0], formatKey);
+      // Copy the chosen export into the app's own storage: the dialog grants read
+      // access now, and the stored copy stays loadable after the original moves.
+      const chosenPath = result.filePaths[0];
+      const storagePath = importedCsvStoragePath(source, formatKey);
+      writeFileAtomic(storagePath, fs.readFileSync(chosenPath, 'utf8'));
+      const data = loadCsv(source, storagePath, formatKey, path.basename(chosenPath));
       writeSettings({ sourceImportPaths: sourceImportPathsForSettings() });
       setStatus({ kind: 'live', message: `${sourceName} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
     } catch (error) {
@@ -995,12 +1015,12 @@ function registerIpc() {
           })
         });
         const corpusPath = path.join(app.getPath('userData'), `trophy-corpus-${extraction.setCode}-${extraction.format}.json`);
-        fs.writeFileSync(corpusPath, JSON.stringify({
+        writeJsonAtomic(corpusPath, {
           source: `17Lands public dataset · ${path.basename(filePath)}`,
           license: 'Processed offline from the 17Lands public datasets (17lands.com/public_datasets)',
           generatedAt: new Date().toISOString(),
           decks: extraction.decks
-        }, null, 1));
+        });
         loadArchetypeCorpus(corpusPath);
         writeSettings({ archetypeCorpusPath: corpusPath });
         setStatus({
@@ -1109,6 +1129,16 @@ function registerIpc() {
     return viewModel();
   });
   ipcMain.handle('draft:open-screen-settings', () => shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
+  const EXTERNAL_LINKS = {
+    seventeenLandsCardData: 'https://www.17lands.com/card_data',
+    seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
+    untappedCardData: 'https://mtga.untapped.gg/cards'
+  };
+  ipcMain.handle('draft:open-link', (_event, key) => {
+    const url = EXTERNAL_LINKS[String(key || '')];
+    if (url) shell.openExternal(url);
+    return Boolean(url);
+  });
   ipcMain.handle('draft:enter-build-mode', () => {
     suppressAutomaticBuildMode = false;
     setCompactBuildMode(true, 'manual');
@@ -1218,9 +1248,11 @@ app.whenReady().then(async () => {
   }
   const savedSourceImports = saved.sourceImportPaths || {};
   for (const source of ['seventeenLands', 'untapped']) {
-    for (const [format, savedPath] of Object.entries(savedSourceImports[source] || {})) {
+    for (const [format, savedEntry] of Object.entries(savedSourceImports[source] || {})) {
+      const savedPath = typeof savedEntry === 'string' ? savedEntry : savedEntry?.path;
+      const savedLabel = typeof savedEntry === 'string' ? null : savedEntry?.label;
       if (SOURCE_FORMATS.includes(format) && savedPath && fs.existsSync(savedPath)) {
-        try { loadCsv(source, savedPath, format); } catch { /* Skip an export that moved or changed. */ }
+        try { loadCsv(source, savedPath, format, savedLabel); } catch { /* Skip an export that moved or changed. */ }
       }
     }
     // Legacy single-path settings become the all-formats slot.

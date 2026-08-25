@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   toggleVisualGuide: () => ipcRenderer.invoke('draft:toggle-visual-guide'),
   scanVisualGuide: () => ipcRenderer.invoke('draft:scan-visual-guide'),
   openScreenSettings: () => ipcRenderer.invoke('draft:open-screen-settings'),
+  openLink: (key) => ipcRenderer.invoke('draft:open-link', key),
   enterBuildMode: () => ipcRenderer.invoke('draft:enter-build-mode'),
   exitBuildMode: () => ipcRenderer.invoke('draft:exit-build-mode'),
   minimize: () => ipcRenderer.invoke('draft:minimize'),

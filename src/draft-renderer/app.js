@@ -1556,6 +1556,22 @@ function renderSourceMenu() {
     });
     menu.append(row);
   }
+
+  const linkRow = element('button', 'source-menu-row source-menu-link');
+  linkRow.type = 'button';
+  const linkCopy = element('span', 'source-menu-copy');
+  linkCopy.append(
+    element('strong', '', source === 'seventeenLands' ? 'Get a fresh export' : 'Get a fresh export'),
+    element('small', '', source === 'seventeenLands' ? '17lands.com · Card Data · export CSV' : 'mtga.untapped.gg · Cards · export CSV')
+  );
+  const linkAction = element('span', 'source-menu-action');
+  linkAction.append(iconElement('external-link'));
+  linkRow.append(linkCopy, linkAction);
+  linkRow.addEventListener('click', () => {
+    window.draftCompanion.openLink(source === 'seventeenLands' ? 'seventeenLandsCardData' : 'untappedCardData');
+  });
+  menu.append(linkRow);
+  hydrateIcons(menu);
 }
 
 function toggleSourceMenu(source, event) {
@@ -1600,6 +1616,7 @@ byId('lane-resume-auto').addEventListener('click', () => {
 byId('import-untapped').addEventListener('click', (event) => toggleSourceMenu('untapped', event));
 byId('import-archetypes').addEventListener('click', openCorpusManager);
 byId('corpus-close').addEventListener('click', () => byId('corpus-dialog').close());
+byId('corpus-open-trophies').addEventListener('click', () => window.draftCompanion.openLink('seventeenLandsTrophies'));
 byId('corpus-paste').addEventListener('click', async () => {
   const button = byId('corpus-paste');
   button.disabled = true;
