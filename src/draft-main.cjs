@@ -643,7 +643,7 @@ function startDemo() {
   demoIndex = 0;
   parser.feed(`${demoEntries[demoIndex]}\n`);
   demoIndex += 1;
-  setStatus({ kind: 'demo', message: 'Sample HOB pack · use Next pick to see philosophy adapt' });
+  setStatus({ kind: 'demo', message: 'Sample HOB pack · use Next pick to step through the draft' });
 }
 
 function advanceDemo() {
@@ -655,7 +655,7 @@ function advanceDemo() {
     parser.feed(`${demoEntries[demoIndex]}\n`);
     demoIndex += 1;
   }
-  setStatus({ kind: 'demo', message: demoIndex >= demoEntries.length ? 'Sample complete · Next pick restarts it' : 'Sample draft advanced' });
+  setStatus({ kind: 'demo', message: demoIndex >= demoEntries.length ? 'End of sample draft · Next pick restarts from Pick 1' : 'Sample draft advanced' });
 }
 
 async function watchLog(logPath) {
