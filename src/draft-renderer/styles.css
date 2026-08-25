@@ -265,6 +265,7 @@ button { color: inherit; }
 .metric-foot strong { color: var(--green); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 .list-heading { display: flex; align-items: center; justify-content: space-between; margin: 21px 2px 8px; color: var(--quiet); font-size: 7px; font-weight: 800; letter-spacing: .13em; }
+.list-heading[hidden] { display: none; }
 .list-heading em { color: var(--violet); font-style: normal; }
 .ranking-list { display: flex; flex-direction: column; gap: 6px; }
 .rank-row { display: grid; min-height: 55px; grid-template-columns: 30px minmax(0,1fr) 110px 132px; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.018); cursor: pointer; }

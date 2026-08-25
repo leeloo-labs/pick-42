@@ -98,7 +98,10 @@ function renderStatus() {
   byId('status-dot').className = `status-dot ${model.status?.kind || ''}`;
   setText('status-message', model.status?.message || 'Ready');
   const gate = model.recommendationGate;
-  setText('coverage-label', `${gate.coveredByBoth} / ${gate.total} draftable cards covered by both sources`);
+  const draftedTotal = model.poolSummary?.draftedTotal || 0;
+  setText('coverage-label', gate.total
+    ? `${gate.coveredByBoth} / ${gate.total} draftable cards covered by both sources`
+    : (draftedTotal ? `No active pack · ${draftedTotal} cards drafted` : 'Waiting for a draft pack'));
 
   const source17 = model.sources.seventeenLands;
   const sourceUt = model.sources.untapped;
@@ -820,6 +823,39 @@ function previewCard(card, land = false) {
   for (const node of document.querySelectorAll('.deck-mini-card')) node.classList.toggle('previewing', node.dataset.cardName === card.name);
 }
 
+function resetDeckSidebar() {
+  for (const id of ['deck-total', 'deck-land-count', 'deck-creature-count', 'deck-interaction-count', 'deck-avg-mv']) setText(id, '—');
+  previewedCardName = null;
+  const preview = byId('deck-card-preview');
+  preview.className = 'preview-card tone-colorless';
+  const image = byId('preview-card-image');
+  image.hidden = true;
+  image.removeAttribute('src');
+  byId('preview-card-fallback').hidden = false;
+  byId('preview-image-meta').hidden = true;
+  byId('preview-card-attribution').hidden = true;
+  setText('preview-card-name', 'No card selected');
+  setText('preview-card-mana', '—');
+  setIcon(byId('preview-card-glyph'), 'diamond');
+  setText('preview-card-kind', 'DECK CARD');
+  setText('preview-card-type', 'Select a card from the board');
+  setText('preview-card-quantity', '—');
+  setText('preview-card-rules', 'Hover or focus any card to read its full details here.');
+  byId('preview-card-reasons').replaceChildren();
+  setText('preview-card-score', 'TARGET DECK');
+  const stats = byId('preview-card-stats');
+  stats.hidden = true;
+  stats.textContent = '';
+  setText('mana-stability', '—');
+  setText('mana-land-total', '—');
+  byId('mana-source-list').replaceChildren();
+  const note = byId('mana-note');
+  note.className = 'mana-note';
+  note.textContent = '';
+  byId('deck-curve').replaceChildren();
+  byId('deck-cuts').replaceChildren();
+}
+
 function deckBoardCard(card, land = false, index = 0) {
   const displayCard = enrichedCard(card);
   const tile = element('article', `deck-mini-card tone-${cardTone(displayCard, land)}`);
@@ -903,6 +939,7 @@ function renderDeckBuilder() {
     setText('deck-label', '40 CARDS');
     setText('deck-description', 'Pick 42 will generate color suggestions after enough cards have been drafted.');
     setText('deck-score', '—');
+    resetDeckSidebar();
     return;
   }
 
