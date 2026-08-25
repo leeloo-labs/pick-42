@@ -9,6 +9,7 @@ let rankingMode = 'contextual';
 let recipeCopyTimer = null;
 let previewCopyTimer = null;
 let previewedCardName = null;
+let selectedReviewId = null;
 let deckBoardResizeFrame = null;
 let deckBoardResizeObserver = null;
 let laneMenuOpen = false;
@@ -1092,11 +1093,42 @@ function varianceLabel(entry) {
   return `${entry.level} · ${String(entry.kind || '').toUpperCase()}`;
 }
 
+function renderReviewGameStrip(reviews, displayed, latest) {
+  const strip = byId('review-game-strip');
+  strip.replaceChildren();
+  strip.hidden = reviews.length < 2;
+  if (strip.hidden) return;
+  [...reviews].reverse().forEach((entry, index) => {
+    const number = reviews.length - index;
+    const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
+    const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
+    chip.type = 'button';
+    chip.append(
+      element('strong', '', `G${number} · ${entry.won === true ? 'WIN' : (entry.won === false ? 'LOSS' : '—')}`),
+      element('small', '', `${entry.deck?.name || 'Limited deck'} · ${entry.turns ? `${entry.turns} turns` : '—'}`)
+    );
+    if (entry.completedAt) chip.title = new Date(entry.completedAt).toLocaleString();
+    chip.addEventListener('click', () => {
+      selectedReviewId = latest && entry.id === latest.id ? null : entry.id;
+      renderReview();
+    });
+    strip.append(chip);
+  });
+}
+
 function renderReview() {
   const reviewState = model.review || { status: 'off', reviews: [] };
-  const review = reviewState.latest;
-  const recording = review?.status === 'recording';
-  const ignored = Boolean(reviewState.lastIgnored) && !recording;
+  const reviews = [...(reviewState.reviews || [])]
+    .sort((left, right) => String(left.completedAt || '').localeCompare(String(right.completedAt || '')));
+  const latest = reviewState.latest;
+  if (selectedReviewId && latest && selectedReviewId === latest.id) selectedReviewId = null;
+  const selected = selectedReviewId ? reviews.find((entry) => entry.id === selectedReviewId) || null : null;
+  if (selectedReviewId && !selected) selectedReviewId = null;
+  const review = selected || latest;
+  const followingLatest = !selected;
+  const recording = followingLatest && review?.status === 'recording';
+  const ignored = Boolean(reviewState.lastIgnored) && !recording && followingLatest;
+  renderReviewGameStrip(reviews, review, latest);
   const content = byId('review-content');
   byId('review-empty').hidden = Boolean(review);
   content.hidden = !review;
@@ -1117,11 +1149,14 @@ function renderReview() {
 
   const result = recording ? 'IN PROGRESS' : (review.won === true ? 'WIN' : (review.won === false ? 'LOSS' : 'COMPLETE'));
   setText('review-title', recording ? `Recording game ${review.gameNumber}` : `${result} · ${review.deck?.name || 'Limited deck'}`);
+  const playedAt = review.completedAt
+    ? new Date(review.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null;
   setText('review-subtitle', recording
     ? 'Evidence is updating live. The final report will use only facts Arena exposes.'
     : (ignored
       ? `${reviewState.lastIgnored.reason} Showing the most recent matching draft game instead.`
-      : `${review.cardsSeenCount} cards were observed across ${review.yourTurnsObserved} of your turns. Hidden opponent cards are excluded.`));
+      : `${followingLatest || !playedAt ? '' : `Game from ${playedAt} · `}${review.cardsSeenCount} cards were observed across ${review.yourTurnsObserved} of your turns. Hidden opponent cards are excluded.`));
   setText('review-result', result);
   setText('review-turns', review.turns || '—');
   setText('review-seat', review.onPlay === null ? '—' : (review.onPlay ? 'ON THE PLAY' : 'ON THE DRAW'));
