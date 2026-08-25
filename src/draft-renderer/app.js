@@ -1252,6 +1252,26 @@ function renderReview() {
   });
 
   const contributions = analysis.contributions || {};
+  const deviation = analysis.buildDeviation || null;
+  const buildCard = byId('review-build-card');
+  buildCard.hidden = !deviation || !deviation.comparable;
+  if (deviation && deviation.comparable) {
+    setText('review-build-label', (deviation.modeledName || 'MODEL').toUpperCase());
+    const diff = byId('review-build-diff');
+    diff.replaceChildren();
+    if (!deviation.differs) {
+      setText('review-build-title', 'Matches the modeled build');
+      setText('review-build-summary', `The registered 40 is exactly the modeled ${deviation.modeledName} build.`);
+    } else {
+      const changeCount = deviation.added.length + deviation.cut.length + deviation.basics.length;
+      setText('review-build-title', 'Differs from the modeled build');
+      setText('review-build-summary', `You made ${changeCount} change${changeCount === 1 ? '' : 's'} to the modeled ${deviation.modeledName} build before playing this game.`);
+      for (const entry of deviation.added) diff.append(element('span', 'build-diff-chip added', `+${entry.quantity > 1 ? `${entry.quantity}× ` : ''}${entry.name}`));
+      for (const entry of deviation.cut) diff.append(element('span', 'build-diff-chip cut', `−${entry.quantity > 1 ? `${entry.quantity}× ` : ''}${entry.name}`));
+      for (const entry of deviation.basics) diff.append(element('span', 'build-diff-chip basics', `${entry.delta > 0 ? '+' : ''}${entry.delta} ${entry.name}`));
+    }
+  }
+
   renderReviewImpactList('review-mvp-list', contributions.mvp, contributions.mvpEmpty || 'No evidence-backed MVP yet.');
   renderReviewImpactList('review-lvp-list', contributions.lvp, contributions.lvpEmpty || 'No evidence-backed LVP.');
   const verdict = analysis.verdict || {};
@@ -1265,6 +1285,11 @@ function renderReview() {
     ? `${series.games} GAMES · ${series.record} · SAME DECK VERSION`
     : (recording && series.games ? `GAME IN PROGRESS · ${series.games} PRIOR MATCHING GAME${series.games === 1 ? '' : 'S'}` : '1 GAME · CURRENT DECK VERSION'));
   setText('review-verdict-summary', verdict.summary || 'Waiting for enough evidence.');
+  const verdictDeviation = byId('review-verdict-deviation');
+  verdictDeviation.hidden = !verdict.deviation;
+  if (verdict.deviation) {
+    setText('review-verdict-deviation', `Played with changes to the modeled ${verdict.deviation.modeledName} build: ${verdict.deviation.phrase}`);
+  }
   setText('review-verdict-action', verdict.action || 'Keep playing.');
   byId('review-disclaimer').replaceChildren(
     iconElement('shield-check'),

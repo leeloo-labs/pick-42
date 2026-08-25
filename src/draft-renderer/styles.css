@@ -997,6 +997,14 @@ button { color: inherit; }
 .review-card { margin-top: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: rgba(250,248,245,.68); box-shadow: 0 8px 25px rgba(59,52,63,.04); }
 .review-turning-point-card { border-color: rgba(166,68,58,.3); background: linear-gradient(145deg, rgba(250,248,245,.9), rgba(242,224,220,.72)); box-shadow: 0 10px 28px rgba(122,62,54,.08); }
 .review-turning-point-card[hidden] { display: none; }
+.review-build-card[hidden] { display: none; }
+.review-build-diff { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.build-diff-chip { padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.3); font-size: 11px; font-weight: 650; }
+.build-diff-chip.added { border-color: rgba(46,122,77,.3); color: var(--green); }
+.build-diff-chip.cut { border-color: rgba(182,78,75,.3); color: var(--red); }
+.build-diff-chip.basics { color: var(--muted); }
+.review-verdict-deviation { margin: 6px 0 0; color: var(--quiet); font-size: 11px; line-height: 1.5; }
+.review-verdict-deviation[hidden] { display: none; }
 .review-turning-point-card > .review-section-heading > span { padding: 5px 8px; border-radius: 999px; color: var(--red); background: rgba(166,68,58,.1); }
 .review-turning-point-card .review-verdict-evidence { color: var(--red); }
 .review-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }

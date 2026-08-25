@@ -74,6 +74,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Grade mana variance as low, moderate, or high using explicit flood/starvation thresholds. Opponent analysis may use land progression and public cards only; never speculate about hidden cards.
 - MVP candidates require attributable visible contribution such as recorded damage. LVP candidates require concrete negative evidence such as a drawn card remaining uncast across multiple turns; never call a zero-damage support card an LVP by default.
 - A win or loss by itself is never evidence for a deck change, and IIH is historical correlation rather than causal credit for the result.
+- Review contexts snapshot the recommended build (`deck.modeledBuild`) when armed, and reports show a factual build-vs-model diff (added, cut, basic-land shifts) for the registered Arena deck. The deviation is context only: the verdict may suggest a reversible swap back toward the model when concrete negative evidence lands on a card the player added, and may offer the swap as a clearly optional test after a loss, but a deviation plus a result is never itself treated as evidence.
 - In the post-game IIH card list, show the complete top-four group with explicit drawn/not-drawn status, plus reliable drawn liabilities at or below −2.0 percentage points; hide everything else near neutral.
 - Exclude cards with unverified conditional cost reductions from printed-mana curve evidence, and count stranded evidence by distinct turn rather than by copies in hand.
 - Persist completed reviews locally in the legacy Pick 42/Arcane user-data directory; never upload raw game data.
@@ -87,7 +88,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 119 passing tests.
+- The test suite currently contains 121 passing tests.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
 - Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.

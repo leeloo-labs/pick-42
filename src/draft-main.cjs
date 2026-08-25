@@ -441,6 +441,10 @@ function reviewDeckSnapshot() {
   for (const land of lands) {
     for (const color of land.colors || []) sources[color] += Number(land.quantity || 1);
   }
+  const modeledCards = {};
+  for (const card of [...(build?.mainDeck || []), ...(build?.lands || [])]) {
+    modeledCards[card.name] = (modeledCards[card.name] || 0) + Number(card.quantity || 1);
+  }
   return {
     source: exact ? 'Arena course deck' : 'Selected Pick 42 recipe',
     buildId: identity.buildId,
@@ -452,7 +456,10 @@ function reviewDeckSnapshot() {
     mana: {
       sources,
       targets: build?.mana?.targets || {}
-    }
+    },
+    // Snapshot of the recommendation at review time, so the report can note how the
+    // registered deck deviated from the modeled build.
+    modeledBuild: build ? { id: build.id, name: build.name, label: build.label, score: build.score, cards: modeledCards } : null
   };
 }
 

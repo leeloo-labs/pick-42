@@ -8,6 +8,7 @@ const { ArenaLogParser } = require('../src/core/arena-log-parser.cjs');
 const {
   GameReviewTracker,
   analyzePostGameReview,
+  buildDeviationAnalysis,
   castableByManaBase,
   castingProblem,
   dominanceAnalysis,
@@ -782,4 +783,67 @@ test('keeps the turning-point section silent when any decisive threshold is miss
     ...base,
     gameTrajectory: [{ ...base.gameTrajectory[0], you: { ...base.gameTrajectory[0].you, power: 5, creatures: 2 } }]
   }).detected, false, 'Pick 42 should stay silent unless the player was clearly ahead on board');
+});
+
+test('diffs the registered deck against the modeled build', () => {
+  const deck = {
+    source: 'Arena course deck',
+    cards: [
+      { name: 'Dwarven Mauler', quantity: 2 },
+      { name: 'Warg Tactics', quantity: 1 },
+      { name: 'Pinecone Strike', quantity: 2 }
+    ],
+    lands: [
+      { name: 'Mountain', quantity: 10 },
+      { name: 'Plains', quantity: 7 }
+    ],
+    modeledBuild: {
+      name: 'Boros Dwarves',
+      score: 55.6,
+      cards: { 'Dwarven Mauler': 2, 'Stone by Sunlight': 1, 'Pinecone Strike': 2, Mountain: 9, Plains: 8 }
+    }
+  };
+  const deviation = buildDeviationAnalysis(deck);
+  assert.equal(deviation.comparable, true);
+  assert.equal(deviation.differs, true);
+  assert.deepEqual(deviation.added, [{ name: 'Warg Tactics', quantity: 1 }]);
+  assert.deepEqual(deviation.cut, [{ name: 'Stone by Sunlight', quantity: 1 }]);
+  assert.deepEqual(deviation.basics.sort((a, b) => a.name.localeCompare(b.name)), [
+    { name: 'Mountain', delta: 1 },
+    { name: 'Plains', delta: -1 }
+  ]);
+
+  const exactDeck = { ...deck, cards: [{ name: 'Dwarven Mauler', quantity: 2 }, { name: 'Stone by Sunlight', quantity: 1 }, { name: 'Pinecone Strike', quantity: 2 }], lands: [{ name: 'Mountain', quantity: 9 }, { name: 'Plains', quantity: 8 }] };
+  assert.equal(buildDeviationAnalysis(exactDeck).differs, false);
+
+  assert.equal(buildDeviationAnalysis({ ...deck, modeledBuild: null }), null);
+  assert.equal(buildDeviationAnalysis({ ...deck, source: 'Selected Pick 42 recipe' }).comparable, false);
+});
+
+test('a loss with a deviated build offers a reversible swap toward the model', () => {
+  const review = {
+    status: 'complete',
+    won: false,
+    draftId: 'deviation-draft',
+    turns: 9,
+    deck: {
+      source: 'Arena course deck',
+      total: 40,
+      fingerprint: 'dev-1',
+      cards: [{ name: 'Warg Tactics', quantity: 2 }],
+      lands: [{ name: 'Mountain', quantity: 17 }],
+      modeledBuild: { name: 'Boros Dwarves', score: 55.6, cards: { 'Stone by Sunlight': 2, Mountain: 17 } }
+    },
+    drawnCards: [{ name: 'Warg Tactics', typeLine: 'Instant', quantity: 2 }],
+    cardsPlayed: [],
+    stranded: [{ name: 'Warg Tactics', turns: 3, kind: 'curve' }],
+    playerMana: { you: { timeline: [{ playerTurn: 1, lands: 1 }, { playerTurn: 2, lands: 2 }, { playerTurn: 3, lands: 3 }] }, opponent: { timeline: [] } }
+  };
+  const analyzed = analyzePostGameReview(review, {});
+  const verdict = analyzed.postGame.verdict;
+  assert.equal(analyzed.postGame.buildDeviation.differs, true);
+  assert.ok(verdict.deviation);
+  assert.match(verdict.deviation.phrase, /\+2× Warg Tactics/);
+  assert.match(verdict.action, /Stone by Sunlight/);
+  assert.match(verdict.action, /Boros Dwarves/);
 });

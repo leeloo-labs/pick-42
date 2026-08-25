@@ -951,6 +951,65 @@ function reviewSeriesAnalysis(review, relatedReviews, seventeenLands) {
   };
 }
 
+const BASIC_LAND_NAMES = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']);
+
+// Factual diff between the deck Arena registered and the Pick 42 build that was
+// recommended when the review was armed. Reported for context only: a result never
+// turns a deviation into evidence by itself.
+function buildDeviationAnalysis(deck) {
+  const modeled = deck?.modeledBuild;
+  if (!modeled?.cards || !Array.isArray(deck?.cards)) return null;
+  if (deck.source !== 'Arena course deck') {
+    return { comparable: false, differs: false, modeledName: modeled.name, added: [], cut: [], basics: [] };
+  }
+  const played = {};
+  for (const card of [...(deck.cards || []), ...(deck.lands || [])]) {
+    played[card.name] = (played[card.name] || 0) + Number(card.quantity || 1);
+  }
+  const names = new Set([...Object.keys(played), ...Object.keys(modeled.cards)]);
+  const added = [];
+  const cut = [];
+  const basics = [];
+  for (const name of names) {
+    const delta = (played[name] || 0) - (Number(modeled.cards[name]) || 0);
+    if (!delta) continue;
+    if (BASIC_LAND_NAMES.has(name)) {
+      basics.push({ name, delta });
+    } else if (delta > 0) {
+      added.push({ name, quantity: delta });
+    } else {
+      cut.push({ name, quantity: -delta });
+    }
+  }
+  const differs = added.length > 0 || cut.length > 0 || basics.length > 0;
+  return { comparable: true, differs, modeledName: modeled.name, modeledScore: modeled.score ?? null, added, cut, basics };
+}
+
+function deviationPhrase(deviation) {
+  const parts = [];
+  if (deviation.added.length) parts.push(`+${deviation.added.map((entry) => `${entry.quantity > 1 ? `${entry.quantity}× ` : ''}${entry.name}`).join(', +')}`);
+  if (deviation.cut.length) parts.push(`−${deviation.cut.map((entry) => `${entry.quantity > 1 ? `${entry.quantity}× ` : ''}${entry.name}`).join(', −')}`);
+  if (deviation.basics.length) parts.push(deviation.basics.map((entry) => `${entry.delta > 0 ? '+' : ''}${entry.delta} ${entry.name}`).join(', '));
+  return parts.join(' · ');
+}
+
+function applyDeviationToVerdict(verdict, review, deviation, contributions) {
+  if (!deviation?.comparable || !deviation.differs || !verdict) return verdict;
+  const next = { ...verdict, deviation: { ...deviation, phrase: deviationPhrase(deviation) } };
+  if (review.won !== false) return next;
+  const addedNames = new Set(deviation.added.map((entry) => entry.name));
+  const lvp = contributions?.lvp?.[0] || null;
+  const restore = deviation.cut[0]?.name || null;
+  if (lvp && addedNames.has(lvp.name)) {
+    // The clearest negative evidence points at a card the player added over the model.
+    next.action = `Try one game with ${lvp.name} out${restore ? ` and ${restore} back in` : ''} — that returns you toward the modeled ${deviation.modeledName} build.`;
+    next.summary = `${next.summary} ${lvp.name} was also one of your changes to the modeled build.`;
+  } else if (deviation.added[0] && restore) {
+    next.action = `${next.action} If you want a reversible test, restore ${restore} for ${deviation.added[0].name} to move back toward the modeled ${deviation.modeledName} build — one loss alone is not evidence against your changes.`;
+  }
+  return next;
+}
+
 function analyzePostGameReview(review, { seventeenLands = [], relatedReviews = [] } = {}) {
   if (!review) return null;
   const variance = varianceAnalysis(review);
@@ -959,13 +1018,14 @@ function analyzePostGameReview(review, { seventeenLands = [], relatedReviews = [
   const dominance = dominanceAnalysis(review);
   const gameShape = gameShapeAnalysis(review, dominance);
   const turningPoint = turningPointAnalysis(review);
+  const buildDeviation = buildDeviationAnalysis(review.deck);
   const series = reviewSeriesAnalysis(review, relatedReviews, seventeenLands);
   const gameVerdict = verdictAnalysis(review, { variance, drawQuality, contributions });
   const baseVerdict = series?.verdict || {
     ...gameVerdict,
     scope: 'game'
   };
-  const verdict = celebrateBlowout(review, dominance, baseVerdict, series);
+  const verdict = applyDeviationToVerdict(celebrateBlowout(review, dominance, baseVerdict, series), review, buildDeviation, contributions);
   return {
     ...review,
     postGame: {
@@ -975,6 +1035,7 @@ function analyzePostGameReview(review, { seventeenLands = [], relatedReviews = [
       dominance,
       gameShape,
       turningPoint,
+      buildDeviation,
       gameVerdict,
       series,
       verdict
@@ -1452,6 +1513,7 @@ class GameReviewTracker extends EventEmitter {
 module.exports = {
   GameReviewTracker,
   analyzePostGameReview,
+  buildDeviationAnalysis,
   castableByManaBase,
   castingProblem,
   deckFingerprint,

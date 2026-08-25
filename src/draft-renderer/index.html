@@ -385,6 +385,16 @@
               <p id="review-iih-note" class="review-analysis-note"></p>
             </section>
 
+            <section id="review-build-card" class="review-card review-build-card" hidden>
+              <header class="review-section-heading">
+                <div><span class="eyebrow icon-label"><i data-lucide="git-compare"></i>BUILD VS MODEL</span><h2 id="review-build-title">Matches the modeled build</h2></div>
+                <span id="review-build-label">MODEL</span>
+              </header>
+              <p id="review-build-summary" class="review-analysis-summary">—</p>
+              <div id="review-build-diff" class="review-build-diff"></div>
+              <p class="review-analysis-note">Deviations are context, not verdicts: only repeated, evidence-backed results argue for a change.</p>
+            </section>
+
             <div class="review-contribution-grid">
               <section class="review-card review-contribution-card mvp">
                 <header class="review-section-heading"><div><span class="eyebrow icon-label"><i data-lucide="award"></i>MVP CANDIDATES</span><h2>Strongest visible contribution</h2></div></header>
@@ -403,6 +413,7 @@
               </header>
               <p id="review-verdict-evidence" class="review-verdict-evidence">CURRENT GAME</p>
               <p id="review-verdict-summary" class="review-analysis-summary">—</p>
+              <p id="review-verdict-deviation" class="review-verdict-deviation" hidden></p>
               <strong id="review-verdict-action" class="review-verdict-action">Keep playing.</strong>
             </section>
 
