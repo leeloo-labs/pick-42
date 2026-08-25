@@ -409,23 +409,51 @@ function renderHero() {
   for (const reason of activeReasons.slice(0, 4)) reasons.append(element('span', 'reason-chip', reason));
 
   const pairNode = byId('hero-pair');
-  const pair = model.pickPair;
-  if (pair && rankingMode === 'contextual') {
+  let bandPair = null;
+  let inspecting = false;
+  if (rankingMode === 'contextual' && model.pickPair) {
+    if (card.name === model.pickPair.first.name) {
+      bandPair = model.pickPair;
+    } else {
+      // Inspecting a different card: show the best companion for THAT card instead
+      // of the stale recommended pair (which could even duplicate the inspected card).
+      bandPair = ensureInspectedPair(card.name);
+      inspecting = true;
+    }
+  }
+  if (bandPair) {
     pairNode.hidden = false;
-    setText('hero-pair-score', pair.second.score.toFixed(1));
-    setText('hero-pair-name', pair.second.name);
+    setText('hero-pair-eyebrow', inspecting ? 'PICK TWO · BEST COMPANION FOR THIS PICK' : 'PICK TWO · TAKE BOTH');
+    setText('hero-pair-score', bandPair.second.score.toFixed(1));
+    setText('hero-pair-name', bandPair.second.name);
     const pairMana = byId('hero-pair-mana');
     pairMana.replaceChildren();
-    const pairPips = manaPipsElement(pair.second.manaCost);
+    const pairPips = manaPipsElement(bandPair.second.manaCost);
     if (pairPips) pairMana.append(pairPips);
-    const note = pair.second.reason
-      ? pair.second.reason
-      : (pair.second.outlook || '');
-    setText('hero-pair-note', `${pair.second.typeLine ? `${pair.second.typeLine} · ` : ''}${pair.secondDiffersFromList ? 'Rises above the list order once the first pick joins your pool' : (note || 'Scored with the first pick already in your pool')}`);
+    const note = bandPair.second.reason
+      ? bandPair.second.reason
+      : (bandPair.second.outlook || '');
+    setText('hero-pair-note', `${bandPair.second.typeLine ? `${bandPair.second.typeLine} · ` : ''}${!inspecting && bandPair.secondDiffersFromList ? 'Rises above the list order once the first pick joins your pool' : (note || 'Scored with the first pick already in your pool')}`);
     hydrateIcons(pairNode);
   } else {
     pairNode.hidden = true;
   }
+}
+
+let inspectedPair = null;
+let inspectedPairKey = null;
+
+function ensureInspectedPair(cardName) {
+  const key = `${model.draft.draftId}:${model.draft.packNumber}:${model.draft.pickNumber}:${cardName}`;
+  if (inspectedPairKey === key) return inspectedPair;
+  inspectedPairKey = key;
+  inspectedPair = null;
+  window.draftCompanion.pickPairFor(cardName).then((pair) => {
+    if (inspectedPairKey !== key) return;
+    inspectedPair = pair;
+    renderHero();
+  }).catch(() => { /* Leave the band hidden if the pack changed mid-request. */ });
+  return null;
 }
 
 function sourceStat(label, value, className) {

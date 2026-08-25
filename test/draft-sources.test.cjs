@@ -675,3 +675,18 @@ test('falls back to GP win rate when 17Lands blanks low-sample GIH cells', () =>
   assert.equal(direct.gamesInHand, 800);
   assert.equal(direct.improvementInHand, 8.2);
 });
+
+test('inspecting a card recomputes its companion and never self-pairs a single copy', () => {
+  const seventeenLands = parseSeventeenLandsCsv(read('sample-17lands-hob.csv'));
+  const untapped = parseUntappedCsv(read('sample-untapped-hob.csv'));
+  const args = { seventeenLands, untapped, pool: [], packNumber: 1, pickNumber: 1, format: 'Pick Two Draft' };
+  const recommendations = scoreDraftPack({ cards, ...args });
+  const inspected = recommendations[3].name;
+
+  const pair = recommendPickTwoPair({ recommendations, cards, firstName: inspected, ...args });
+  assert.ok(pair);
+  assert.equal(pair.first.name, inspected);
+  assert.notEqual(pair.second.name, inspected);
+
+  assert.equal(recommendPickTwoPair({ recommendations, cards, firstName: 'Not In This Pack', ...args }), null);
+});

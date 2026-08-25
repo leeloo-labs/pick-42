@@ -622,6 +622,33 @@ function scryfallCardsForView(recommendations, deckBuilds) {
   return cards;
 }
 
+function pickPairScoringArgs() {
+  const activeSources = activeSourceData();
+  return {
+    seventeenLands: activeSources.seventeenLands,
+    untapped: activeSources.untapped,
+    archetypeCorpus,
+    pool: activeDraftPool(),
+    excludedPoolNames: [...activePoolExclusions()],
+    packNumber: draftState.packNumber,
+    pickNumber: draftState.pickNumber,
+    draftId: draftScopeId(),
+    setCode: draftState.setCode,
+    format: draftState.format,
+    lane: currentDraftLane(),
+    philosophy
+  };
+}
+
+// Answers "if I take this card first, what pairs with it?" for the live Pick Two pack.
+function pickPairFor(firstName) {
+  if (normalizeFormat(draftState.format) !== 'pick-two') return null;
+  const args = pickPairScoringArgs();
+  const recommendations = scoreDraftPack({ cards: draftState.pack, ...args });
+  if (!recommendationGate(recommendations).ready) return null;
+  return recommendPickTwoPair({ recommendations, cards: draftState.pack, firstName, ...args });
+}
+
 function viewModel() {
   const activeSources = activeSourceData();
   const modelingPool = activeDraftPool();
@@ -1019,6 +1046,7 @@ function registerIpc() {
     }
     return viewModel();
   });
+  ipcMain.handle('draft:pick-pair-for', (_event, cardName) => pickPairFor(String(cardName || '')));
   ipcMain.handle('draft:copy-search', (_event, text) => {
     const value = String(text || '').trim().slice(0, 200);
     if (value) clipboard.writeText(value);

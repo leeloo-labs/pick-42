@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   setPoolCardExcluded: (cardName, excluded) => ipcRenderer.invoke('draft:set-pool-card-excluded', cardName, excluded),
   startDemo: (mode) => ipcRenderer.invoke('draft:start-demo', mode),
   advanceDemo: () => ipcRenderer.invoke('draft:advance-demo'),
+  pickPairFor: (cardName) => ipcRenderer.invoke('draft:pick-pair-for', cardName),
   selectBuild: (buildId) => ipcRenderer.invoke('draft:select-build', buildId),
   copySearch: (text) => ipcRenderer.invoke('draft:copy-search', text),
   toggleVisualGuide: () => ipcRenderer.invoke('draft:toggle-visual-guide'),

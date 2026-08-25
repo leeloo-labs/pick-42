@@ -1294,10 +1294,16 @@ function scoreDraftPack({
 // Pick Two events take two cards per pack. The second selection is not simply the
 // second-ranked row: the first pick joins the pool before the remainder is
 // re-scored, so lane pressure, curve, synergy, and duplicate effects apply.
-function recommendPickTwoPair({ recommendations, cards, pool = [], ...scoreArgs }) {
+function recommendPickTwoPair({ recommendations, cards, pool = [], firstName = null, ...scoreArgs }) {
   if (!Array.isArray(recommendations) || recommendations.length < 2) return null;
   if (!Array.isArray(cards) || cards.length < 2) return null;
-  const first = recommendations.find((card) => card.eligible) || recommendations[0];
+  // firstName forces a specific card into the first slot to answer "if I take this,
+  // what pairs with it?"; only one physical copy leaves the pack, so a second copy
+  // of the same card remains a legal companion while self-pairing a single copy cannot happen.
+  const first = firstName
+    ? recommendations.find((card) => normalizeCardName(card.name) === normalizeCardName(firstName)) || null
+    : (recommendations.find((card) => card.eligible) || recommendations[0]);
+  if (!first) return null;
   const firstKey = normalizeCardName(first.name);
   const firstCard = cards.find((card) => normalizeCardName(card.name) === firstKey);
   if (!firstCard) return null;
