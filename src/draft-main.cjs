@@ -11,6 +11,7 @@ const {
   scoreDraftPack
 } = require('./draft/blend-engine.cjs');
 const { normalizeCardName } = require('./draft/csv.cjs');
+const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardDataUrl } = require('./draft/set-definitions.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
 const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
 const {
@@ -72,7 +73,8 @@ let draftState = parser.snapshot();
 let reviewState = reviewTracker.snapshot();
 let reviewArmed = false;
 const reviewMatchDecisions = new Map();
-let status = { kind: 'demo', message: 'Sample HOB pack · import current exports when ready' };
+const ACTIVE_SET = setDefinition(DEFAULT_SET_CODE);
+let status = { kind: 'demo', message: `Sample ${ACTIVE_SET.displayCode} pack · import current exports when ready` };
 let lanePreference = null;
 let poolExclusionPreference = null;
 const SOURCE_FORMATS = ['any', 'premier', 'quick', 'traditional', 'pick-two'];
@@ -87,8 +89,8 @@ let archetypeCorpusSource = { label: 'No corpus', kind: 'empty', count: 0, troph
 let scryfallIndex = {};
 let scryfallState = {
   kind: 'loading',
-  setCode: 'hob',
-  setName: 'The Hobbit',
+  setCode: ACTIVE_SET.code,
+  setName: ACTIVE_SET.name,
   count: 0,
   fetchedAt: null,
   source: null,
@@ -114,7 +116,7 @@ function settingsPath() {
 }
 
 function scryfallCachePath() {
-  return path.join(app.getPath('userData'), 'scryfall-hob.json');
+  return path.join(app.getPath('userData'), scryfallCacheFileName(ACTIVE_SET.code));
 }
 
 function gameReviewsPath() {
@@ -239,7 +241,7 @@ function addManualArchetypeDeck(value) {
   const setCode = String(value?.setCode || draftState.setCode || '').trim().toUpperCase();
   const format = String(value?.format || draftState.format || '').trim();
   const record = String(value?.record || '').trim();
-  if (!setCode) throw new Error('Enter the set code shown by 17Lands, such as HOB.');
+  if (!setCode) throw new Error(`Enter the set code shown by 17Lands, such as ${ACTIVE_SET.displayCode}.`);
   if (!format) throw new Error('Choose the draft format for this trophy deck.');
   if (!record) throw new Error('Enter the final record shown by 17Lands, such as 7-2.');
   const id = manualDeckId({ setCode, format, record, sourceUrl: value?.sourceUrl }, parsed.cards);
@@ -311,8 +313,8 @@ function importedCsvStoragePath(source, format) {
 
 function loadSampleSources() {
   sampleSourceData = {
-    seventeenLands: parseSeventeenLandsCsv(fs.readFileSync(fixturePath('sample-17lands-hob.csv'), 'utf8')),
-    untapped: parseUntappedCsv(fs.readFileSync(fixturePath('sample-untapped-hob.csv'), 'utf8'))
+    seventeenLands: parseSeventeenLandsCsv(fs.readFileSync(fixturePath(ACTIVE_SET.sampleFixtures.seventeenLands), 'utf8')),
+    untapped: parseUntappedCsv(fs.readFileSync(fixturePath(ACTIVE_SET.sampleFixtures.untapped), 'utf8'))
   };
 }
 
@@ -385,7 +387,7 @@ function activeSourceData() {
 }
 
 function draftScopeId() {
-  return String(draftState.draftId || (status.kind === 'demo' ? 'demo-hob' : 'unidentified-draft'));
+  return String(draftState.draftId || (status.kind === 'demo' ? `demo-${ACTIVE_SET.code}` : 'unidentified-draft'));
 }
 
 function activePoolExclusions() {
@@ -584,8 +586,8 @@ function applyScryfallPayload(payload, source = payload?.source || 'cache') {
   scryfallIndex = buildScryfallIndex(payload.cards);
   scryfallState = {
     kind: 'ready',
-    setCode: payload.setCode || 'hob',
-    setName: payload.setName || 'The Hobbit',
+    setCode: payload.setCode || ACTIVE_SET.code,
+    setName: payload.setName || ACTIVE_SET.name,
     count: payload.cards.length,
     fetchedAt: payload.fetchedAt || null,
     source,
@@ -603,10 +605,10 @@ async function initializeScryfall() {
 
   try {
     if (!cached) {
-      scryfallState = { ...scryfallState, kind: 'loading', message: 'Downloading The Hobbit card images from Scryfall' };
+      scryfallState = { ...scryfallState, kind: 'loading', message: `Downloading ${ACTIVE_SET.name} card images from Scryfall` };
       sendState();
     }
-    const payload = await loadScryfallSet({ cachePath, setCode: 'hob' });
+    const payload = await loadScryfallSet({ cachePath, setCode: ACTIVE_SET.scryfallSetCode });
     applyScryfallPayload(payload, payload.source);
   } catch (error) {
     scryfallState = {
@@ -721,7 +723,7 @@ function viewModel() {
       source: archetypeCorpusSource,
       match: corpusMatch,
       defaults: {
-        setCode: draftState.setCode || 'HOB',
+        setCode: draftState.setCode || ACTIVE_SET.displayCode,
         format: draftState.format || 'Player Draft',
         eventDate: new Date().toISOString().slice(0, 10)
       },
@@ -785,7 +787,8 @@ let demoMode = 'premier';
 let demoDraft = null;
 
 function demoEventName() {
-  return demoDraft?.mode === 'pick-two' ? 'PickTwoDraft_HOB_20260811' : 'PremierDraft_HOB_20260811';
+  const eventKind = demoDraft?.mode === 'pick-two' ? 'PickTwoDraft' : 'PremierDraft';
+  return `${eventKind}_${ACTIVE_SET.displayCode}_20260811`;
 }
 
 function demoFeedPack() {
@@ -1125,8 +1128,8 @@ function registerIpc() {
   const EXTERNAL_LINKS = {
     seventeenLandsCardData: 'https://www.17lands.com/card_data',
     seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
-    // Untapped's limited card data is per-set; update the slug when a new set arrives.
-    untappedCardData: 'https://mtga.untapped.gg/limited/draft/the-hobbit/card-data'
+    // Untapped's limited card data is per-set; the slug lives in set-definitions.
+    untappedCardData: untappedCardDataUrl(ACTIVE_SET.code)
   };
   ipcMain.handle('draft:open-link', (_event, key) => {
     const url = EXTERNAL_LINKS[String(key || '')];

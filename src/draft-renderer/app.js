@@ -186,7 +186,8 @@ function setCorpusEntryMessage(message, kind = '') {
 
 function seedCorpusForm() {
   const defaults = model.archetypeCorpus?.defaults || {};
-  if (!byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || 'HOB';
+  if (defaults.setCode) byId('corpus-set-code').placeholder = defaults.setCode;
+  if (!byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || '';
   if (!byId('corpus-event-date').value) byId('corpus-event-date').value = defaults.eventDate || '';
   byId('corpus-format').value = corpusFormatValue(defaults.format);
 }

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeCardName } = require('./csv.cjs');
+const { DEFAULT_SET_CODE } = require('./set-definitions.cjs');
 
 const CACHE_VERSION = 1;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -92,7 +93,7 @@ async function requestJson(url, fetchImpl) {
 }
 
 async function fetchScryfallSet({
-  setCode = 'hob',
+  setCode = DEFAULT_SET_CODE,
   fetchImpl = globalThis.fetch,
   pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   cachePath = null,
@@ -124,7 +125,7 @@ async function fetchScryfallSet({
   return payload;
 }
 
-async function loadScryfallSet({ cachePath, setCode = 'hob', now = Date.now(), ...options } = {}) {
+async function loadScryfallSet({ cachePath, setCode = DEFAULT_SET_CODE, now = Date.now(), ...options } = {}) {
   const cached = cachePath ? readScryfallCache(cachePath) : null;
   const matchesSet = cached?.setCode === String(setCode).toLowerCase();
   if (matchesSet && now - cached.fetchedAt < CACHE_TTL_MS) return { ...cached, source: 'cache' };
