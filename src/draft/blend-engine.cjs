@@ -1308,10 +1308,12 @@ function recommendPickTwoPair({ recommendations, cards, pool = [], ...scoreArgs 
   if (!second) return null;
   const naiveSecond = recommendations.find((card) => card !== first && (card.eligible || !recommendations.some((entry) => entry.eligible)));
   return {
-    first: { name: first.name, score: first.score },
+    first: { name: first.name, score: first.score, manaCost: first.manaCost || null, typeLine: first.typeLine || null },
     second: {
       name: second.name,
       score: second.score,
+      manaCost: second.manaCost || null,
+      typeLine: second.typeLine || null,
       reason: second.reasons?.[0] || null,
       outlook: second.pickOutlook?.label || null
     },

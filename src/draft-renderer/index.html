@@ -132,10 +132,6 @@
               </div>
               <p id="hero-type">Arena draft events will appear here.</p>
               <div id="hero-reasons" class="reason-row"></div>
-              <div id="hero-pair" class="hero-pair" hidden>
-                <span class="eyebrow icon-label"><i data-lucide="copy-plus"></i>PICK TWO</span>
-                <p>Take <strong id="hero-pair-first">—</strong>, then <strong id="hero-pair-second">—</strong><span id="hero-pair-note"></span></p>
-              </div>
             </div>
             <div class="hero-metrics">
               <div class="metric-source lands">
@@ -153,6 +149,21 @@
                 <strong id="hero-delta">—</strong>
               </div>
             </div>
+            <div id="hero-pair" class="hero-pair" hidden>
+              <div class="hero-pair-rank">
+                <span>2ND</span>
+                <strong id="hero-pair-score">—</strong>
+                <small>AFTER PICK 1</small>
+              </div>
+              <div class="hero-pair-copy">
+                <span class="eyebrow icon-label"><i data-lucide="copy-plus"></i>PICK TWO · TAKE BOTH</span>
+                <div class="hero-pair-title">
+                  <h3 id="hero-pair-name">—</h3>
+                  <span id="hero-pair-mana" class="mana-cost"></span>
+                </div>
+                <p id="hero-pair-note">—</p>
+              </div>
+            </div>
           </article>
 
           <div class="list-heading">
@@ -165,6 +176,11 @@
             <h3>No active draft pack</h3>
             <p>Choose Player.log or load the sample pack.</p>
             <button id="empty-demo" class="primary-button"><i data-lucide="flask-conical"></i><span>LOAD SAMPLE PACK</span></button>
+          </div>
+          <div id="waiting-pack" class="empty-state waiting-state" hidden>
+            <span class="waiting-spinner"><i data-lucide="loader-pinwheel"></i></span>
+            <h3>Pick locked in</h3>
+            <p id="waiting-pack-detail">Waiting for the next pack…</p>
           </div>
         </section>
 

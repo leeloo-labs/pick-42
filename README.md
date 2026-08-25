@@ -81,7 +81,7 @@ The active-pool panel is an abbreviated deck list. Marking a card **OUT** keeps 
 
 ### Pick Two drafts
 
-Arena's Pick Two events keep the same 42-card pool — three packs of seven two-card selections. Pick 42 labels them as a distinct format so trophy-corpus matching stays format-true, and the Contextual view adds a pair recommendation: the second selection is re-scored with the first pick already in the pool, so lane pressure, curve, synergy, and duplicate effects apply between the two picks. Because of that, the recommended second card is not always the second-ranked row; it carries a **2nd Pick** flag in the pack ranking.
+Arena's Pick Two events keep the same 42-card pool — three packs of seven two-card selections. Pick 42 labels them as a distinct format so trophy-corpus matching stays format-true, and the Contextual view adds a pair recommendation: the second selection is re-scored with the first pick already in the pool, so lane pressure, curve, synergy, and duplicate effects apply between the two picks. Because of that, the recommended second card is not always the second-ranked row. The hero card presents the pair as one unit — the top pick with an attached second-selection band showing its own score, mana, and reasoning — and the pack ranking flags both cards with **1st Pick** and **2nd Pick**. After a selection is made, the leftover pack passes on, so the decision area shows an animated waiting state (naming what was just taken) until the next pack arrives.
 
 ### Trophy-deck corpus
 

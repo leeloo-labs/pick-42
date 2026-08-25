@@ -89,6 +89,7 @@ class DraftLogParser extends EventEmitter {
       pickNumber: 1,
       packCardIds: [],
       pickedCardIds: [],
+      waitingForPack: false,
       arenaMainDeck: [],
       arenaSideboard: [],
       events: []
@@ -176,6 +177,7 @@ class DraftLogParser extends EventEmitter {
       // A completed Pick Two draft ends on pack 3's seventh two-card selection (3 × 7 × 2 = 42 picks).
       this.state.pickNumber = eventInfo.kind === 'pick-two' ? 7 : 14;
       this.state.packCardIds = [];
+      this.state.waitingForPack = false;
       this.state.pickedCardIds = restoredPool;
       const courseDeck = message.CourseDeck ?? message.courseDeck;
       const mainDeck = deckEntries(courseDeck?.MainDeck ?? courseDeck?.mainDeck);
@@ -227,6 +229,7 @@ class DraftLogParser extends EventEmitter {
     const picked = cardIds(message.PickedCards ?? message.pickedCards);
     if (pack.length) {
       this.state.packCardIds = pack;
+      this.state.waitingForPack = false;
       if (picked.length) this.state.pickedCardIds = picked;
       const liveInfo = eventInfo || draftEventInfo(this.state.eventName);
       this.state.format = liveInfo ? formatForKind(liveInfo.kind) : (quickDraft ? 'Quick Draft' : 'Player Draft');
@@ -267,6 +270,13 @@ class DraftLogParser extends EventEmitter {
         if (packIndex !== -1) this.state.packCardIds.splice(packIndex, 1);
         this.#record(`Picked ${this.#card(pickedId).name}`, `Pack ${this.state.packNumber}, pick ${this.state.pickNumber}`);
         changed = true;
+      }
+      if (roundKey && changed) {
+        // The round is finished; the leftover cards pass to another player, so showing
+        // them as a live decision would be stale. Wait for the next Draft.Notify.
+        this.state.packCardIds = [];
+        this.state.waitingForPack = true;
+        this.#record('Waiting for the next pack', `Pick ${this.state.pickNumber} locked in`);
       }
       if (changed) this.emit('state', this.snapshot());
     }

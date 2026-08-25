@@ -374,9 +374,10 @@ function renderHero() {
   }
   const rank = rankingMode === 'raw' ? card.rawRank : card.contextualRank;
   const isTop = rank === 1;
-  setText('hero-rank-label', isTop ? 'PICK' : `#${rank}`);
+  const pairActive = Boolean(model.pickPair) && rankingMode === 'contextual';
+  setText('hero-rank-label', isTop ? (pairActive ? 'PICK 1' : 'PICK') : `#${rank}`);
   setText('hero-kicker', isTop
-    ? (rankingMode === 'raw' ? 'TOP RAW CARD' : (card.pickOutlook?.fallback ? 'BEST AVAILABLE FALLBACK' : 'TOP CONTEXTUAL PICK'))
+    ? (rankingMode === 'raw' ? 'TOP RAW CARD' : (pairActive ? 'TOP CONTEXTUAL PAIR' : (card.pickOutlook?.fallback ? 'BEST AVAILABLE FALLBACK' : 'TOP CONTEXTUAL PICK')))
     : (rankingMode === 'raw' ? 'INSPECTING RAW RANK' : 'INSPECTING CONTEXTUAL RANK'));
   setText('hero-score', Number(rankingMode === 'raw' ? card.dataScore : card.score).toFixed(1));
   setText('hero-score-label', rankingMode === 'raw' ? 'RAW SCORE' : 'CONTEXT SCORE');
@@ -411,12 +412,17 @@ function renderHero() {
   const pair = model.pickPair;
   if (pair && rankingMode === 'contextual') {
     pairNode.hidden = false;
-    setText('hero-pair-first', pair.first.name);
-    setText('hero-pair-second', pair.second.name);
-    const note = pair.second.outlook
-      ? ` · ${pair.second.outlook.toLowerCase()}`
-      : (pair.secondDiffersFromList ? ' · rises once the first pick joins your pool' : '');
-    setText('hero-pair-note', ` (${pair.second.score.toFixed(1)} after the first pick${note})`);
+    setText('hero-pair-score', pair.second.score.toFixed(1));
+    setText('hero-pair-name', pair.second.name);
+    const pairMana = byId('hero-pair-mana');
+    pairMana.replaceChildren();
+    const pairPips = manaPipsElement(pair.second.manaCost);
+    if (pairPips) pairMana.append(pairPips);
+    const note = pair.second.reason
+      ? pair.second.reason
+      : (pair.second.outlook || '');
+    setText('hero-pair-note', `${pair.second.typeLine ? `${pair.second.typeLine} · ` : ''}${pair.secondDiffersFromList ? 'Rises above the list order once the first pick joins your pool' : (note || 'Scored with the first pick already in your pool')}`);
+    hydrateIcons(pairNode);
   } else {
     pairNode.hidden = true;
   }
@@ -441,13 +447,27 @@ function renderRanking() {
   setText('list-context', ready
     ? (rankingMode === 'raw' ? 'IN A VACUUM' : 'LANE + ACTIVE POOL')
     : 'UNRANKED · MISSING DATA');
-  byId('empty-pack').hidden = hasCards;
+  const waiting = Boolean(model.draft.waitingForPack) && !hasCards;
+  byId('empty-pack').hidden = hasCards || waiting;
+  const waitingPanel = byId('waiting-pack');
+  waitingPanel.hidden = !waiting;
+  if (waiting) {
+    const pool = model.draft.pool || [];
+    const pickCount = /pick two/i.test(String(model.draft.format || '')) ? 2 : 1;
+    const taken = pool.slice(-pickCount).map((entry) => entry.name).filter(Boolean);
+    setText('waiting-pack-detail', taken.length
+      ? `You took ${taken.join(' + ')}. The next pack is on its way…`
+      : 'The next pack is on its way…');
+  }
   document.querySelector('.list-heading').hidden = !hasCards;
 
   activeRecommendations().forEach((card, index) => {
     const impactKind = card.metrics.impactFlag?.kind || '';
     const cardIsLand = /\bLand\b/i.test(card.typeLine || '');
-    const row = element('article', `rank-row tone-${cardTone(card, cardIsLand)} ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
+    const pairRole = rankingMode === 'contextual' && model.pickPair
+      ? (card.name === model.pickPair.first.name ? 'pair-first' : (card.name === model.pickPair.second.name ? 'pair-second' : ''))
+      : '';
+    const row = element('article', `rank-row tone-${cardTone(card, cardIsLand)} ${pairRole} ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
     applyDeckManaStyle(row, card, cardIsLand);
     row.tabIndex = 0;
     row.append(element('span', 'rank-number', String(index + 1).padStart(2, '0')));
@@ -463,6 +483,9 @@ function renderRanking() {
       const flag = element('span', 'outlook-flag');
       configureOutlookFlag(flag, card, true);
       title.append(flag);
+    }
+    if (rankingMode === 'contextual' && model.pickPair && card.name === model.pickPair.first.name) {
+      title.append(element('span', 'pair-flag', '1ST PICK'));
     }
     if (rankingMode === 'contextual' && model.pickPair && card.name === model.pickPair.second.name) {
       const flag = element('span', 'pair-flag', '2ND PICK');

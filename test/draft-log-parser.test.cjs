@@ -215,19 +215,26 @@ test('reconstructs a live Pick Two draft from human-draft log shapes', () => {
   assert.equal(state.pack[0].name, 'Fíli the Pathfinder');
 
   // A wrapped EventPlayerDraftMakePick takes two cards; a replayed request is ignored.
+  // The leftover pack passes to another player, so the round ends waiting for the next one.
   parser.feed(`${lines[2]}\n${lines[3]}\n`);
   state = parser.snapshot();
   assert.deepEqual(state.pool.map((card) => card.name), ['Fíli the Pathfinder', 'Gollum, Riddle Master']);
-  assert.equal(state.pack.length, 6);
+  assert.equal(state.pack.length, 0);
+  assert.equal(state.waitingForPack, true);
 
   // A periodic snapshot of the same course must not wipe live progress.
   parser.feed(`${lines[4]}\n`);
   assert.equal(parser.snapshot().pool.length, 2);
 
+  // The next Draft.Notify clears the waiting state before the round's pick lands.
+  parser.feed(`${lines[5]}\n`);
+  assert.equal(parser.snapshot().waitingForPack, false);
+
   // The next round can pick a second copy of an already-drafted card.
-  parser.feed(`${lines[5]}\n${lines[6]}\n`);
+  parser.feed(`${lines[6]}\n`);
   state = parser.snapshot();
   assert.equal(state.pickNumber, 2);
+  assert.equal(state.waitingForPack, true);
   assert.deepEqual(state.pool.map((card) => card.name), [
     'Fíli the Pathfinder',
     'Gollum, Riddle Master',
