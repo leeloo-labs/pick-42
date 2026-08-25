@@ -691,7 +691,7 @@ function createWindow() {
     minHeight: 620,
     frame: false,
     transparent: false,
-    backgroundColor: '#111016',
+    backgroundColor: '#bebbb5',
     alwaysOnTop: false,
     resizable: true,
     title: 'Pick 42 Draft Companion',
