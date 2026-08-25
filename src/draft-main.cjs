@@ -745,18 +745,31 @@ function setStatus(next) {
   sendState();
 }
 
-function startDemo() {
+const DEMO_FILES = { premier: 'demo-draft.log', 'pick-two': 'demo-pick-two-draft.log' };
+let demoMode = 'premier';
+
+function startDemo(mode = demoMode) {
+  demoMode = DEMO_FILES[mode] ? mode : 'premier';
   tailer.stop();
   reviewArmed = false;
   matchParser.reset();
   reviewMatchDecisions.clear();
   reviewTracker.disarm();
   parser.reset();
-  demoEntries = fs.readFileSync(fixturePath('demo-draft.log'), 'utf8').split('\n').filter(Boolean);
+  demoEntries = fs.readFileSync(fixturePath(DEMO_FILES[demoMode]), 'utf8').split('\n').filter(Boolean);
   demoIndex = 0;
-  parser.feed(`${demoEntries[demoIndex]}\n`);
-  demoIndex += 1;
-  setStatus({ kind: 'demo', message: 'Sample HOB pack · use Next pick to step through the draft' });
+  // Feed until the first pack is on screen (the Pick Two sample opens with a course snapshot).
+  while (demoIndex < demoEntries.length) {
+    parser.feed(`${demoEntries[demoIndex]}\n`);
+    demoIndex += 1;
+    if (parser.snapshot().packCardIds.length) break;
+  }
+  setStatus({
+    kind: 'demo',
+    message: demoMode === 'pick-two'
+      ? 'Sample Pick Two pack · use Next pick to take a pair, then again for the next pack'
+      : 'Sample HOB pack · use Next pick to step through the draft'
+  });
 }
 
 function advanceDemo() {
@@ -764,7 +777,10 @@ function advanceDemo() {
   const entry = demoEntries[demoIndex];
   parser.feed(`${entry}\n`);
   demoIndex += 1;
-  if (/MakePick|DraftPick/i.test(entry) && demoIndex < demoEntries.length && /Draft\.Notify|DraftStatus/i.test(demoEntries[demoIndex])) {
+  // Legacy sample shapes pair a pick with the next pack immediately; the human-draft
+  // sample leaves the gap so the waiting state is part of the tour.
+  if (!/EventPlayerDraftMakePick/i.test(entry)
+    && /MakePick|DraftPick/i.test(entry) && demoIndex < demoEntries.length && /Draft\.Notify|DraftStatus/i.test(demoEntries[demoIndex])) {
     parser.feed(`${demoEntries[demoIndex]}\n`);
     demoIndex += 1;
   }
@@ -991,7 +1007,7 @@ function registerIpc() {
     sendState();
     return viewModel();
   });
-  ipcMain.handle('draft:start-demo', () => { startDemo(); return viewModel(); });
+  ipcMain.handle('draft:start-demo', (_event, mode) => { startDemo(mode); return viewModel(); });
   ipcMain.handle('draft:advance-demo', () => { advanceDemo(); return viewModel(); });
   ipcMain.handle('draft:select-build', (_event, buildId) => {
     const available = new Set((viewModel().deckBuilds || []).map((build) => build.id));

@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   useStandardLog: () => ipcRenderer.invoke('draft:use-standard-log'),
   setLanePreference: (mode) => ipcRenderer.invoke('draft:set-lane-preference', mode),
   setPoolCardExcluded: (cardName, excluded) => ipcRenderer.invoke('draft:set-pool-card-excluded', cardName, excluded),
-  startDemo: () => ipcRenderer.invoke('draft:start-demo'),
+  startDemo: (mode) => ipcRenderer.invoke('draft:start-demo', mode),
   advanceDemo: () => ipcRenderer.invoke('draft:advance-demo'),
   selectBuild: (buildId) => ipcRenderer.invoke('draft:select-build', buildId),
   copySearch: (text) => ipcRenderer.invoke('draft:copy-search', text),

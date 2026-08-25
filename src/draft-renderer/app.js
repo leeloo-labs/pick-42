@@ -1590,7 +1590,8 @@ byId('corpus-deck-text').addEventListener('keydown', (event) => {
 byId('corpus-import-file').addEventListener('click', () => updateFrom(() => window.draftCompanion.importArchetypeCorpus()));
 byId('choose-log').addEventListener('click', (event) => toggleSourceMenu('log', event));
 byId('restart-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
-byId('empty-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo()));
+byId('empty-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo('premier')));
+byId('empty-demo-pick-two').addEventListener('click', () => updateFrom(() => window.draftCompanion.startDemo('pick-two')));
 byId('next-demo').addEventListener('click', () => updateFrom(() => window.draftCompanion.advanceDemo()));
 byId('show-draft').addEventListener('click', () => { activeView = 'draft'; renderView(); });
 byId('show-decks').addEventListener('click', () => { activeView = 'decks'; renderView(); });

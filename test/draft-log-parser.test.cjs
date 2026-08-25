@@ -243,3 +243,15 @@ test('reconstructs a live Pick Two draft from human-draft log shapes', () => {
   ]);
   assert.equal(state.format, 'Pick Two Draft');
 });
+
+test('the Pick Two sample fixture drafts a full pair loop', () => {
+  const parser = new DraftLogParser({ catalog });
+  const lines = fs.readFileSync(path.join(root, 'fixtures', 'demo-pick-two-draft.log'), 'utf8').trim().split('\n');
+  for (const line of lines) parser.feed(`${line}\n`);
+  const state = parser.snapshot();
+  assert.equal(state.format, 'Pick Two Draft');
+  assert.equal(state.setCode, 'HOB');
+  assert.equal(state.pool.length, 8);
+  assert.equal(state.waitingForPack, true);
+  assert.equal(state.pool[0].name, 'Fíli the Pathfinder');
+});
