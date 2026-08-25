@@ -20,8 +20,10 @@ The companion must remain transparent and advisory:
 
 ## Data sources and ranking
 
-- **17Lands:** imported CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when present. IIH may be calculated as GIH WR minus GNS WR when necessary.
+- **17Lands:** imported CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when present. IIH may be calculated as GIH WR minus GNS WR when necessary, but never from a fallback basis. When GIH WR is blank (young-set sample suppression), fall back per card through GD WR then GP WR with the matching game count, record `winRateBasis`, and surface it in the 17L reason chip.
 - **Untapped:** imported CSV data, including in-hand win rate, in-hand win-rate difference, and sample counts when available.
+- Source imports are per draft type: each 17Lands/Untapped CSV is assigned to a format slot (`any`, `premier`, `quick`, `traditional`, `pick-two`; settings key `sourceImportPaths`, legacy single paths migrate to `any`). The live draft resolves its exact format first, then the `any` slot; mismatched-format data is never used silently.
+- The coverage gate has a middle state: when at least 90% of a pack is covered by one source but not both, rankings run with a visible `partial` status instead of pausing; packs under 90% single-source coverage still pause.
 - **Scryfall:** public set data for card images, Oracle text, and presentation enrichment. Arena group IDs remain the live identity source.
 - **Archetype corpus:** authorized local CSV/JSON deck records, including set, format, result, archetype, and main-deck quantities. The corpus may come from a manual export, licensed feed, or offline processing of a licensed public dataset.
 - Do not scrape 17Lands or Untapped or depend on undocumented/private APIs.

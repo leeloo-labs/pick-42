@@ -45,10 +45,12 @@ The original live match-overlay prototype remains available with `npm start`, bu
 
 Use the title-bar source controls to import:
 
-- **17L** — 17Lands card-performance CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when available.
+- **17L** — 17Lands card-performance CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when available. When a win-rate cell is blank (young sets suppress low-sample cells), Pick 42 falls back through GD WR and GP WR and shows the basis it used.
 - **UT** — Untapped card-stat CSV data, including in-hand win rate, in-hand win-rate difference, and sample counts when available.
 - **META** — a manually collected local corpus of trophy decks.
 - **LOG** — Arena's `Player.log`.
+
+The **17L** and **UT** buttons open a per-draft-type menu: each CSV export is assigned to the draft type it was filtered for (Premier, Quick, Traditional, Pick Two) or to **All draft types**. The live draft uses its matching import, falling back to the all-types slot, so a Quick Draft export never silently rates a Pick Two pack. The button shows which import is feeding the active draft.
 
 Live rankings require usable matching rows from both statistical sources for at least 90% of the nonbasic cards in the active pack. Blank values do not count as coverage, missing cards remain unranked, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
 

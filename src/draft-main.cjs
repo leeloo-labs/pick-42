@@ -74,16 +74,15 @@ let status = { kind: 'demo', message: 'Sample HOB pack · import current exports
 let philosophy = { ...CONTEXTUAL_PHILOSOPHY };
 let lanePreference = null;
 let poolExclusionPreference = null;
-let sourceData = { seventeenLands: [], untapped: [] };
+const SOURCE_FORMATS = ['any', 'premier', 'quick', 'traditional', 'pick-two'];
+const SOURCE_FORMAT_LABELS = { any: 'all draft types', premier: 'Premier Draft', quick: 'Quick Draft', traditional: 'Traditional Draft', 'pick-two': 'Pick Two Draft' };
+let sourceImports = { seventeenLands: {}, untapped: {} };
+let sampleSourceData = { seventeenLands: [], untapped: [] };
 let archetypeCorpus = null;
 let importedArchetypeCorpus = null;
 let importedArchetypeCorpusPath = null;
 let manualArchetypeDecks = [];
 let archetypeCorpusSource = { label: 'No corpus', kind: 'empty', count: 0, trophyCount: 0 };
-let sources = {
-  seventeenLands: { label: '17Lands sample', kind: 'sample', count: 0 },
-  untapped: { label: 'Untapped sample', kind: 'sample', count: 0 }
-};
 let scryfallIndex = {};
 let scryfallState = {
   kind: 'loading',
@@ -289,17 +288,62 @@ function writeGameReviews(reviews) {
   fs.writeFileSync(gameReviewsPath(), JSON.stringify(reviews, null, 2));
 }
 
-function loadCsv(source, filePath, kind = 'import') {
+function loadCsv(source, filePath, format = 'any') {
   const text = fs.readFileSync(filePath, 'utf8');
   const data = source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
-  sourceData[source] = data;
-  sources[source] = { label: path.basename(filePath), kind, count: data.length, path: kind === 'import' ? filePath : null };
+  sourceImports[source][format] = { label: path.basename(filePath), count: data.length, path: filePath, data };
   return data;
 }
 
 function loadSampleSources() {
-  loadCsv('seventeenLands', fixturePath('sample-17lands-hob.csv'), 'sample');
-  loadCsv('untapped', fixturePath('sample-untapped-hob.csv'), 'sample');
+  sampleSourceData = {
+    seventeenLands: parseSeventeenLandsCsv(fs.readFileSync(fixturePath('sample-17lands-hob.csv'), 'utf8')),
+    untapped: parseUntappedCsv(fs.readFileSync(fixturePath('sample-untapped-hob.csv'), 'utf8'))
+  };
+}
+
+// The live draft's format selects its matching import; the all-formats slot backs it up.
+function resolveSourceImport(source, format = draftState.format) {
+  const imports = sourceImports[source] || {};
+  const key = normalizeFormat(format);
+  if (key !== 'any' && imports[key]) return { format: key, ...imports[key] };
+  if (imports.any) return { format: 'any', ...imports.any };
+  return null;
+}
+
+function sourceImportInventory(source) {
+  const inventory = {};
+  for (const format of SOURCE_FORMATS) {
+    const entry = sourceImports[source][format];
+    inventory[format] = entry ? { label: entry.label, count: entry.count } : null;
+  }
+  return inventory;
+}
+
+function sourceViewState(source) {
+  const sampleLabel = source === 'seventeenLands' ? '17Lands sample' : 'Untapped sample';
+  if (status.kind === 'demo') {
+    return { kind: 'sample', label: sampleLabel, count: sampleSourceData[source].length, activeFormat: null, imports: sourceImportInventory(source) };
+  }
+  const resolved = resolveSourceImport(source);
+  return {
+    kind: resolved ? 'import' : 'none',
+    label: resolved ? resolved.label : sampleLabel,
+    count: resolved ? resolved.count : 0,
+    activeFormat: resolved ? resolved.format : null,
+    imports: sourceImportInventory(source)
+  };
+}
+
+function sourceImportPathsForSettings() {
+  const payload = {};
+  for (const source of ['seventeenLands', 'untapped']) {
+    payload[source] = {};
+    for (const [format, entry] of Object.entries(sourceImports[source])) {
+      if (entry?.path) payload[source][format] = entry.path;
+    }
+  }
+  return payload;
 }
 
 function poolSummary(pool) {
@@ -319,10 +363,10 @@ function poolSummary(pool) {
 }
 
 function activeSourceData() {
-  const samplesAllowed = status.kind === 'demo';
+  if (status.kind === 'demo') return { ...sampleSourceData };
   return {
-    seventeenLands: samplesAllowed || sources.seventeenLands.kind === 'import' ? sourceData.seventeenLands : [],
-    untapped: samplesAllowed || sources.untapped.kind === 'import' ? sourceData.untapped : []
+    seventeenLands: resolveSourceImport('seventeenLands')?.data || [],
+    untapped: resolveSourceImport('untapped')?.data || []
   };
 }
 
@@ -465,12 +509,12 @@ function recommendationGate(recommendations) {
   if (status.kind === 'demo') {
     return { ready: true, kind: 'demo', message: 'Sample data is active for the sample draft only', coveredByBoth, total: draftable.length };
   }
-  const importedBoth = sources.seventeenLands.kind === 'import' && sources.untapped.kind === 'import';
+  const importedBoth = Boolean(resolveSourceImport('seventeenLands') && resolveSourceImport('untapped'));
   if (!importedBoth) {
     return {
       ready: false,
       kind: 'missing-sources',
-      message: `Recommendations paused · import full 17Lands and Untapped exports for ${draftState.setCode || 'this set'}`,
+      message: `Recommendations paused · import full 17Lands and Untapped exports for ${[draftState.setCode, draftState.format].filter(Boolean).join(' ') || 'this set'}`,
       coveredByBoth,
       total: draftable.length
     };
@@ -610,7 +654,10 @@ function viewModel() {
       excludedTotal: draftState.pool.length - modelingPool.length
     },
     poolPlan: { excludedNames },
-    sources,
+    sources: {
+      seventeenLands: sourceViewState('seventeenLands'),
+      untapped: sourceViewState('untapped')
+    },
     archetypeCorpus: {
       source: archetypeCorpusSource,
       match: corpusMatch,
@@ -786,18 +833,20 @@ function setCompactBuildMode(enabled, source = null) {
 
 function registerIpc() {
   ipcMain.handle('draft:bootstrap', () => viewModel());
-  ipcMain.handle('draft:import-source', async (_event, source) => {
+  ipcMain.handle('draft:import-source', async (_event, source, format) => {
     if (!['seventeenLands', 'untapped'].includes(source)) throw new Error('Unknown draft data source.');
+    const formatKey = SOURCE_FORMATS.includes(format) ? format : 'any';
+    const sourceName = source === 'seventeenLands' ? '17Lands' : 'Untapped';
     const result = await dialog.showOpenDialog(draftWindow, {
-      title: `Import ${source === 'seventeenLands' ? '17Lands' : 'Untapped'} CSV`,
+      title: `Import ${sourceName} CSV for ${SOURCE_FORMAT_LABELS[formatKey]}`,
       properties: ['openFile'],
       filters: [{ name: 'CSV export', extensions: ['csv'] }]
     });
     if (result.canceled || !result.filePaths[0]) return viewModel();
     try {
-      loadCsv(source, result.filePaths[0]);
-      writeSettings({ [`${source}Path`]: result.filePaths[0] });
-      setStatus({ kind: 'live', message: `${sources[source].label} imported` });
+      const data = loadCsv(source, result.filePaths[0], formatKey);
+      writeSettings({ sourceImportPaths: sourceImportPathsForSettings() });
+      setStatus({ kind: 'live', message: `${sourceName} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
     } catch (error) {
       setStatus({ kind: 'error', message: error.message });
     }
@@ -1036,10 +1085,17 @@ app.whenReady().then(async () => {
   if (saved.archetypeCorpusPath && fs.existsSync(saved.archetypeCorpusPath)) {
     try { loadArchetypeCorpus(saved.archetypeCorpusPath); } catch { /* Keep drafting if an old corpus moved or changed. */ }
   }
+  const savedSourceImports = saved.sourceImportPaths || {};
   for (const source of ['seventeenLands', 'untapped']) {
-    const savedPath = saved[`${source}Path`];
-    if (savedPath && fs.existsSync(savedPath)) {
-      try { loadCsv(source, savedPath); } catch { /* Keep the bundled sample if an old export moved or changed. */ }
+    for (const [format, savedPath] of Object.entries(savedSourceImports[source] || {})) {
+      if (SOURCE_FORMATS.includes(format) && savedPath && fs.existsSync(savedPath)) {
+        try { loadCsv(source, savedPath, format); } catch { /* Skip an export that moved or changed. */ }
+      }
+    }
+    // Legacy single-path settings become the all-formats slot.
+    const legacyPath = saved[`${source}Path`];
+    if (!sourceImports[source].any && legacyPath && fs.existsSync(legacyPath)) {
+      try { loadCsv(source, legacyPath, 'any'); } catch { /* Keep the bundled sample if an old export moved or changed. */ }
     }
   }
   visualGuideController = new VisualGuideController({

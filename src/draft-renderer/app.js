@@ -144,11 +144,16 @@ function renderStatus() {
 
   const source17 = model.sources.seventeenLands;
   const sourceUt = model.sources.untapped;
-  const sourceLabel = (source) => source.kind === 'sample' && model.status?.kind !== 'demo' ? 'SAMPLE · OFF' : `${source.count} · ${source.kind}`;
+  const shortFormat = { any: 'all', premier: 'premier', quick: 'quick', traditional: 'trad', 'pick-two': 'pick 2' };
+  const sourceLabel = (source) => {
+    if (model.status?.kind === 'demo') return 'sample';
+    if (source.kind !== 'import') return 'no data';
+    return `${source.count} · ${shortFormat[source.activeFormat] || source.activeFormat}`;
+  };
   setText('source-17-label', sourceLabel(source17));
   setText('source-ut-label', sourceLabel(sourceUt));
-  byId('import-17lands').title = source17.label;
-  byId('import-untapped').title = sourceUt.label;
+  byId('import-17lands').title = `${source17.label} · click to manage imports per draft type`;
+  byId('import-untapped').title = `${sourceUt.label} · click to manage imports per draft type`;
   const corpus = model.archetypeCorpus || {};
   const corpusSource = corpus.source || { kind: 'empty', trophyCount: 0, label: 'No corpus' };
   const corpusMatch = corpus.match || { trophyCount: 0, archetypeCount: 0 };
@@ -1273,6 +1278,7 @@ function render() {
   }
   if (selectedName && !model.recommendations.some((card) => card.name === selectedName)) selectedName = null;
   renderStatus();
+  renderSourceMenu();
   renderDecision();
   renderLane();
   renderRankingLens();
@@ -1297,7 +1303,64 @@ async function updateFrom(action) {
   }
 }
 
-byId('import-17lands').addEventListener('click', () => updateFrom(() => window.draftCompanion.importSource('seventeenLands')));
+const SOURCE_FORMAT_ROWS = [
+  ['any', 'All draft types'],
+  ['premier', 'Premier Draft'],
+  ['quick', 'Quick Draft'],
+  ['traditional', 'Traditional Draft'],
+  ['pick-two', 'Pick Two Draft']
+];
+let sourceMenuOpen = null;
+
+function renderSourceMenu() {
+  const menu = byId('source-menu');
+  if (!sourceMenuOpen) {
+    menu.hidden = true;
+    menu.replaceChildren();
+    return;
+  }
+  const source = sourceMenuOpen;
+  const view = model?.sources?.[source];
+  menu.hidden = false;
+  menu.replaceChildren();
+  const heading = element('header');
+  heading.append(
+    element('strong', '', source === 'seventeenLands' ? '17LANDS IMPORTS' : 'UNTAPPED IMPORTS'),
+    element('small', '', 'Assign each CSV export to the draft type it was filtered for.')
+  );
+  menu.append(heading);
+  for (const [formatId, label] of SOURCE_FORMAT_ROWS) {
+    const entry = view?.imports?.[formatId] || null;
+    const row = element('button', `source-menu-row ${view?.activeFormat === formatId ? 'active' : ''}`);
+    row.type = 'button';
+    const copy = element('span', 'source-menu-copy');
+    copy.append(
+      element('strong', '', label + (view?.activeFormat === formatId ? ' · in use' : '')),
+      element('small', '', entry ? `${entry.count} rows · ${entry.label}` : 'No import')
+    );
+    row.append(copy, element('span', 'source-menu-action', entry ? 'REPLACE' : 'IMPORT'));
+    row.addEventListener('click', () => {
+      sourceMenuOpen = null;
+      renderSourceMenu();
+      updateFrom(() => window.draftCompanion.importSource(source, formatId));
+    });
+    menu.append(row);
+  }
+}
+
+function toggleSourceMenu(source, event) {
+  event.stopPropagation();
+  sourceMenuOpen = sourceMenuOpen === source ? null : source;
+  renderSourceMenu();
+}
+
+byId('import-17lands').addEventListener('click', (event) => toggleSourceMenu('seventeenLands', event));
+document.addEventListener('click', (event) => {
+  if (sourceMenuOpen && !byId('source-menu').contains(event.target)) {
+    sourceMenuOpen = null;
+    renderSourceMenu();
+  }
+});
 byId('ranking-contextual').addEventListener('click', () => {
   rankingMode = 'contextual';
   renderRankingLens();
@@ -1324,7 +1387,7 @@ byId('lane-resume-auto').addEventListener('click', () => {
   laneMenuOpen = false;
   updateFrom(() => window.draftCompanion.setLanePreference('auto'));
 });
-byId('import-untapped').addEventListener('click', () => updateFrom(() => window.draftCompanion.importSource('untapped')));
+byId('import-untapped').addEventListener('click', (event) => toggleSourceMenu('untapped', event));
 byId('import-archetypes').addEventListener('click', openCorpusManager);
 byId('corpus-close').addEventListener('click', () => byId('corpus-dialog').close());
 byId('corpus-paste').addEventListener('click', async () => {

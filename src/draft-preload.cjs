@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('draftCompanion', {
   bootstrap: () => ipcRenderer.invoke('draft:bootstrap'),
-  importSource: (source) => ipcRenderer.invoke('draft:import-source', source),
+  importSource: (source, format) => ipcRenderer.invoke('draft:import-source', source, format),
   importArchetypeCorpus: () => ipcRenderer.invoke('draft:import-archetype-corpus'),
   addTrophyDeck: (value) => ipcRenderer.invoke('draft:add-trophy-deck', value),
   removeTrophyDeck: (deckId) => ipcRenderer.invoke('draft:remove-trophy-deck', deckId),
