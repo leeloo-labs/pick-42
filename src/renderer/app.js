@@ -43,6 +43,9 @@ function renderTurn() {
   }
 
   if (state.complete) {
+    setText('turn-label', `GAME ${state.gameNumber || 1} · ENDED`);
+    const result = state.events?.find((event) => event.kind === 'result');
+    setText('phase-label', result ? result.title : 'Match complete');
     setText('priority-pill', 'COMPLETE');
     byId('priority-pill').className = 'priority-pill muted';
     return;
@@ -85,15 +88,21 @@ function renderContext() {
   setText('context-detail', detail);
 }
 
+function matchEnded() {
+  return !state?.matchId || Boolean(state?.complete);
+}
+
 function renderActions() {
   const container = byId('actions-list');
-  const actions = state?.availableActions || [];
+  const actions = matchEnded() ? [] : (state?.availableActions || []);
   container.replaceChildren();
   setText('action-count', actions.length);
 
   if (!actions.length) {
     container.className = 'chip-list empty-copy';
-    container.textContent = 'No player decision is currently logged.';
+    container.textContent = matchEnded() && state?.events?.length
+      ? 'The logged game has ended — no live decision.'
+      : 'No player decision is currently logged.';
     return;
   }
 
@@ -184,6 +193,7 @@ function renderCards() {
 }
 
 function render() {
+  document.body.classList.toggle('ended', matchEnded());
   renderStatus();
   renderTurn();
   renderLife();
