@@ -68,6 +68,22 @@ function compactMana(value) {
   return String(value || '—').replace(/[{}]/g, '');
 }
 
+function deckColorPipsElement(colors, splashColors = []) {
+  const main = (colors || []).filter((color) => /^[WUBRG]$/.test(color));
+  const splash = (splashColors || []).filter((color) => /^[WUBRG]$/.test(color) && !main.includes(color));
+  if (!main.length && !splash.length) return null;
+  const pips = element('span', 'mana-pips');
+  pips.setAttribute('role', 'img');
+  pips.setAttribute('aria-label', `Colors ${main.join('')}${splash.length ? ` splashing ${splash.join('')}` : ''}`);
+  for (const color of main) pips.append(element('i', `mana-pip pip-${color}`, color));
+  for (const color of splash) {
+    const pip = element('i', `mana-pip pip-${color} pip-splash`, color);
+    pip.title = `${color} splash`;
+    pips.append(pip);
+  }
+  return pips;
+}
+
 function manaPipsElement(manaCost) {
   const tokens = manaTokens({ manaCost });
   if (!tokens.length) return null;
@@ -181,10 +197,13 @@ function renderCorpusManager() {
   for (const deck of [...manualDecks].reverse()) {
     const row = element('article', 'corpus-manual-row');
     const copy = element('div');
-    const splash = deck.splashColors?.length ? ` · ${deck.splashColors.join('/')} splash` : '';
+    const title = element('div', 'corpus-manual-title');
+    title.append(element('strong', '', deck.archetype || 'Unknown archetype'));
+    const pips = deckColorPipsElement(deck.colors, deck.splashColors);
+    if (pips) title.append(pips);
     copy.append(
-      element('strong', '', deck.archetype || 'Unknown archetype'),
-      element('small', '', `${deck.setCode} · ${deck.format} · ${deck.record} · ${deck.total} cards${splash}${deck.rank ? ` · ${deck.rank}` : ''}`)
+      title,
+      element('small', '', `${deck.setCode} · ${deck.format} · ${deck.record} · ${deck.total} cards${deck.rank ? ` · ${deck.rank}` : ''}`)
     );
     const remove = element('button');
     remove.type = 'button';
