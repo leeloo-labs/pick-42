@@ -79,7 +79,10 @@ The active-pool panel is an abbreviated deck list. Marking a card **OUT** keeps 
 
 ### Trophy-deck corpus
 
-Open **META** to paste trophy decks copied from individual 17Lands deck pages. Pick 42 validates the main deck and record, infers primary colors from fixed mana requirements and the mana base, distinguishes splashes from true three-color decks, and stores the result locally.
+Open **META** to build the trophy corpus two ways:
+
+- **Process a 17Lands public dataset.** Once the set appears in the [17Lands public datasets](https://www.17lands.com/public_datasets), download its game-data file and choose it through **Import Data File**. Pick 42 streams the file offline, derives each event's record from its game rows, keeps the most recent trophy runs with their final builds, and saves a small normalized corpus locally. No scraping, no API calls.
+- **Paste individual trophy decks** copied from 17Lands deck pages, useful before the public dataset exists. Pick 42 validates the main deck and record, infers primary colors from fixed mana requirements and the mana base, distinguishes splashes from true three-color decks, and stores the result locally.
 
 Hybrid payment options do not create phantom colors. Corpus examples are filtered to the active set and draft format before they affect a recommendation. See [docs/ARCHETYPE_CORPUS.md](docs/ARCHETYPE_CORPUS.md) for the full workflow and normalized CSV/JSON schema.
 
@@ -152,7 +155,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 105 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
+The current suite contains 113 passing tests covering log reconstruction, draft restoration, source normalization, contextual ranking regressions, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, and series verdicts.
 
 Important paths:
 

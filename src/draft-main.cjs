@@ -25,6 +25,7 @@ const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
 const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, replaceRebuiltReviewInPlace, reviewDeckIdentity } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
+const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
 const { parseUntappedCsv } = require('./draft/sources/untapped.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { ArenaLogParser } = require('./core/arena-log-parser.cjs');
@@ -769,18 +770,44 @@ function registerIpc() {
   });
   ipcMain.handle('draft:import-archetype-corpus', async () => {
     const result = await dialog.showOpenDialog(draftWindow, {
-      title: 'Import authorized archetype corpus',
+      title: 'Import a normalized corpus or a 17Lands game-data export',
       properties: ['openFile'],
       filters: [
-        { name: 'Archetype corpus', extensions: ['csv', 'json'] },
+        { name: 'Corpus or 17Lands game data', extensions: ['csv', 'json', 'gz'] },
         { name: 'All files', extensions: ['*'] }
       ]
     });
     if (result.canceled || !result.filePaths[0]) return viewModel();
+    const filePath = result.filePaths[0];
     try {
-      loadArchetypeCorpus(result.filePaths[0]);
-      writeSettings({ archetypeCorpusPath: result.filePaths[0] });
-      setStatus({ kind: 'live', message: `${archetypeCorpusSource.trophyCount} trophy exemplars imported` });
+      if (await isSeventeenLandsGameData(filePath)) {
+        setStatus({ kind: 'live', message: 'Processing 17Lands game data · deriving event records' });
+        const extraction = await extractTrophyDecksFromGameData(filePath, {
+          onProgress: ({ phase, games }) => setStatus({
+            kind: 'live',
+            message: phase === 'records'
+              ? `Processing 17Lands game data · ${games.toLocaleString()} games scanned`
+              : 'Processing 17Lands game data · reconstructing trophy decks'
+          })
+        });
+        const corpusPath = path.join(app.getPath('userData'), `trophy-corpus-${extraction.setCode}-${extraction.format}.json`);
+        fs.writeFileSync(corpusPath, JSON.stringify({
+          source: `17Lands public dataset · ${path.basename(filePath)}`,
+          license: 'Processed offline from the 17Lands public datasets (17lands.com/public_datasets)',
+          generatedAt: new Date().toISOString(),
+          decks: extraction.decks
+        }, null, 1));
+        loadArchetypeCorpus(corpusPath);
+        writeSettings({ archetypeCorpusPath: corpusPath });
+        setStatus({
+          kind: 'live',
+          message: `${extraction.decks.length} ${extraction.setCode} trophy decks derived from ${extraction.scanned.games.toLocaleString()} games`
+        });
+      } else {
+        loadArchetypeCorpus(filePath);
+        writeSettings({ archetypeCorpusPath: filePath });
+        setStatus({ kind: 'live', message: `${archetypeCorpusSource.trophyCount} trophy exemplars imported` });
+      }
     } catch (error) {
       setStatus({ kind: 'error', message: error.message });
     }

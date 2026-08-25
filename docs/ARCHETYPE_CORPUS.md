@@ -2,6 +2,17 @@
 
 Pick 42 learns successful card clusters from an imported, source-independent deck corpus. It does not scrape 17Lands or Untapped and does not call undocumented APIs. A corpus can come from a manually authorized export, a licensed partner feed, or an offline transformation of a licensed public dataset.
 
+## Process a 17Lands public dataset
+
+Once a set appears in the [17Lands public datasets](https://www.17lands.com/public_datasets), an entire trophy corpus can be built offline:
+
+1. Download the game-data file for the set and event format, for example `game_data_public.HOB.PremierDraft.csv.gz`. Leaving it compressed is fine.
+2. In Pick 42, choose **META**, then **Import Data File**, and select the download.
+
+Pick 42 recognizes the game-data layout, streams the file twice without loading it into memory, and — because the export has no event-record column — derives each event's final record by grouping its game rows per `draft_id` (match results for Traditional Draft). Completed trophy runs are kept, most recent first, up to 200 events; the main deck is taken from the final game so sideboard changes during the run are reflected. Runs with impossible records or fewer than 40 reconstructed main-deck cards are dropped.
+
+The result is written to Pick 42's local user-data directory as a normalized JSON corpus (the same schema documented below, with the dataset file recorded as its source) and loaded like any other imported corpus. Nothing is uploaded, and the heavy processing happens once; later launches reload the small JSON file.
+
 ## Paste individual 17Lands trophy decks
 
 Until a set appears in the 17Lands public datasets, individual public trophy lists can be entered without automating the website:
@@ -14,7 +25,7 @@ Until a set appears in the 17Lands public datasets, individual public trophy lis
 
 Pick 42 accepts Arena-format lines such as `2 Dori, Bearer of Friends (HOB) 123`, ignores the sideboard, and requires at least 40 main-deck cards. It verifies the record against the selected format's trophy threshold and rejects duplicate pasted entries. Card colors and a general color-pair archetype are inferred from fixed mana requirements and the mana base in Arena's installed card catalog when no archetype label is supplied. A small fixed-cost third-color commitment is recorded as a splash; a hybrid payment alternative alone does not make the deck three-color. Existing automatically generated labels are migrated under this rule, while labels entered by the user are preserved.
 
-Pasted entries are kept in Pick 42's legacy-compatible local user-data directory as `manual-archetype-corpus.json`. They are merged in memory with any normalized corpus file selected through **Import CSV / JSON**. Removing a pasted entry from the META panel updates only that local file.
+Pasted entries are kept in Pick 42's legacy-compatible local user-data directory as `manual-archetype-corpus.json`. They are merged in memory with any normalized corpus file selected through **Import Data File**. Removing a pasted entry from the META panel updates only that local file.
 
 ## CSV format
 
