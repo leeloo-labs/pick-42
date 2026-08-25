@@ -808,6 +808,10 @@ button { color: inherit; }
 .build-empty p { max-width: 260px; margin: 0 0 15px; font-size: 11px; line-height: 1.5; }
 .build-expand-button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid rgba(163,131,255,.28); border-radius: 8px; color: #cfc4ff; background: rgba(163,131,255,.09); font-size: 10px; font-weight: 800; letter-spacing: .08em; cursor: pointer; }
 .build-expand-button .lucide { width: 12px; height: 12px; }
+.build-summary-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.build-expand-icon { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid rgba(112,84,179,.32); border-radius: 7px; color: #60439f; background: rgba(112,84,179,.1); box-shadow: 0 5px 14px rgba(83,62,127,.08); cursor: pointer; }
+.build-expand-icon:hover { border-color: rgba(112,84,179,.55); color: #4f348c; background: rgba(112,84,179,.16); }
+.build-expand-icon .lucide { width: 14px; height: 14px; }
 
 .corpus-dialog {
   width: min(980px, calc(100vw - 44px));
