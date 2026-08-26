@@ -1,6 +1,11 @@
 'use strict';
 
 // Renderer state shared by every view, plus the generic DOM helpers.
+//
+// The renderer's source of truth is the `model` pushed from the main process
+// plus the explicit view-state variables below and in each view file. render()
+// redraws every view from that state alone; the DOM is never read back as
+// state, except for uncontrolled form inputs collected at submit time.
 
 let model = null;
 let selectedName = null;

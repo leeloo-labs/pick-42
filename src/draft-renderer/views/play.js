@@ -76,8 +76,9 @@ function renderReviewGameStrip(groups, displayed, latest) {
   const strip = byId('review-game-strip');
   strip.replaceChildren();
   const totalGames = groups.reduce((sum, group) => sum + group.games.length, 0);
-  strip.hidden = totalGames < 1;
-  if (strip.hidden) return;
+  const hidden = totalGames < 1;
+  strip.hidden = hidden;
+  if (hidden) return;
 
   const featured = [];
   let past = [];
