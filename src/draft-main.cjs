@@ -712,8 +712,9 @@ function registerIpc() {
     }
     return viewModel();
   });
-  ipcMain.handle('draft:add-trophy-deck', (_event, value) => {
+  ipcMain.handle('draft:add-trophy-deck', (_event, payload) => {
     try {
+      const value = payload && typeof payload === 'object' ? payload : {};
       const deck = corpusStore.addManual(value, { setCode: draftState.setCode, format: draftState.format });
       setStatus({ kind: 'live', message: `${deck.archetype} ${deck.record || `${deck.wins}-${deck.losses ?? 0}`} trophy deck saved locally` });
     } catch (error) {
@@ -769,7 +770,7 @@ function registerIpc() {
   ipcMain.handle('draft:set-pool-card-excluded', (_event, cardName, excluded) => {
     const key = normalizeCardName(cardName);
     if (!key || !draftState.pool.some((card) => normalizeCardName(card.name) === key)) return viewModel();
-    poolExclusionPreference = updatePoolExclusion(poolExclusionPreference, draftScopeId(), key, excluded);
+    poolExclusionPreference = updatePoolExclusion(poolExclusionPreference, draftScopeId(), key, Boolean(excluded));
     writeSettings({ poolExclusions: poolExclusionPreference });
     visualGuideController?.contextChanged();
     sendState();
