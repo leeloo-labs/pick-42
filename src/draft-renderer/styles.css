@@ -12,6 +12,28 @@
   --gold: #96651e;
   --green: #2e7a4d;
   --red: #b64e4b;
+  /* Scale tokens, anchored to the values this sheet already uses most. New and
+     touched rules consume tokens; existing one-off values migrate as they are
+     revisited, never in a bulk rewrite. */
+  --space-1: 4px;
+  --space-2: 7px;
+  --space-3: 9px;
+  --space-4: 11px;
+  --space-5: 14px;
+  --space-6: 18px;
+  --space-7: 21px;
+  --space-8: 28px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 9px;
+  --radius-xl: 13px;
+  --text-xs: 9px;
+  --text-sm: 10px;
+  --text-md: 11px;
+  --text-base: 12px;
+  --text-lg: 14px;
+  --text-xl: 17px;
+  --text-2xl: 24px;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
