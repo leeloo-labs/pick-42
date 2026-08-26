@@ -2,7 +2,6 @@
 
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, shell } = require('electron');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const path = require('node:path');
 const {
   inferDraftLane,
@@ -14,17 +13,10 @@ const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardData
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
 const { createLocalStore, defaultLogCandidates, writeFileAtomic, writeJsonAtomic } = require('./draft-app/local-store.cjs');
 const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('./draft-app/source-imports.cjs');
+const { createCorpusStore } = require('./draft-app/corpus-store.cjs');
 const { evaluateRecommendationGate } = require('./draft/coverage-gate.cjs');
 const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
-const {
-  createArchetypeDeck,
-  isGenericArchetypeLabel,
-  normalizeFormat,
-  parseArenaDeckText,
-  parseArchetypeCorpus,
-  summarizeArchetypeCorpus,
-  trophyThreshold
-} = require('./draft/archetype-corpus.cjs');
+const { normalizeFormat, summarizeArchetypeCorpus } = require('./draft/archetype-corpus.cjs');
 const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
 const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, eventWrapUpVerdict, replaceRebuiltReviewInPlace, reviewDeckIdentity, reviewEventGroups } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
@@ -78,11 +70,6 @@ let status = { kind: 'demo', message: `Sample ${ACTIVE_SET.displayCode} pack · 
 let lanePreference = null;
 let poolExclusionPreference = null;
 const sourceStore = createSourceImportStore();
-let archetypeCorpus = null;
-let importedArchetypeCorpus = null;
-let importedArchetypeCorpusPath = null;
-let manualArchetypeDecks = [];
-let archetypeCorpusSource = { label: 'No corpus', kind: 'empty', count: 0, trophyCount: 0 };
 let scryfallIndex = {};
 let scryfallState = {
   kind: 'loading',
@@ -100,148 +87,9 @@ const scryfallCachePath = () => store.scryfallCachePath(scryfallCacheFileName(AC
 // Imports are copied into the app's own storage so they keep working after the
 // original download is moved, deleted, or blocked by macOS folder permissions.
 const importedCsvStoragePath = store.importedCsvStoragePath;
-
-function rebuildArchetypeCorpus() {
-  const byId = new Map();
-  for (const deck of importedArchetypeCorpus?.decks || []) byId.set(`import:${deck.id}`, deck);
-  for (const deck of manualArchetypeDecks) byId.set(`manual:${deck.id}`, deck);
-  const decks = [...byId.values()];
-  archetypeCorpus = decks.length ? { version: 1, decks } : null;
-  const summary = summarizeArchetypeCorpus(archetypeCorpus);
-  const importedCount = importedArchetypeCorpus?.decks?.length || 0;
-  const manualCount = manualArchetypeDecks.length;
-  const kind = importedCount && manualCount ? 'combined' : (importedCount ? 'import' : (manualCount ? 'manual' : 'empty'));
-  archetypeCorpusSource = {
-    label: kind === 'combined'
-      ? `${path.basename(importedArchetypeCorpusPath)} + manual entries`
-      : (kind === 'import' ? path.basename(importedArchetypeCorpusPath) : (kind === 'manual' ? 'Pasted trophy decks' : 'No corpus')),
-    kind,
-    count: summary.deckCount,
-    trophyCount: summary.trophyCount,
-    archetypeCount: summary.archetypeCount,
-    manualCount,
-    importedCount,
-    path: importedArchetypeCorpusPath
-  };
-}
-
-function loadArchetypeCorpus(filePath) {
-  const text = fs.readFileSync(filePath, 'utf8');
-  const corpus = parseArchetypeCorpus(text, { catalog, fileName: filePath });
-  importedArchetypeCorpus = corpus;
-  importedArchetypeCorpusPath = filePath;
-  rebuildArchetypeCorpus();
-  return corpus;
-}
-
-function readManualArchetypeCorpus() {
-  let migrated = false;
-  try {
-    const payload = JSON.parse(fs.readFileSync(manualArchetypeCorpusPath(), 'utf8'));
-    manualArchetypeDecks = (Array.isArray(payload?.decks) ? payload.decks : [])
-      .map((deck, index) => {
-        const autoArchetype = deck.archetypeSource === 'auto'
-          || (!deck.archetypeSource && isGenericArchetypeLabel(deck.archetype, deck.colors));
-        const normalized = {
-          ...createArchetypeDeck(deck, {
-            catalog,
-            fallbackId: `manual-${index + 1}`,
-            reclassifyColors: true,
-            reclassifyArchetype: autoArchetype
-          }),
-          archetypeSource: autoArchetype ? 'auto' : 'custom',
-          origin: 'manual'
-        };
-        if (JSON.stringify({
-          archetype: deck.archetype,
-          archetypeSource: deck.archetypeSource,
-          colors: deck.colors,
-          splashColors: deck.splashColors,
-          colorIdentity: deck.colorIdentity
-        }) !== JSON.stringify({
-          archetype: normalized.archetype,
-          archetypeSource: normalized.archetypeSource,
-          colors: normalized.colors,
-          splashColors: normalized.splashColors,
-          colorIdentity: normalized.colorIdentity
-        })) migrated = true;
-        return normalized;
-      })
-      .filter((deck) => deck.trophy && deck.cards.length);
-  } catch {
-    manualArchetypeDecks = [];
-  }
-  if (migrated) {
-    try { writeManualArchetypeCorpus(); } catch { /* Keep the in-memory migration if local persistence is temporarily unavailable. */ }
-  }
-  rebuildArchetypeCorpus();
-}
-
-function writeManualArchetypeCorpus() {
-  writeJsonAtomic(manualArchetypeCorpusPath(), {
-    version: 1,
-    source: 'Manually pasted trophy deck lists',
-    generatedAt: new Date().toISOString(),
-    decks: manualArchetypeDecks
-  });
-}
-
-function manualDeckId(value, cards) {
-  const signature = JSON.stringify({
-    setCode: value.setCode,
-    format: value.format,
-    record: value.record,
-    sourceUrl: value.sourceUrl,
-    cards: cards.map((card) => [card.key, card.quantity]).sort((a, b) => a[0].localeCompare(b[0]))
-  });
-  return `manual-${crypto.createHash('sha256').update(signature).digest('hex').slice(0, 16)}`;
-}
-
-function addManualArchetypeDeck(value) {
-  const parsed = parseArenaDeckText(value?.deckText);
-  const setCode = String(value?.setCode || draftState.setCode || '').trim().toUpperCase();
-  const format = String(value?.format || draftState.format || '').trim();
-  const record = String(value?.record || '').trim();
-  if (!setCode) throw new Error(`Enter the set code shown by 17Lands, such as ${ACTIVE_SET.displayCode}.`);
-  if (!format) throw new Error('Choose the draft format for this trophy deck.');
-  if (!record) throw new Error('Enter the final record shown by 17Lands, such as 7-2.');
-  const id = manualDeckId({ setCode, format, record, sourceUrl: value?.sourceUrl }, parsed.cards);
-  if (manualArchetypeDecks.some((deck) => deck.id === id)) throw new Error('That trophy deck is already in the manual corpus.');
-  const deck = {
-    ...createArchetypeDeck({
-      id,
-      setCode,
-      format,
-      record,
-      eventDate: value?.eventDate,
-      rank: value?.rank,
-      archetype: value?.archetype,
-      colors: value?.colors,
-      sourceUrl: value?.sourceUrl,
-      cards: parsed.cards
-    }, { catalog, fallbackId: id }),
-    origin: 'manual'
-  };
-  if (!deck.trophy) {
-    const threshold = trophyThreshold(deck.format);
-    throw new Error(threshold
-      ? `${record} is not a trophy record for ${deck.formatLabel}; this format requires ${threshold} wins.`
-      : 'Pick 42 could not verify the trophy threshold for that format.');
-  }
-  manualArchetypeDecks.push(deck);
-  writeManualArchetypeCorpus();
-  rebuildArchetypeCorpus();
-  return deck;
-}
-
-function removeManualArchetypeDeck(deckId) {
-  const before = manualArchetypeDecks.length;
-  manualArchetypeDecks = manualArchetypeDecks.filter((deck) => deck.id !== deckId);
-  if (manualArchetypeDecks.length !== before) {
-    writeManualArchetypeCorpus();
-    rebuildArchetypeCorpus();
-  }
-}
+const corpusStore = createCorpusStore({ catalog, manualStoragePath: manualArchetypeCorpusPath, setCodeExample: ACTIVE_SET.displayCode });
+const loadArchetypeCorpus = corpusStore.loadImported;
+const readManualArchetypeCorpus = corpusStore.readManual;
 
 const parseSourceCsv = sourceStore.parse;
 const rememberSourceCsv = sourceStore.remember;
@@ -290,7 +138,7 @@ function currentDraftLane(preference = lanePreference) {
     pool: activeDraftPool(),
     seventeenLands: activeSources.seventeenLands,
     untapped: activeSources.untapped,
-    archetypeCorpus,
+    archetypeCorpus: corpusStore.corpus(),
     setCode: draftState.setCode,
     format: draftState.format,
     packNumber: draftState.packNumber,
@@ -527,7 +375,7 @@ function pickPairScoringArgs() {
   return {
     seventeenLands: activeSources.seventeenLands,
     untapped: activeSources.untapped,
-    archetypeCorpus,
+    archetypeCorpus: corpusStore.corpus(),
     pool: activeDraftPool(),
     excludedPoolNames: [...activePoolExclusions()],
     packNumber: draftState.packNumber,
@@ -557,7 +405,7 @@ function viewModel() {
     cards: draftState.pack,
     seventeenLands: activeSources.seventeenLands,
     untapped: activeSources.untapped,
-    archetypeCorpus,
+    archetypeCorpus: corpusStore.corpus(),
     pool: modelingPool,
     excludedPoolNames: excludedNames,
     packNumber: draftState.packNumber,
@@ -568,8 +416,9 @@ function viewModel() {
     lane: draftLane
   });
   const deckBuilds = currentDeckBuilds(draftLane);
-  const corpusMatch = archetypeCorpus
-    ? summarizeArchetypeCorpus(archetypeCorpus, { setCode: draftState.setCode, format: draftState.format })
+  const activeCorpus = corpusStore.corpus();
+  const corpusMatch = activeCorpus
+    ? summarizeArchetypeCorpus(activeCorpus, { setCode: draftState.setCode, format: draftState.format })
     : { deckCount: 0, trophyCount: 0, archetypeCount: 0, archetypes: [], setCodes: [], formats: [] };
   const gate = recommendationGate(recommendations);
   const pickPair = gate.ready && normalizeFormat(draftState.format) === 'pick-two'
@@ -578,7 +427,7 @@ function viewModel() {
         cards: draftState.pack,
         seventeenLands: activeSources.seventeenLands,
         untapped: activeSources.untapped,
-        archetypeCorpus,
+        archetypeCorpus: corpusStore.corpus(),
         pool: modelingPool,
         excludedPoolNames: excludedNames,
         packNumber: draftState.packNumber,
@@ -607,14 +456,14 @@ function viewModel() {
       untapped: sourceViewState('untapped')
     },
     archetypeCorpus: {
-      source: archetypeCorpusSource,
+      source: corpusStore.sourceInfo(),
       match: corpusMatch,
       defaults: {
         setCode: draftState.setCode || ACTIVE_SET.displayCode,
         format: draftState.format || 'Player Draft',
         eventDate: new Date().toISOString().slice(0, 10)
       },
-      manualDecks: manualArchetypeDecks.map((deck) => ({
+      manualDecks: corpusStore.manualDecks().map((deck) => ({
         id: deck.id,
         setCode: deck.setCode,
         format: deck.formatLabel,
@@ -917,7 +766,7 @@ function registerIpc() {
       } else {
         loadArchetypeCorpus(filePath);
         writeSettings({ archetypeCorpusPath: filePath });
-        setStatus({ kind: 'live', message: `${archetypeCorpusSource.trophyCount} trophy exemplars imported` });
+        setStatus({ kind: 'live', message: `${corpusStore.sourceInfo().trophyCount} trophy exemplars imported` });
       }
     } catch (error) {
       setStatus({ kind: 'error', message: error.message });
@@ -926,7 +775,7 @@ function registerIpc() {
   });
   ipcMain.handle('draft:add-trophy-deck', (_event, value) => {
     try {
-      const deck = addManualArchetypeDeck(value);
+      const deck = corpusStore.addManual(value, { setCode: draftState.setCode, format: draftState.format });
       setStatus({ kind: 'live', message: `${deck.archetype} ${deck.record || `${deck.wins}-${deck.losses ?? 0}`} trophy deck saved locally` });
     } catch (error) {
       setStatus({ kind: 'error', message: error.message });
@@ -935,8 +784,8 @@ function registerIpc() {
     return viewModel();
   });
   ipcMain.handle('draft:remove-trophy-deck', (_event, deckId) => {
-    removeManualArchetypeDeck(String(deckId || ''));
-    setStatus({ kind: 'live', message: `${manualArchetypeDecks.length} manually pasted trophy decks saved` });
+    corpusStore.removeManual(String(deckId || ''));
+    setStatus({ kind: 'live', message: `${corpusStore.manualDecks().length} manually pasted trophy decks saved` });
     return viewModel();
   });
   ipcMain.handle('draft:read-clipboard', () => ({ text: clipboard.readText() }));
