@@ -252,6 +252,39 @@ function renderLogMenu(menu) {
   });
   menu.append(chooseRow);
 
+  // Finding Player.log is the hardest step of setup: it lives in a hidden
+  // folder, and browser file pickers refuse Arena's folder outright. Spell out
+  // the working route whenever no log is connected.
+  if (!arenaLog.path) {
+    const isMac = /Mac/i.test(navigator.platform);
+    const isWebShell = document.body.classList.contains('web-shell');
+    const logPath = isMac
+      ? '~/Library/Logs/Wizards Of The Coast/MTGA/Player.log'
+      : '%USERPROFILE%\\AppData\\LocalLow\\Wizards Of The Coast\\MTGA\\Player.log';
+    const help = element('div', 'source-menu-help');
+    help.append(element('strong', '', 'WHERE IS PLAYER.LOG?'));
+    help.append(element('code', 'source-menu-path', logPath));
+    if (isWebShell) {
+      help.append(element('small', '', isMac
+        ? 'The browser’s file picker cannot open this folder (Chrome blocks the Library folder). In Finder press ⇧⌘G, paste the path above, then drag Player.log onto the Pick 42 window.'
+        : 'If the picker refuses the AppData folder, open it in Explorer and drag Player.log onto the Pick 42 window.'));
+    } else {
+      help.append(element('small', '', isMac
+        ? 'The Library folder is hidden: press ⇧⌘G in the file picker and paste the path above.'
+        : 'Paste the path above into the file picker’s location bar.'));
+    }
+    const copyPath = element('button', 'source-menu-copy-path', 'COPY PATH');
+    copyPath.type = 'button';
+    copyPath.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await window.draftCompanion.copySearch(logPath);
+      copyPath.textContent = 'COPIED';
+      setTimeout(() => { copyPath.textContent = 'COPY PATH'; }, 900);
+    });
+    help.append(copyPath);
+    menu.append(help);
+  }
+
   menu.append(element('small', 'source-menu-note', 'Seeing nothing during a draft? In Arena, enable Options → Account → Detailed Logs, then restart Arena.'));
 }
 

@@ -262,6 +262,70 @@ const EXTERNAL_LINKS = {
   untappedCardData: untappedCardDataUrl(ACTIVE_SET.code)
 };
 
+// A one-time read of a dropped log for engines that cannot hand out a live
+// handle: the whole file feeds through the normal session once, and the user
+// drops it again for a refresh.
+async function importLogSnapshot(file) {
+  poller.stop();
+  watchedLogHandle = null;
+  watchedLogName = `${file.name} (snapshot)`;
+  companion.beginLogSession();
+  companion.setStatus({ kind: 'loading', message: 'Reading the dropped Arena log' });
+  companion.feedLog(await file.text());
+  companion.completeLogScan();
+  lastLogActivityAt = Date.now();
+  companion.setStatus({ kind: 'live', message: `Read ${file.name} once · drop it again after more games for a refresh` });
+}
+
+// Drag-and-drop is the reliable way to hand the web shell Arena's log:
+// Chromium's file pickers refuse the folders Arena writes into (~/Library on
+// macOS, AppData on Windows), but handles delivered by a drop deliberately
+// bypass that blocklist, so a dropped Player.log can be watched live.
+function installDropTarget() {
+  const overlay = document.createElement('div');
+  overlay.className = 'drop-overlay';
+  const label = document.createElement('div');
+  label.textContent = 'Drop Player.log to watch your drafts';
+  overlay.append(label);
+  document.body.append(overlay);
+
+  let depth = 0;
+  const hide = () => {
+    depth = 0;
+    overlay.classList.remove('active');
+  };
+  window.addEventListener('dragenter', (event) => {
+    event.preventDefault();
+    depth += 1;
+    overlay.classList.add('active');
+  });
+  window.addEventListener('dragover', (event) => event.preventDefault());
+  window.addEventListener('dragleave', () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) overlay.classList.remove('active');
+  });
+  window.addEventListener('drop', (event) => {
+    event.preventDefault();
+    hide();
+    const item = event.dataTransfer?.items?.[0];
+    if (!item || item.kind !== 'file') return;
+    // Both accessors must be called synchronously, before the event settles.
+    const file = item.getAsFile();
+    const handlePromise = typeof item.getAsFileSystemHandle === 'function'
+      ? item.getAsFileSystemHandle().catch(() => null)
+      : Promise.resolve(null);
+    void (async () => {
+      if (!/\.(log|txt)$/i.test(file?.name || '')) {
+        companion.setStatus({ kind: 'error', message: 'Drop Player.log here · use the 17L, UT, and META buttons for data imports' });
+        return;
+      }
+      const handle = await handlePromise;
+      if (handle?.kind === 'file') await watchLogHandle(handle);
+      else if (file) await importLogSnapshot(file);
+    })();
+  });
+}
+
 window.draftCompanion = {
   bootstrap: async () => companion.viewModel(),
   importSource: async (source, format) => {
@@ -324,7 +388,7 @@ window.draftCompanion = {
   useStandardLog: async () => {
     companion.setStatus({
       kind: 'error',
-      message: 'The web app cannot find Player.log on its own · choose the file once via BROWSE'
+      message: 'The web app cannot find Player.log on its own · drag the file onto this window, or choose it via BROWSE'
     });
     return companion.viewModel();
   },
@@ -383,6 +447,7 @@ sourceStore.setSamples({
 corpusStore.readManual();
 companion.hydrate();
 restorePersistedData();
+installDropTarget();
 void (async () => {
   if (await resumeStoredLog({ gesture: false })) return;
   const remembered = await loadHandle(LOG_HANDLE_KEY);
