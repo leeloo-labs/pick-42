@@ -373,6 +373,8 @@ function exportArenaCatalog() {
 }
 
 app.whenReady().then(async () => {
+  // The dev checkout launches through Electron's own binary; brand the Dock.
+  try { app.dock?.setIcon(path.join(projectRoot, 'assets', 'icon.png')); } catch { /* Icon missing is cosmetic. */ }
   loadSampleSources();
   corpusStore.readManual();
   exportArenaCatalog();

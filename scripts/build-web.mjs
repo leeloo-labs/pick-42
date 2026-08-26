@@ -39,6 +39,7 @@ const buildOptions = {
 function copyAssets() {
   const rendererDir = path.join(root, 'src', 'draft-renderer');
   const copies = [
+    [path.join(root, 'assets', 'icon.png'), path.join(outDir, 'icon.png')],
     [path.join(rendererDir, 'styles.css'), path.join(outDir, 'styles.css')],
     [path.join(root, 'src', 'draft', 'recipe-queue.js'), path.join(outDir, 'recipe-queue.js')],
     [path.join(root, 'src', 'draft', 'arena-sort.js'), path.join(outDir, 'arena-sort.js')],
@@ -57,7 +58,7 @@ function writeIndexHtml() {
       /<meta http-equiv="Content-Security-Policy"[^>]*>/,
       '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\'; style-src \'self\'; img-src \'self\' data: https://cards.scryfall.io https://*.scryfall.io; connect-src https://api.scryfall.com">'
     ],
-    [/<title>[^<]*<\/title>/, '<title>Pick 42</title>'],
+    [/<title>[^<]*<\/title>/, '<title>Pick 42</title>\n    <link rel="icon" href="icon.png">'],
     [/<body>/, '<body class="web-shell">'],
     ['<script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>', '<script src="lucide.min.js"></script>'],
     ['<script src="../draft/recipe-queue.js"></script>', '<script src="recipe-queue.js"></script>'],

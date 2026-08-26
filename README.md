@@ -21,6 +21,8 @@ npm install
 npm run draft
 ```
 
+On macOS, `npm run make:launcher` creates a double-clickable **Pick 42.app** in `/Applications` (with the Pick 42 icon) that launches this checkout — drag it to the Dock or ⌥⌘-drag a Desktop alias. It always runs the current code, so `git pull` is the only update step.
+
 Enable Arena logging under **Options → Account → Detailed Logs**, then restart Arena. Pick 42 automatically watches the standard `Player.log` location when it can find it. The **LOG** button shows the connection state and opens a status menu with the watched path, the time of the last log activity, a rescan of the standard location, and a file picker for non-standard installs.
 
 Standard locations:
