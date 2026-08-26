@@ -340,7 +340,7 @@ function rawReasons(card) {
   if (card.dataScore === null || card.dataScore === undefined) return ['No usable imported in-hand data'];
   const reasons = [];
   if (card.metrics.seventeenLands?.gihWinRate !== null && card.metrics.seventeenLands?.gihWinRate !== undefined) {
-    reasons.push(`17L ${percent(card.metrics.seventeenLands.gihWinRate)} GIH`);
+    reasons.push(`17L ${percent(card.metrics.seventeenLands.gihWinRate)} ${card.metrics.seventeenLands.winRateBasis || 'GIH'}`);
   }
   if (card.metrics.untapped?.inHandWinRate !== null && card.metrics.untapped?.inHandWinRate !== undefined) {
     reasons.push(`Untapped ${percent(card.metrics.untapped.inHandWinRate)} in-hand`);
@@ -390,6 +390,7 @@ function renderHero() {
   else heroMana.textContent = '—';
   setText('hero-type', card.typeLine || `Arena ID ${card.grpId}`);
   setText('hero-17', percent(card.metrics.seventeenLands?.gihWinRate));
+  setText('hero-17-basis', `${card.metrics.seventeenLands?.winRateBasis || 'GIH'} WR`);
   setText('hero-ut', percent(card.metrics.untapped?.inHandWinRate));
   if (rankingMode === 'raw') {
     setText('hero-adjust-label', 'CONTEXT RANK · SCORE');
