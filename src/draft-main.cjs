@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardDataUrl } = require('./draft/set-definitions.cjs');
 const { createLocalStore, defaultLogCandidates, writeFileAtomic, writeJsonAtomic } = require('./draft-app/local-store.cjs');
+const { migrateLegacyUserData } = require('./draft-app/migrate-user-data.cjs');
 const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('./draft-app/source-imports.cjs');
 const { createCorpusStore } = require('./draft-app/corpus-store.cjs');
 const { createDraftCompanion } = require('./draft-app/companion.cjs');
@@ -14,10 +15,13 @@ const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { LogTailer } = require('./core/log-tailer.cjs');
 const { VisualGuideController } = require('./draft/visual-guide-controller.cjs');
 
-// Preserve prototype settings and imports while presenting the new product name.
-const legacyUserDataPath = path.join(app.getPath('appData'), 'arcane-arena-companion');
 app.setName('Pick 42');
-app.setPath('userData', legacyUserDataPath);
+// Move the legacy Arcane-era user data (imports, reviews, recipe progress) to
+// the product's own directory once; a failed move keeps using the legacy path.
+const migration = migrateLegacyUserData({ appDataPath: app.getPath('appData') });
+if (migration.migrated) console.log(`Migrated user data to ${migration.userDataPath}`);
+else if (migration.reason.startsWith('rename-failed')) console.warn(`User-data migration skipped · ${migration.reason}`);
+app.setPath('userData', migration.userDataPath);
 
 const projectRoot = path.resolve(__dirname, '..');
 const fixturePath = (...parts) => path.join(projectRoot, 'fixtures', ...parts);

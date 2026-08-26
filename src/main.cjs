@@ -7,11 +7,12 @@ const os = require('node:os');
 const { ArenaLogParser } = require('./core/arena-log-parser.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { LogTailer } = require('./core/log-tailer.cjs');
+const { migrateLegacyUserData } = require('./draft-app/migrate-user-data.cjs');
 
-// Preserve prototype settings and imports while presenting the new product name.
-const legacyUserDataPath = path.join(app.getPath('appData'), 'arcane-arena-companion');
 app.setName('Pick 42');
-app.setPath('userData', legacyUserDataPath);
+// Both entry points share one user-data directory; the migration is one-time
+// and settles wherever src/draft-main.cjs left it.
+app.setPath('userData', migrateLegacyUserData({ appDataPath: app.getPath('appData') }).userDataPath);
 
 const projectRoot = path.resolve(__dirname, '..');
 const demoLogPath = path.join(projectRoot, 'fixtures', 'demo-match.log');
