@@ -1033,6 +1033,12 @@ button { color: inherit; }
 .review-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .review-section-heading h2 { margin: 5px 0 0; font-size: 15px; font-weight: 680; }
 .review-section-heading > span { color: var(--quiet); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+
+/* Label hierarchy: the full uppercase letterspaced eyebrow is reserved for
+   view-level sections. Labels nested inside a card step down to lighter weight
+   and tight tracking; bare stat labels share that quieter tier. */
+.review-card .eyebrow, .side-card .eyebrow { font-size: var(--text-sm); font-weight: 720; letter-spacing: .06em; }
+.review-stat-strip span, .deck-stat-strip span, .metric-source span, .metric-foot span { font-weight: 720; letter-spacing: .06em; }
 .review-analysis-summary { max-width: 850px; margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .review-analysis-note { margin: 12px 0 0; color: var(--quiet); font-size: 10px; line-height: 1.5; }
 .review-variance-card { border-color: rgba(38,121,131,.2); background: linear-gradient(145deg, rgba(250,248,245,.8), rgba(229,235,232,.66)); }
