@@ -9,7 +9,10 @@ const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = requir
 const { createCorpusStore } = require('../draft-app/corpus-store.cjs');
 const { DEFAULT_SET_CODE, setDefinition, untappedCardDataUrl } = require('../draft/set-definitions.cjs');
 const { fetchScryfallSet } = require('../draft/scryfall.cjs');
+const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('../draft/seventeenlands-dataset.cjs');
 const { createLogPoller } = require('./log-poller.js');
+const { fileLineSource } = require('./file-lines.js');
+const { loadHandle, saveHandle } = require('./handle-store.js');
 const demoCatalogFixture = require('../../fixtures/demo-draft-cards.json');
 // Bundled sample data must be statically imported; mirror set-definitions'
 // sampleFixtures when the active set changes.
@@ -162,13 +165,34 @@ async function pickFile({ description, accept }) {
   }
 }
 
-async function watchLogHandle(handle) {
+const LOG_HANDLE_KEY = 'player-log';
+let watchedLogHandle = null;
+
+async function watchLogHandle(handle, { remember = true } = {}) {
+  watchedLogHandle = handle;
   watchedLogName = handle.name;
   companion.beginLogSession();
   companion.setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: handle.name });
   await poller.start(handle);
   companion.completeLogScan();
   companion.setStatus({ kind: 'live', message: 'Watching Arena log', path: handle.name });
+  if (remember) void saveHandle(LOG_HANDLE_KEY, handle);
+}
+
+// Resume the remembered Player.log when the browser lets us: silently when the
+// permission survived, otherwise only from a user gesture (the LOG menu).
+async function resumeStoredLog({ gesture }) {
+  const handle = await loadHandle(LOG_HANDLE_KEY);
+  if (!handle) return false;
+  try {
+    let permission = await handle.queryPermission({ mode: 'read' });
+    if (permission === 'prompt' && gesture) permission = await handle.requestPermission({ mode: 'read' });
+    if (permission !== 'granted') return false;
+    await watchLogHandle(handle, { remember: false });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const importStorageKey = (source, format) => storageKey('import', source, format);
@@ -196,6 +220,42 @@ function restorePersistedData() {
   }
 }
 
+// Shared by the corpus picker and the console test seam. A 17Lands game-data
+// export (plain or .gz, inflated via DecompressionStream) is processed into a
+// trophy corpus exactly like the desktop shell; anything else imports as a
+// normalized corpus file.
+async function importCorpusFromFile(file) {
+  if (await isSeventeenLandsGameData(fileLineSource(file))) {
+    companion.setStatus({ kind: 'live', message: 'Processing 17Lands game data · deriving event records' });
+    const extraction = await extractTrophyDecksFromGameData(fileLineSource(file), {
+      onProgress: ({ phase, games }) => companion.setStatus({
+        kind: 'live',
+        message: phase === 'records'
+          ? `Processing 17Lands game data · ${games.toLocaleString()} games scanned`
+          : 'Processing 17Lands game data · reconstructing trophy decks'
+      })
+    });
+    const label = `trophy-corpus-${extraction.setCode}-${extraction.format}.json`;
+    const text = JSON.stringify({
+      source: `17Lands public dataset · ${file.name}`,
+      license: 'Processed offline from the 17Lands public datasets (17lands.com/public_datasets)',
+      generatedAt: new Date().toISOString(),
+      decks: extraction.decks
+    });
+    corpusStore.loadImportedText(text, label);
+    writeStoredJson(storageKey('corpus'), { label, text });
+    companion.setStatus({
+      kind: 'live',
+      message: `${extraction.decks.length} ${extraction.setCode} trophy decks derived from ${extraction.scanned.games.toLocaleString()} games`
+    });
+    return;
+  }
+  const text = await file.text();
+  corpusStore.loadImportedText(text, file.name);
+  writeStoredJson(storageKey('corpus'), { label: file.name, text });
+  companion.setStatus({ kind: 'live', message: `${corpusStore.sourceInfo().trophyCount} trophy exemplars imported` });
+}
+
 const EXTERNAL_LINKS = {
   seventeenLandsCardData: 'https://www.17lands.com/card_data',
   seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
@@ -221,18 +281,12 @@ window.draftCompanion = {
   },
   importArchetypeCorpus: async () => {
     const handle = await pickFile({
-      description: 'Corpus CSV or JSON',
-      accept: { 'application/json': ['.json'], 'text/csv': ['.csv'] }
+      description: 'Corpus, or a 17Lands game-data export',
+      accept: { 'application/json': ['.json'], 'text/csv': ['.csv'], 'application/gzip': ['.gz'] }
     });
     if (!handle) return companion.viewModel();
     try {
-      if (/\.gz$/i.test(handle.name)) {
-        throw new Error('17Lands dataset processing is not on the web yet · import it in the desktop app and paste decks here');
-      }
-      const text = await (await handle.getFile()).text();
-      corpusStore.loadImportedText(text, handle.name);
-      writeStoredJson(storageKey('corpus'), { label: handle.name, text });
-      companion.setStatus({ kind: 'live', message: `${corpusStore.sourceInfo().trophyCount} trophy exemplars imported` });
+      await importCorpusFromFile(await handle.getFile());
     } catch (error) {
       companion.setStatus({ kind: 'error', message: error.message });
     }
@@ -259,6 +313,10 @@ window.draftCompanion = {
     }
   },
   chooseLog: async () => {
+    // A remembered handle resumes on this click's gesture; the picker only
+    // opens when nothing is remembered, permission is refused, or the
+    // remembered file is already being watched (the user wants a new one).
+    if (!poller.active() && await resumeStoredLog({ gesture: true })) return companion.viewModel();
     const handle = await pickFile({ description: 'Arena Player.log', accept: { 'text/plain': ['.log', '.txt'] } });
     if (handle) await watchLogHandle(handle);
     return companion.viewModel();
@@ -316,7 +374,8 @@ window.draftCompanion = {
   onRecipeCommand: () => () => {}
 };
 
-// Boot: samples, persisted preferences and data, then the sample draft.
+// Boot: samples, persisted preferences and data, then the remembered log when
+// its permission survived the visit, otherwise the sample draft.
 sourceStore.setSamples({
   seventeenLands: sourceStore.parse('seventeenLands', asText(sampleSeventeenLandsCsv)),
   untapped: sourceStore.parse('untapped', asText(sampleUntappedCsv))
@@ -324,8 +383,18 @@ sourceStore.setSamples({
 corpusStore.readManual();
 companion.hydrate();
 restorePersistedData();
-companion.startDemo();
+void (async () => {
+  if (await resumeStoredLog({ gesture: false })) return;
+  const remembered = await loadHandle(LOG_HANDLE_KEY);
+  companion.startDemo();
+  if (remembered) {
+    companion.setStatus({
+      kind: 'demo',
+      message: `Sample draft active · click LOG ▸ BROWSE to resume watching ${remembered.name}`
+    });
+  }
+})();
 void companion.initializeScryfall();
 
 // Console access for debugging and fixture-driven testing.
-window.__pick42 = { companion, sourceStore, corpusStore };
+window.__pick42 = { companion, sourceStore, corpusStore, importCorpusFromFile };

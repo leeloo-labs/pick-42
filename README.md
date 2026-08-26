@@ -31,6 +31,18 @@ Standard locations:
 
 The original live match-overlay prototype remains available with `npm start`, but active development is focused on limited drafting, deck construction, and post-game review.
 
+### Web shell (experimental)
+
+The same companion also runs in a Chromium browser with no install:
+
+```bash
+npm run web
+```
+
+This builds `dist/web` and serves it at `http://localhost:4242` (`npm run build:web` produces the deployable static files). The renderer is byte-identical to the desktop app's; only the platform layer differs: settings, reviews, imports, and the Scryfall cache persist in browser storage, CSV/corpus imports use the browser file picker, and the Arena log is watched by picking `Player.log` once — the File System Access API polls it for appended bytes, and the remembered file resumes on the next visit with one click on **LOG ▸ BROWSE** (silently, where the browser persists the permission). 17Lands game-data exports (`.csv.gz`) are processed in the browser via `DecompressionStream`.
+
+Web-shell limits today: Chromium-only (Firefox and Safari lack the File System Access API), no always-on-top compact panel, and live drafts show placeholder card names until Scryfall publishes Arena ids for the active set (the desktop app reads Arena's own card database instead). Everything stays local: the only network request either shell makes is the public Scryfall set download.
+
 ## Product principles
 
 - **Local first:** logs, imported statistics, trophy decks, recipe progress, and game reviews stay on the computer.
@@ -167,7 +179,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 136 passing tests covering log reconstruction, draft restoration, source normalization and coverage gates, contextual ranking regressions, Pick Two timing, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, event history, and series verdicts.
+The current suite contains 137 passing tests covering log reconstruction, draft restoration, source normalization and coverage gates, contextual ranking regressions, Pick Two timing, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, event history, and series verdicts.
 
 Important paths:
 

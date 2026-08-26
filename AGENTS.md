@@ -96,11 +96,19 @@ Pick 42's restrained, evidence-first copy is a deliberate product feature, not a
 ```bash
 npm install
 npm run draft
+npm run web
 npm test
 npm run check
 ```
 
-- The test suite currently contains 136 passing tests.
+- The test suite currently contains 137 passing tests.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
 - Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.
+
+## Architecture: one companion, two shells
+
+- `src/draft-app/companion.cjs` (`createDraftCompanion`) is the platform-agnostic session: all draft/review state, the parsers, preferences, the demo driver, the log-session lifecycle, and the complete renderer view model. Platform behavior is injected as adapters.
+- `src/draft-main.cjs` is the Electron shell (file dialogs, fs log tailer, windows, IPC); `src/web/main.js` is the browser shell (localStorage/IndexedDB persistence, File System Access pickers and log polling, fetch for Scryfall). Both expose the identical `window.draftCompanion` surface, and the renderer under `src/draft-renderer/` must keep working unchanged on both.
+- New session behavior belongs in the companion; new platform behavior belongs in a shell adapter. Never fork renderer code per shell — the web build derives its `index.html` from the renderer's page (`scripts/build-web.mjs`).
+- Node builtins used by shared modules need a browser shim in `src/web/shims/` (or an injectable seam) before they can ship in the web bundle.

@@ -21,13 +21,17 @@ const buildOptions = {
   platform: 'browser',
   target: 'es2022',
   outfile: path.join(outDir, 'pick42-web.js'),
+  minify: !serve,
+  sourcemap: true,
   loader: { '.csv': 'text' },
   alias: {
     'node:events': path.join(root, 'src', 'web', 'shims', 'events.js'),
     'node:fs': path.join(root, 'src', 'web', 'shims', 'fs.js'),
     'node:path': path.join(root, 'src', 'web', 'shims', 'path.js'),
     'node:crypto': path.join(root, 'src', 'web', 'shims', 'crypto.js'),
-    'node:os': path.join(root, 'src', 'web', 'shims', 'os.js')
+    'node:os': path.join(root, 'src', 'web', 'shims', 'os.js'),
+    'node:zlib': path.join(root, 'src', 'web', 'shims', 'zlib.js'),
+    'node:readline': path.join(root, 'src', 'web', 'shims', 'readline.js')
   },
   logLevel: 'info'
 };
