@@ -9,6 +9,7 @@ const { parseUntappedCsv } = require('../src/draft/sources/untapped.cjs');
 const {
   analyzeCardRole,
   analyzePoolSynergy,
+  draftProgressIndex,
   evaluateColorFit,
   explicitSubtypeRequirements,
   ferociousEnablerWeight,
@@ -616,6 +617,14 @@ test('recommends a Pick Two pair with the pool updated between picks', () => {
   assert.notEqual(pair.second.name, pair.first.name);
   assert.ok(Number.isFinite(pair.second.score));
   assert.equal(typeof pair.secondDiffersFromList, 'boolean');
+});
+
+test('Pick Two timing advances by two cards per round without pack-boundary jumps', () => {
+  assert.equal(draftProgressIndex('Pick Two Draft', 1, 1), 1);
+  assert.equal(draftProgressIndex('Pick Two Draft', 1, 7), 13);
+  assert.equal(draftProgressIndex('Pick Two Draft', 2, 1), 15);
+  assert.equal(draftProgressIndex('Pick Two Draft', 3, 7), 41);
+  assert.equal(draftProgressIndex('Premier Draft', 2, 1), 15);
 });
 
 test('a Pick Two pair may take the second copy of the best card', () => {

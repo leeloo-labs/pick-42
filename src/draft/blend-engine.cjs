@@ -1,7 +1,7 @@
 'use strict';
 
 const { normalizeCardName } = require('./csv.cjs');
-const { buildArchetypeContext, evaluateArchetypeSignal } = require('./archetype-corpus.cjs');
+const { buildArchetypeContext, evaluateArchetypeSignal, normalizeFormat } = require('./archetype-corpus.cjs');
 
 // The single contextual model's fixed weights. These are product tuning, not
 // configuration: nothing outside this module may alter them, so blended scores
@@ -122,7 +122,7 @@ function poolColorWeights(pool) {
   return weights;
 }
 
-function inferColorContext(pool, packNumber = 1, pickNumber = 1) {
+function inferColorContext(pool, packNumber = 1, pickNumber = 1, format = null) {
   const weights = poolColorWeights(pool);
   const ranked = Object.entries(weights)
     .filter(([, weight]) => weight > 0)
@@ -138,7 +138,7 @@ function inferColorContext(pool, packNumber = 1, pickNumber = 1) {
   const acceptedColors = primaryColors.length
     ? [...primaryColors, ...secondaryColors]
     : ranked.map(([color]) => color);
-  const pickIndex = (Math.max(1, packNumber) - 1) * 14 + Math.max(1, pickNumber);
+  const pickIndex = draftProgressIndex(format, packNumber, pickNumber);
   const evidenceConfidence = primaryColors.length ? clamp((topWeight - 2) / 2.5, 0, 1) : 0;
   const depthConfidence = primaryColors.length ? clamp((pool.length - 2) / 5, 0, 1) : 0;
   const timingConfidence = primaryColors.length ? clamp((pickIndex - 3) / 8, 0, 1) : 0;
@@ -157,6 +157,17 @@ function inferColorContext(pool, packNumber = 1, pickNumber = 1) {
 function pairKey(colors) {
   const selected = new Set(colors || []);
   return DRAFT_COLORS.filter((color) => selected.has(color)).join('');
+}
+
+function draftProgressIndex(format, packNumber = 1, pickNumber = 1) {
+  const pack = Math.max(1, Number(packNumber) || 1);
+  const pick = Math.max(1, Number(pickNumber) || 1);
+  if (normalizeFormat(format) === 'pick-two') {
+    // Pick Two reports seven two-card rounds per pack. This is the ordinal of the
+    // first card selected in the current round, keeping timing continuous at 1–42.
+    return (pack - 1) * 14 + (pick - 1) * 2 + 1;
+  }
+  return (pack - 1) * 14 + pick;
 }
 
 function cardPlayableInLane(card, colors) {
@@ -240,7 +251,7 @@ function inferDraftLane({
   const top = pairScores[0] || { colors: [], name: 'Open', score: 0, cards: 0 };
   const runnerUp = pairScores[1] || { score: 0 };
   const margin = Math.max(0, top.score - runnerUp.score);
-  const pickIndex = (Math.max(1, packNumber) - 1) * 14 + Math.max(1, pickNumber);
+  const pickIndex = draftProgressIndex(format, packNumber, pickNumber);
   const secondColorDepth = Math.min(...top.colors.map((color) => colorDepth[color] || 0));
   const corpusMatches = corpusContext?.best?.colors?.length === 2
     && pairKey(corpusContext.best.colors) === pairKey(top.colors);
@@ -937,7 +948,7 @@ function scoreDraftPack({
   const landsByName = new Map(seventeenLands.map((card) => [card.key || normalizeCardName(card.name), card]));
   const untappedByName = new Map(untapped.map((card) => [card.key || normalizeCardName(card.name), card]));
   const excludedNames = new Set(excludedPoolNames.map(normalizeCardName).filter(Boolean));
-  const pickIndex = (Math.max(1, packNumber) - 1) * 14 + Math.max(1, pickNumber);
+  const pickIndex = draftProgressIndex(format, packNumber, pickNumber);
   const commitment = clamp((pickIndex - 3) / 12, 0, 1);
   const source17Weight = clamp(PHILOSOPHY.sourceBalance) / 100;
   const powerScale = 0.72 + clamp(PHILOSOPHY.powerPriority) / 100 * 0.28;
@@ -953,7 +964,7 @@ function scoreDraftPack({
     pickNumber,
     draftId
   });
-  const inferredColorContext = inferColorContext(pool, packNumber, pickNumber);
+  const inferredColorContext = inferColorContext(pool, packNumber, pickNumber, format);
   const laneIsEstablished = ['committed', 'locked'].includes(draftLane.status) && draftLane.colors?.length === 2;
   const colorContext = laneIsEstablished
     ? {
@@ -1208,6 +1219,7 @@ module.exports = {
   creatureSubtypes,
   draftThemeTags,
   duplicateAdjustment,
+  draftProgressIndex,
   evaluateColorFit,
   evaluateDraftLaneFit,
   explicitSubtypeRequirements,
