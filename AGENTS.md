@@ -5,7 +5,7 @@
 - Product name: **Pick 42**. The name refers to the final selection in a normal MTG Arena draft: three 14-card packs.
 - Pick 42 is proprietary software owned by **Leeloo Labs LLC**.
 - Canonical repository: `https://github.com/leeloo-labs/pick-42`.
-- The product was initially called Arcane. Some internal compatibility identifiers, storage keys, helper filenames, and the legacy Electron user-data directory still use `arcane`; preserve those until an explicit migration is implemented so existing imports and recipe progress are not lost.
+- The product was initially called Arcane. The legacy `arcane-arena-companion` user-data directory now migrates once to `Pick 42` on boot (`src/draft-app/migrate-user-data.cjs`: an atomic rename plus a rewrite of settings paths that pointed inside it; never merged, never overwritten), and the remaining internal identifiers have been renamed to `pick42`. The only place `arcane` may still appear is the migration module itself, which must keep recognizing the legacy directory name.
 
 ## Product direction
 
@@ -101,7 +101,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 137 passing tests.
+- The test suite currently contains 142 passing tests.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
 - Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.

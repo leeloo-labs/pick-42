@@ -179,7 +179,7 @@ npm test
 npm run check
 ```
 
-The current suite contains 137 passing tests covering log reconstruction, draft restoration, source normalization and coverage gates, contextual ranking regressions, Pick Two timing, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, event history, and series verdicts.
+The current suite contains 142 passing tests covering log reconstruction, draft restoration, source normalization and coverage gates, contextual ranking regressions, Pick Two timing, trophy-corpus inference, deck building, Recipe Mode, game matching, game shape, turning points, event history, and series verdicts.
 
 Important paths:
 

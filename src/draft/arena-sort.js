@@ -3,7 +3,7 @@
 (function exposeArenaSort(root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.ArcaneArenaSort = api;
+  else root.Pick42ArenaSort = api;
 }(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const COLOR_ORDER = Object.freeze({ W: 0, U: 1, B: 2, R: 3, G: 4 });
   const BASIC_LAND_ORDER = Object.freeze({ Plains: 0, Island: 1, Swamp: 2, Mountain: 3, Forest: 4 });

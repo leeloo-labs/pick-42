@@ -92,7 +92,7 @@ class VisualGuideController {
   }
 
   helperPath() {
-    return path.join(this.projectRoot, 'bin', 'arcane-vision');
+    return path.join(this.projectRoot, 'bin', 'pick42-vision');
   }
 
   async runHelper(...args) {
@@ -125,7 +125,7 @@ class VisualGuideController {
   }
 
   async recognize(image, pool, build, command = 'ocr-guide') {
-    const tempRoot = path.join(os.tmpdir(), 'arcane-visual-guide');
+    const tempRoot = path.join(os.tmpdir(), 'pick42-visual-guide');
     fs.mkdirSync(tempRoot, { recursive: true });
     const framePath = path.join(tempRoot, 'arena-deckbuilder.png');
     const wordsPath = path.join(tempRoot, 'known-card-names.json');

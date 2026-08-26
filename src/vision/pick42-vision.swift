@@ -39,7 +39,7 @@ func recognize(imagePath: String, wordsPath: String?, fast: Bool) throws {
     let imageURL = URL(fileURLWithPath: imagePath) as CFURL
     guard let source = CGImageSourceCreateWithURL(imageURL, nil),
           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-        throw NSError(domain: "ArcaneVision", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to read image"])
+        throw NSError(domain: "Pick42Vision", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to read image"])
     }
 
     let request = VNRecognizeTextRequest()
@@ -85,7 +85,7 @@ func recognizeGuide(imagePath: String, wordsPath: String?) throws {
     let imageURL = URL(fileURLWithPath: imagePath) as CFURL
     guard let source = CGImageSourceCreateWithURL(imageURL, nil),
           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-        throw NSError(domain: "ArcaneVision", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to read image"])
+        throw NSError(domain: "Pick42Vision", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to read image"])
     }
 
     let words: [String]
@@ -148,12 +148,12 @@ func listWindows() throws {
 do {
     let arguments = CommandLine.arguments
     guard arguments.count >= 2 else {
-        throw NSError(domain: "ArcaneVision", code: 2, userInfo: [NSLocalizedDescriptionKey: "Expected ocr or windows command"])
+        throw NSError(domain: "Pick42Vision", code: 2, userInfo: [NSLocalizedDescriptionKey: "Expected ocr or windows command"])
     }
     switch arguments[1] {
     case "ocr", "ocr-fast", "ocr-guide":
         guard arguments.count >= 3 else {
-            throw NSError(domain: "ArcaneVision", code: 3, userInfo: [NSLocalizedDescriptionKey: "Expected image path"])
+            throw NSError(domain: "Pick42Vision", code: 3, userInfo: [NSLocalizedDescriptionKey: "Expected image path"])
         }
         if arguments[1] == "ocr-guide" {
             try recognizeGuide(imagePath: arguments[2], wordsPath: arguments.count >= 4 ? arguments[3] : nil)
@@ -163,7 +163,7 @@ do {
     case "windows":
         try listWindows()
     default:
-        throw NSError(domain: "ArcaneVision", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unknown command"])
+        throw NSError(domain: "Pick42Vision", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unknown command"])
     }
 } catch {
     FileHandle.standardError.write(Data("\(error.localizedDescription)\n".utf8))

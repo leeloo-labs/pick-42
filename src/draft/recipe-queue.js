@@ -3,7 +3,7 @@
 (function exposeRecipeQueue(root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.ArcaneRecipe = api;
+  else root.Pick42Recipe = api;
 }(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   function taskId(kind, card) {
     return `${kind}|${card.name}|${card.manaCost || ''}|${card.typeLine || ''}|${card.quantity || 1}`;

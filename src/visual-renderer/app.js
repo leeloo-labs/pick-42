@@ -24,7 +24,7 @@ function badgeNode(badge) {
   return node;
 }
 
-window.arcaneVisualGuide.onState((state) => {
+window.pick42VisualGuide.onState((state) => {
   guide.replaceChildren();
   for (const annotation of state.annotations.cards) guide.append(annotationNode(annotation, state.source, 'card'));
   for (const annotation of state.annotations.deckRows) guide.append(annotationNode(annotation, state.source, 'deck-row'));

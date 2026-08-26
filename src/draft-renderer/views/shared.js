@@ -24,8 +24,8 @@ let laneMenuOpen = false;
 const MANA_ACCENTS = Object.freeze({ W: '#d8cda9', U: '#4d9fc9', B: '#28252d', R: '#c85b48', G: '#4c925d' });
 
 const byId = (id) => document.getElementById(id);
-const { buildRecipeTasks: recipeTasks, recipeProgress } = window.ArcaneRecipe;
-const { manaPresentation, manaTokens, sortArenaCards } = window.ArcaneArenaSort;
+const { buildRecipeTasks: recipeTasks, recipeProgress } = window.Pick42Recipe;
+const { manaPresentation, manaTokens, sortArenaCards } = window.Pick42ArenaSort;
 
 function setText(id, value) {
   byId(id).textContent = value;

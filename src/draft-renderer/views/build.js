@@ -17,7 +17,7 @@ function checklistStorageKey(build) {
     .sort()
     .join(',');
   const draft = model.draft.draftId || model.draft.setCode || 'limited';
-  return `arcane.recipe.v2.${hashString(`${draft}|${pool}`)}.${build.id}`;
+  return `pick42.recipe.v2.${hashString(`${draft}|${pool}`)}.${build.id}`;
 }
 
 function readRecipe(build) {
