@@ -7,38 +7,56 @@
 // sideboard_ count columns. There is no event-record column, so the final record is
 // derived by grouping the games of each draft_id.
 
-const fs = require('node:fs');
-const zlib = require('node:zlib');
-const readline = require('node:readline');
 const { normalizeFormat, trophyThreshold } = require('./archetype-corpus.cjs');
 
 const DEFAULT_TROPHY_LIMIT = 200;
 const REQUIRED_LEAD_COLUMNS = ['expansion', 'event_type', 'draft_id', 'draft_time', 'match_number', 'game_number', 'won'];
 const HEADER_SIGNATURE = /^expansion,event_type,draft_id,draft_time,/;
 
-function openDatasetStream(filePath) {
-  const raw = fs.createReadStream(filePath);
-  if (!/\.gz$/i.test(filePath)) return raw;
-  const gunzip = zlib.createGunzip();
-  raw.on('error', (error) => gunzip.destroy(error));
-  return raw.pipe(gunzip);
+// A dataset source is anything with openLines(): a fresh async iterable of
+// lines per call (the extraction reads the file twice). A plain string is
+// treated as a filesystem path and read through fs + zlib; browser shells pass
+// their own source built on File streams and DecompressionStream.
+function resolveLineSource(source) {
+  if (source && typeof source.openLines === 'function') return source;
+  const filePath = String(source);
+  const fs = require('node:fs');
+  const zlib = require('node:zlib');
+  const readline = require('node:readline');
+  return {
+    openLines() {
+      const raw = fs.createReadStream(filePath);
+      let stream = raw;
+      if (/\.gz$/i.test(filePath)) {
+        const gunzip = zlib.createGunzip();
+        raw.on('error', (error) => gunzip.destroy(error));
+        stream = raw.pipe(gunzip);
+      }
+      const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
+      return {
+        async *[Symbol.asyncIterator]() {
+          try {
+            yield* lines;
+          } finally {
+            lines.close();
+            stream.destroy();
+          }
+        }
+      };
+    }
+  };
 }
 
-async function readDatasetHeaderLine(filePath) {
-  const stream = openDatasetStream(filePath);
-  const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  try {
-    for await (const line of lines) return line.replace(/^\uFEFF/, '');
-    return '';
-  } finally {
-    lines.close();
-    stream.destroy();
+async function readDatasetHeaderLine(source) {
+  for await (const line of resolveLineSource(source).openLines()) {
+    return line.replace(/^\uFEFF/, '');
   }
+  return '';
 }
 
-async function isSeventeenLandsGameData(filePath) {
+async function isSeventeenLandsGameData(source) {
   try {
-    return HEADER_SIGNATURE.test(await readDatasetHeaderLine(filePath));
+    return HEADER_SIGNATURE.test(await readDatasetHeaderLine(source));
   } catch {
     return false;
   }
@@ -120,9 +138,14 @@ function titleCase(value) {
 }
 
 // String#slice keeps the (large) source line alive in V8; retained metadata must be
-// copied so a million parsed rows do not pin gigabytes of line buffers.
+// copied so a million parsed rows do not pin gigabytes of line buffers. The
+// encode/decode round-trip is the browser-safe equivalent of the Buffer copy.
+const utf8Encoder = typeof Buffer === 'undefined' ? new TextEncoder() : null;
+const utf8Decoder = typeof Buffer === 'undefined' ? new TextDecoder() : null;
 function detachedString(value) {
-  return Buffer.from(String(value || ''), 'utf8').toString('utf8');
+  const text = String(value || '');
+  if (utf8Encoder) return utf8Decoder.decode(utf8Encoder.encode(text));
+  return Buffer.from(text, 'utf8').toString('utf8');
 }
 
 function gameKey(matchNumber, gameNumber) {
@@ -158,7 +181,8 @@ function finishTrophies(drafts, format) {
   return trophies.sort((left, right) => String(right.draftTime || '').localeCompare(String(left.draftTime || '')));
 }
 
-async function extractTrophyDecksFromGameData(filePath, { limit = DEFAULT_TROPHY_LIMIT, onProgress = null } = {}) {
+async function extractTrophyDecksFromGameData(source, { limit = DEFAULT_TROPHY_LIMIT, onProgress = null } = {}) {
+  const lineSource = resolveLineSource(source);
   // Pass 1: derive each draft's record from its game rows.
   let header = null;
   const drafts = new Map();
@@ -166,9 +190,7 @@ async function extractTrophyDecksFromGameData(filePath, { limit = DEFAULT_TROPHY
   let format = null;
   let setCode = null;
   {
-    const stream = openDatasetStream(filePath);
-    const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
-    for await (const line of lines) {
+    for await (const line of lineSource.openLines()) {
       if (!header) {
         header = parseHeader(line);
         continue;
@@ -213,8 +235,6 @@ async function extractTrophyDecksFromGameData(filePath, { limit = DEFAULT_TROPHY
       if (key >= draft.finalKey) draft.finalKey = key;
       if (onProgress && games % 200000 === 0) onProgress({ phase: 'records', games });
     }
-    lines.close();
-    stream.destroy();
   }
   if (!header) throw new Error('The 17Lands game-data file is empty.');
 
@@ -228,11 +248,9 @@ async function extractTrophyDecksFromGameData(filePath, { limit = DEFAULT_TROPHY
   // Pass 2: capture the final-build main deck for the selected trophy drafts only.
   const decksByDraft = new Map();
   {
-    const stream = openDatasetStream(filePath);
-    const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
     let first = true;
     let scanned = 0;
-    for await (const line of lines) {
+    for await (const line of lineSource.openLines()) {
       if (first) {
         first = false;
         continue;
@@ -258,8 +276,6 @@ async function extractTrophyDecksFromGameData(filePath, { limit = DEFAULT_TROPHY
       if (onProgress && scanned % 200000 === 0) onProgress({ phase: 'decks', games: scanned, remaining: pending.size });
       if (!pending.size) break;
     }
-    lines.close();
-    stream.destroy();
   }
 
   const decks = trophies

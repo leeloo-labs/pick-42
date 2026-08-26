@@ -156,3 +156,24 @@ test('produces decks the archetype corpus parser accepts', async () => {
   assert.deepEqual(deck.colors, ['W', 'R']);
   assert.ok(deck.archetype);
 });
+
+test('accepts an injected line source in place of a file path', async () => {
+  const lines = premierCsv().split('\n');
+  let opened = 0;
+  const source = {
+    openLines() {
+      opened += 1;
+      return {
+        async *[Symbol.asyncIterator]() {
+          yield* lines;
+        }
+      };
+    }
+  };
+
+  assert.equal(await isSeventeenLandsGameData(source), true);
+  const result = await extractTrophyDecksFromGameData(source);
+  assert.equal(result.setCode, 'HOB');
+  assert.equal(result.decks.length, 2);
+  assert.ok(opened >= 3, 'header check plus two extraction passes each open a fresh line stream');
+});
