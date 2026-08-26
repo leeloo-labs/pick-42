@@ -13,6 +13,7 @@ const { normalizeCardName } = require('./draft/csv.cjs');
 const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardDataUrl } = require('./draft/set-definitions.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
 const { createLocalStore, defaultLogCandidates, writeFileAtomic, writeJsonAtomic } = require('./draft-app/local-store.cjs');
+const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('./draft-app/source-imports.cjs');
 const { evaluateRecommendationGate } = require('./draft/coverage-gate.cjs');
 const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
 const {
@@ -27,10 +28,8 @@ const {
 const { DraftLogParser } = require('./draft/draft-log-parser.cjs');
 const { GameReviewTracker, analyzePostGameReview, deckFingerprint, draftDeckMatchDecision, eventWrapUpVerdict, replaceRebuiltReviewInPlace, reviewDeckIdentity, reviewEventGroups } = require('./draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
-const { parseSeventeenLandsCsv } = require('./draft/sources/seventeenlands.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
 const { generateSamplePack } = require('./draft/sample-draft.cjs');
-const { parseUntappedCsv } = require('./draft/sources/untapped.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { ArenaLogParser } = require('./core/arena-log-parser.cjs');
 const { ArenaSceneTracker } = require('./core/arena-scene-tracker.cjs');
@@ -78,10 +77,7 @@ const ACTIVE_SET = setDefinition(DEFAULT_SET_CODE);
 let status = { kind: 'demo', message: `Sample ${ACTIVE_SET.displayCode} pack · import current exports when ready` };
 let lanePreference = null;
 let poolExclusionPreference = null;
-const SOURCE_FORMATS = ['any', 'premier', 'quick', 'traditional', 'pick-two'];
-const SOURCE_FORMAT_LABELS = { any: 'all draft types', premier: 'Premier Draft', quick: 'Quick Draft', traditional: 'Traditional Draft', 'pick-two': 'Pick Two Draft' };
-let sourceImports = { seventeenLands: {}, untapped: {} };
-let sampleSourceData = { seventeenLands: [], untapped: [] };
+const sourceStore = createSourceImportStore();
 let archetypeCorpus = null;
 let importedArchetypeCorpus = null;
 let importedArchetypeCorpusPath = null;
@@ -247,70 +243,16 @@ function removeManualArchetypeDeck(deckId) {
   }
 }
 
-function parseSourceCsv(source, text) {
-  return source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
-}
-
-function rememberSourceCsv(source, filePath, format, label, data) {
-  sourceImports[source][format] = { label: label || path.basename(filePath), count: data.length, path: filePath, data };
-  return data;
-}
-
-function loadCsv(source, filePath, format = 'any', label = null) {
-  const data = parseSourceCsv(source, fs.readFileSync(filePath, 'utf8'));
-  return rememberSourceCsv(source, filePath, format, label, data);
-}
-
-function loadSampleSources() {
-  sampleSourceData = {
-    seventeenLands: parseSeventeenLandsCsv(fs.readFileSync(fixturePath(ACTIVE_SET.sampleFixtures.seventeenLands), 'utf8')),
-    untapped: parseUntappedCsv(fs.readFileSync(fixturePath(ACTIVE_SET.sampleFixtures.untapped), 'utf8'))
-  };
-}
-
-// The live draft's format selects its matching import; the all-formats slot backs it up.
-function resolveSourceImport(source, format = draftState.format) {
-  const imports = sourceImports[source] || {};
-  const key = normalizeFormat(format);
-  if (key !== 'any' && imports[key]) return { format: key, ...imports[key] };
-  if (imports.any) return { format: 'any', ...imports.any };
-  return null;
-}
-
-function sourceImportInventory(source) {
-  const inventory = {};
-  for (const format of SOURCE_FORMATS) {
-    const entry = sourceImports[source][format];
-    inventory[format] = entry ? { label: entry.label, count: entry.count } : null;
-  }
-  return inventory;
-}
-
-function sourceViewState(source) {
-  const sampleLabel = source === 'seventeenLands' ? '17Lands sample' : 'Untapped sample';
-  if (status.kind === 'demo') {
-    return { kind: 'sample', label: sampleLabel, count: sampleSourceData[source].length, activeFormat: null, imports: sourceImportInventory(source) };
-  }
-  const resolved = resolveSourceImport(source);
-  return {
-    kind: resolved ? 'import' : 'none',
-    label: resolved ? resolved.label : sampleLabel,
-    count: resolved ? resolved.count : 0,
-    activeFormat: resolved ? resolved.format : null,
-    imports: sourceImportInventory(source)
-  };
-}
-
-function sourceImportPathsForSettings() {
-  const payload = {};
-  for (const source of ['seventeenLands', 'untapped']) {
-    payload[source] = {};
-    for (const [format, entry] of Object.entries(sourceImports[source])) {
-      if (entry?.path) payload[source][format] = { path: entry.path, label: entry.label };
-    }
-  }
-  return payload;
-}
+const parseSourceCsv = sourceStore.parse;
+const rememberSourceCsv = sourceStore.remember;
+const loadCsv = sourceStore.loadCsv;
+const sourceImportPathsForSettings = sourceStore.settingsPayload;
+const loadSampleSources = () => sourceStore.loadSamples({
+  seventeenLands: fixturePath(ACTIVE_SET.sampleFixtures.seventeenLands),
+  untapped: fixturePath(ACTIVE_SET.sampleFixtures.untapped)
+});
+const resolveSourceImport = (source, format = draftState.format) => sourceStore.resolve(source, format);
+const sourceViewState = (source) => sourceStore.viewState(source, { demo: status.kind === 'demo', format: draftState.format });
 
 function poolSummary(pool) {
   const curve = { '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0 };
@@ -328,13 +270,7 @@ function poolSummary(pool) {
   return { curve, colors, creatures, total: pool.length };
 }
 
-function activeSourceData() {
-  if (status.kind === 'demo') return { ...sampleSourceData };
-  return {
-    seventeenLands: resolveSourceImport('seventeenLands')?.data || [],
-    untapped: resolveSourceImport('untapped')?.data || []
-  };
-}
+const activeSourceData = () => sourceStore.activeData({ demo: status.kind === 'demo', format: draftState.format });
 
 function draftScopeId() {
   return String(draftState.draftId || (status.kind === 'demo' ? `demo-${ACTIVE_SET.code}` : 'unidentified-draft'));
@@ -1204,7 +1140,7 @@ app.whenReady().then(async () => {
     }
     // Legacy single-path settings become the all-formats slot.
     const legacyPath = saved[`${source}Path`];
-    if (!sourceImports[source].any && legacyPath && fs.existsSync(legacyPath)) {
+    if (!sourceStore.has(source, 'any') && legacyPath && fs.existsSync(legacyPath)) {
       try { loadCsv(source, legacyPath, 'any'); } catch { /* Keep the bundled sample if an old export moved or changed. */ }
     }
   }
