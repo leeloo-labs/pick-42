@@ -3,7 +3,6 @@
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, shell } = require('electron');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const os = require('node:os');
 const path = require('node:path');
 const {
   inferDraftLane,
@@ -13,6 +12,7 @@ const {
 const { normalizeCardName } = require('./draft/csv.cjs');
 const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardDataUrl } = require('./draft/set-definitions.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
+const { createLocalStore, defaultLogCandidates, writeFileAtomic, writeJsonAtomic } = require('./draft-app/local-store.cjs');
 const { evaluateRecommendationGate } = require('./draft/coverage-gate.cjs');
 const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
 const {
@@ -98,35 +98,12 @@ let scryfallState = {
   message: 'Loading Scryfall card images'
 };
 
-function defaultLogCandidates() {
-  const home = os.homedir();
-  if (process.platform === 'win32') {
-    return [path.join(process.env.USERPROFILE || home, 'AppData', 'LocalLow', 'Wizards Of The Coast', 'MTGA', 'Player.log')];
-  }
-  if (process.platform === 'darwin') {
-    return [
-      path.join(home, 'Library', 'Logs', 'Wizards Of The Coast', 'MTGA', 'Player.log'),
-      path.join(home, 'Library', 'Application Support', 'com.wizards.mtga', 'Player.log')
-    ];
-  }
-  return [path.join(home, '.local', 'share', 'Steam', 'steamapps', 'compatdata', '2141910', 'pfx', 'drive_c', 'users', 'steamuser', 'AppData', 'LocalLow', 'Wizards Of The Coast', 'MTGA', 'Player.log')];
-}
-
-function settingsPath() {
-  return path.join(app.getPath('userData'), 'draft-settings.json');
-}
-
-function scryfallCachePath() {
-  return path.join(app.getPath('userData'), scryfallCacheFileName(ACTIVE_SET.code));
-}
-
-function gameReviewsPath() {
-  return path.join(app.getPath('userData'), 'game-reviews.json');
-}
-
-function manualArchetypeCorpusPath() {
-  return path.join(app.getPath('userData'), 'manual-archetype-corpus.json');
-}
+const store = createLocalStore(app.getPath('userData'));
+const { readSettings, writeSettings, readGameReviews, writeGameReviews, manualArchetypeCorpusPath } = store;
+const scryfallCachePath = () => store.scryfallCachePath(scryfallCacheFileName(ACTIVE_SET.code));
+// Imports are copied into the app's own storage so they keep working after the
+// original download is moved, deleted, or blocked by macOS folder permissions.
+const importedCsvStoragePath = store.importedCsvStoragePath;
 
 function rebuildArchetypeCorpus() {
   const byId = new Map();
@@ -204,19 +181,6 @@ function readManualArchetypeCorpus() {
   rebuildArchetypeCorpus();
 }
 
-// A kill or crash mid-write must never truncate a local store: writing a settings
-// file partially once flattened every saved preference on the next merge-write.
-function writeFileAtomic(filePath, contents) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const temporary = `${filePath}.tmp`;
-  fs.writeFileSync(temporary, contents);
-  fs.renameSync(temporary, filePath);
-}
-
-function writeJsonAtomic(filePath, value) {
-  writeFileAtomic(filePath, JSON.stringify(value, null, 2));
-}
-
 function writeManualArchetypeCorpus() {
   writeJsonAtomic(manualArchetypeCorpusPath(), {
     version: 1,
@@ -283,22 +247,6 @@ function removeManualArchetypeDeck(deckId) {
   }
 }
 
-function readSettings() {
-  try { return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')); } catch { return {}; }
-}
-
-function writeSettings(patch) {
-  writeJsonAtomic(settingsPath(), { ...readSettings(), ...patch });
-}
-
-function readGameReviews() {
-  try { return JSON.parse(fs.readFileSync(gameReviewsPath(), 'utf8')); } catch { return []; }
-}
-
-function writeGameReviews(reviews) {
-  writeJsonAtomic(gameReviewsPath(), reviews);
-}
-
 function parseSourceCsv(source, text) {
   return source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
 }
@@ -311,12 +259,6 @@ function rememberSourceCsv(source, filePath, format, label, data) {
 function loadCsv(source, filePath, format = 'any', label = null) {
   const data = parseSourceCsv(source, fs.readFileSync(filePath, 'utf8'));
   return rememberSourceCsv(source, filePath, format, label, data);
-}
-
-// Imports are copied into the app's own storage so they keep working after the
-// original download is moved, deleted, or blocked by macOS folder permissions.
-function importedCsvStoragePath(source, format) {
-  return path.join(app.getPath('userData'), 'imports', `${source}-${format}.csv`);
 }
 
 function loadSampleSources() {
