@@ -1264,8 +1264,27 @@ function replaceRebuiltReviewInPlace(reviews, legacy, rebuilt) {
     : review);
 }
 
+// Keep complete draft events intact. A raw game-count slice can turn an old 7-2
+// run into a misleading 3-0 history entry after enough newer games are recorded.
+function trimReviewHistory(reviews, preferredLimit) {
+  const ordered = [...(reviews || [])]
+    .sort((left, right) => String(right.completedAt || right.startedAt || '').localeCompare(String(left.completedAt || left.startedAt || '')));
+  const groups = new Map();
+  for (const review of ordered) {
+    const key = review.draftId ? `draft:${review.draftId}` : `review:${review.id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(review);
+  }
+  const retained = [];
+  for (const group of groups.values()) {
+    if (retained.length && retained.length + group.length > preferredLimit) break;
+    retained.push(...group);
+  }
+  return retained;
+}
+
 class GameReviewTracker extends EventEmitter {
-  constructor({ maxReviews = 12 } = {}) {
+  constructor({ maxReviews = 60 } = {}) {
     super();
     this.maxReviews = maxReviews;
     this.reviews = [];
@@ -1278,11 +1297,12 @@ class GameReviewTracker extends EventEmitter {
 
   hydrate(reviews) {
     this.reviews = Array.isArray(reviews)
-      ? reviews
-          .filter((review) => !reviewClearlyMismatchesDeck(review))
-          .map(reanalyzePersistedReview)
-          .sort((left, right) => String(right.completedAt || right.startedAt || '').localeCompare(String(left.completedAt || left.startedAt || '')))
-          .slice(0, this.maxReviews)
+      ? trimReviewHistory(
+          reviews
+            .filter((review) => !reviewClearlyMismatchesDeck(review))
+            .map(reanalyzePersistedReview),
+          this.maxReviews
+        )
       : [];
     this.completedKeys = new Set(this.reviews.map((review) => review.id));
     this.#emit();
@@ -1362,6 +1382,7 @@ class GameReviewTracker extends EventEmitter {
       draftId: context.draftId || null,
       setCode: context.setCode || null,
       format: context.format || null,
+      sourceEvidence: context.sourceEvidence ? clone(context.sourceEvidence) : null,
       deck: context.deck ? { ...clone(context.deck), fingerprint: deckFingerprint(context.deck) } : null,
       openingHand: [],
       openingHandFrozen: false,
@@ -1542,7 +1563,7 @@ class GameReviewTracker extends EventEmitter {
     const review = this.#summarize(this.current, true);
     this.completedKeys.add(review.id);
     this.reviews.unshift(review);
-    this.reviews = this.reviews.slice(0, this.maxReviews);
+    this.reviews = trimReviewHistory(this.reviews, this.maxReviews);
     this.current = null;
     this.emit('complete', clone(review));
     this.#emit();
@@ -1614,6 +1635,8 @@ class GameReviewTracker extends EventEmitter {
       completedAt: complete ? record.updatedAt : null,
       draftId: record.draftId,
       setCode: record.setCode,
+      format: record.format,
+      sourceEvidence: record.sourceEvidence,
       deck: record.deck,
       result: record.result,
       won: record.result?.won ?? null,

@@ -484,22 +484,53 @@ function reviewDeckSnapshot() {
   };
 }
 
+function reviewSourceEvidence(deck) {
+  const activeSources = activeSourceData();
+  const deckNames = new Set([...(deck?.cards || []), ...(deck?.lands || [])]
+    .map((card) => normalizeCardName(card.name))
+    .filter(Boolean));
+  const resolved = status.kind === 'demo' ? null : resolveSourceImport('seventeenLands');
+  return {
+    setCode: draftState.setCode || null,
+    format: draftState.format || null,
+    sourceLabel: resolved?.label || (status.kind === 'demo' ? '17Lands sample' : null),
+    seventeenLands: activeSources.seventeenLands
+      .filter((row) => deckNames.has(row.key || normalizeCardName(row.name)))
+      .map((row) => ({ ...row }))
+  };
+}
+
 function reviewContext() {
+  const deck = reviewDeckSnapshot();
   return {
     draftId: draftState.draftId,
     setCode: draftState.setCode,
     format: draftState.format,
-    deck: reviewDeckSnapshot()
+    deck,
+    // Preserve the exact rows that informed IIH analysis. Historical reviews must
+    // not change when the user later imports a different set or event format.
+    sourceEvidence: reviewSourceEvidence(deck)
   };
 }
 
+function seventeenLandsForReview(review) {
+  if (Array.isArray(review?.sourceEvidence?.seventeenLands)) return review.sourceEvidence.seventeenLands;
+  if (review?.format) return resolveSourceImport('seventeenLands', review.format)?.data || [];
+  // Legacy reviews did not retain their format. Preserve their old best-effort
+  // behavior until a future migration can recover it from Arena history.
+  return activeSourceData().seventeenLands;
+}
+
 function presentedReviewState() {
-  const activeSources = activeSourceData();
   const completed = reviewState.reviews || [];
   const activeRelated = reviewState.active ? [reviewState.active, ...completed] : completed;
-  const analyzed = completed.map((review) => analyzePostGameReview(review, { seventeenLands: activeSources.seventeenLands, relatedReviews: completed }));
+  const analyze = (review, relatedReviews) => analyzePostGameReview(review, {
+    seventeenLands: seventeenLandsForReview(review),
+    relatedReviews
+  });
+  const analyzed = completed.map((review) => analyze(review, completed));
   const eventGroups = reviewEventGroups(analyzed, { currentDraftId: draftState.draftId, currentFormat: draftState.format });
-  const latest = analyzePostGameReview(reviewState.latest, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated });
+  const latest = analyze(reviewState.latest, activeRelated);
   // The final game of a decided event carries the draft wrap-up instead of advice
   // about a deck that has no next game.
   for (const group of eventGroups) {
@@ -512,7 +543,7 @@ function presentedReviewState() {
   }
   return {
     ...reviewState,
-    active: analyzePostGameReview(reviewState.active, { seventeenLands: activeSources.seventeenLands, relatedReviews: activeRelated }),
+    active: analyze(reviewState.active, activeRelated),
     latest,
     reviews: analyzed,
     eventGroups
@@ -525,7 +556,13 @@ function rebuildLatestLegacyReview(logPath) {
   if (!legacy) return false;
   const replayParser = new ArenaLogParser({ catalog, maxEvents: 240 });
   const replayTracker = new GameReviewTracker({ maxReviews: 1 });
-  const context = { draftId: legacy.draftId, setCode: legacy.setCode, deck: legacy.deck };
+  const context = {
+    draftId: legacy.draftId,
+    setCode: legacy.setCode,
+    format: legacy.format,
+    deck: legacy.deck,
+    sourceEvidence: legacy.sourceEvidence
+  };
   replayTracker.arm(context);
   replayParser.on('state', (state) => {
     if (state.matchId === legacy.matchId) replayTracker.consume(state, context);

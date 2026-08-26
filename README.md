@@ -154,6 +154,8 @@ The report intentionally focuses on evidence that can change a decision:
 
 Games from the exact same deck version are combined into a series verdict. Changing the deck version starts a new evidence series rather than mixing incompatible results.
 
+Each completed review preserves its draft format and the matching 17Lands rows used at game time. Importing another set or format later cannot rewrite an older game’s IIH analysis. History retention also keeps complete draft events together rather than displaying a silently truncated record.
+
 Game shape distinguishes **Close**, **Competitive**, **Decisive**, and conservative wire-to-wire **Blowout** wins using life, board, power, hand pressure, lead changes, and contested turns—not final life totals alone. A turning-point section appears only when a logged tactical action and the immediately following lethal line meet a deliberately high confidence threshold.
 
 IIH remains historical correlation, not causal credit. Hidden opponent cards remain excluded, and Pick 42 will not call a support card bad merely because it dealt no damage or died.

@@ -179,6 +179,12 @@ test('turn evidence produces one low-confidence land test after a completed game
   tracker.arm({
     draftId: 'QuickDraft_HOB_test',
     setCode: 'HOB',
+    format: 'Quick Draft',
+    sourceEvidence: {
+      format: 'Quick Draft',
+      sourceLabel: 'quick-hob.csv',
+      seventeenLands: [{ name: 'Double Red Removal', improvementInHand: 2.1, gamesInHand: 5000 }]
+    },
     deck: {
       source: 'Arena course deck',
       name: 'Rakdos',
@@ -199,6 +205,9 @@ test('turn evidence produces one low-confidence land test after a completed game
 
   const review = tracker.snapshot().latest;
   assert.equal(review.status, 'complete');
+  assert.equal(review.format, 'Quick Draft');
+  assert.equal(review.sourceEvidence.sourceLabel, 'quick-hob.csv');
+  assert.equal(review.sourceEvidence.seventeenLands[0].improvementInHand, 2.1);
   assert.equal(review.won, false);
   assert.equal(review.yourTurnsObserved, 3);
   assert.equal(review.stranded[0].name, 'Double Red Removal');
@@ -236,6 +245,29 @@ test('persisted reviews are presented by game chronology rather than file order'
     { id: 'newer:1', status: 'complete', startedAt: '2026-08-24T22:00:00.000Z', completedAt: '2026-08-24T22:10:00.000Z' }
   ]);
   assert.equal(tracker.snapshot().latest.id, 'newer:1');
+});
+
+test('history retention never keeps a misleading partial draft event', () => {
+  const tracker = new GameReviewTracker({ maxReviews: 4 });
+  const reviews = [];
+  for (let game = 1; game <= 3; game += 1) {
+    reviews.push({
+      id: `old:${game}`,
+      draftId: 'old-draft',
+      status: 'complete',
+      analysisVersion: 4,
+      completedAt: `2026-08-23T20:0${game}:00.000Z`
+    });
+    reviews.push({
+      id: `new:${game}`,
+      draftId: 'new-draft',
+      status: 'complete',
+      analysisVersion: 4,
+      completedAt: `2026-08-24T20:0${game}:00.000Z`
+    });
+  }
+  tracker.hydrate(reviews);
+  assert.deepEqual(tracker.snapshot().reviews.map((review) => review.id), ['new:3', 'new:2', 'new:1']);
 });
 
 test('legacy review rebuilds preserve chronology and replace the review in place', () => {
