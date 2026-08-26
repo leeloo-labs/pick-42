@@ -25,11 +25,18 @@ function createSourceImportStore() {
   const loadCsv = (source, filePath, format = 'any', label = null) =>
     remember(source, filePath, format, label, parse(source, fs.readFileSync(filePath, 'utf8')));
 
-  const loadSamples = (fixturePaths) => {
+  const setSamples = (rows) => {
     samples = {
+      seventeenLands: rows.seventeenLands || [],
+      untapped: rows.untapped || []
+    };
+  };
+
+  const loadSamples = (fixturePaths) => {
+    setSamples({
       seventeenLands: parseSeventeenLandsCsv(fs.readFileSync(fixturePaths.seventeenLands, 'utf8')),
       untapped: parseUntappedCsv(fs.readFileSync(fixturePaths.untapped, 'utf8'))
-    };
+    });
   };
 
   // The live draft's format selects its matching import; the all-formats slot backs it up.
@@ -89,6 +96,7 @@ function createSourceImportStore() {
     remember,
     loadCsv,
     loadSamples,
+    setSamples,
     resolve,
     has: (source, format) => Boolean(imports[source][format]),
     inventory,

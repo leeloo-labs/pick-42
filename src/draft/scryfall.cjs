@@ -40,6 +40,9 @@ function compactCard(card = {}) {
   return {
     ...compactFace(card, card),
     id: card.id || null,
+    // Arena's group id, when Scryfall knows it: lets shells without Arena's
+    // local card database resolve live drafts from the Scryfall payload.
+    arenaId: card.arena_id ?? null,
     layout: card.layout || 'normal',
     setCode: card.set || null,
     collectorNumber: card.collector_number || null,

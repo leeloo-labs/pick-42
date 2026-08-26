@@ -15,7 +15,17 @@ const {
 
 // Combines the imported trophy corpus with manually pasted deck lists, owns the
 // manual list's local persistence, and summarizes what feeds lane inference.
-function createCorpusStore({ catalog, manualStoragePath, setCodeExample }) {
+// The io adapter lets shells swap fs for browser storage; keys are whatever
+// manualStoragePath returns.
+function createCorpusStore({
+  catalog,
+  manualStoragePath,
+  setCodeExample,
+  io = {
+    readText: (storagePath) => fs.readFileSync(storagePath, 'utf8'),
+    writeJson: (storagePath, value) => writeJsonAtomic(storagePath, value)
+  }
+}) {
   let importedCorpus = null;
   let importedPath = null;
   let manualDecks = [];
@@ -47,7 +57,7 @@ function createCorpusStore({ catalog, manualStoragePath, setCodeExample }) {
   };
 
   const writeManual = () => {
-    writeJsonAtomic(manualStoragePath(), {
+    io.writeJson(manualStoragePath(), {
       version: 1,
       source: 'Manually pasted trophy deck lists',
       generatedAt: new Date().toISOString(),
@@ -66,19 +76,20 @@ function createCorpusStore({ catalog, manualStoragePath, setCodeExample }) {
     return `manual-${crypto.createHash('sha256').update(signature).digest('hex').slice(0, 16)}`;
   };
 
-  const loadImported = (filePath) => {
-    const text = fs.readFileSync(filePath, 'utf8');
-    const corpus = parseArchetypeCorpus(text, { catalog, fileName: filePath });
+  const loadImportedText = (text, fileName) => {
+    const corpus = parseArchetypeCorpus(text, { catalog, fileName });
     importedCorpus = corpus;
-    importedPath = filePath;
+    importedPath = fileName;
     rebuild();
     return corpus;
   };
 
+  const loadImported = (filePath) => loadImportedText(io.readText(filePath), filePath);
+
   const readManual = () => {
     let migrated = false;
     try {
-      const payload = JSON.parse(fs.readFileSync(manualStoragePath(), 'utf8'));
+      const payload = JSON.parse(io.readText(manualStoragePath()));
       manualDecks = (Array.isArray(payload?.decks) ? payload.decks : [])
         .map((deck, index) => {
           const autoArchetype = deck.archetypeSource === 'auto'
@@ -166,6 +177,7 @@ function createCorpusStore({ catalog, manualStoragePath, setCodeExample }) {
 
   return {
     loadImported,
+    loadImportedText,
     readManual,
     addManual,
     removeManual,
