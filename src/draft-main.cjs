@@ -299,11 +299,18 @@ function writeGameReviews(reviews) {
   writeJsonAtomic(gameReviewsPath(), reviews);
 }
 
-function loadCsv(source, filePath, format = 'any', label = null) {
-  const text = fs.readFileSync(filePath, 'utf8');
-  const data = source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
+function parseSourceCsv(source, text) {
+  return source === 'seventeenLands' ? parseSeventeenLandsCsv(text) : parseUntappedCsv(text);
+}
+
+function rememberSourceCsv(source, filePath, format, label, data) {
   sourceImports[source][format] = { label: label || path.basename(filePath), count: data.length, path: filePath, data };
   return data;
+}
+
+function loadCsv(source, filePath, format = 'any', label = null) {
+  const data = parseSourceCsv(source, fs.readFileSync(filePath, 'utf8'));
+  return rememberSourceCsv(source, filePath, format, label, data);
 }
 
 // Imports are copied into the app's own storage so they keep working after the
@@ -944,8 +951,12 @@ function registerIpc() {
       // access now, and the stored copy stays loadable after the original moves.
       const chosenPath = result.filePaths[0];
       const storagePath = importedCsvStoragePath(source, formatKey);
-      writeFileAtomic(storagePath, fs.readFileSync(chosenPath, 'utf8'));
-      const data = loadCsv(source, storagePath, formatKey, path.basename(chosenPath));
+      const contents = fs.readFileSync(chosenPath, 'utf8');
+      // Validate before replacing the app-owned copy. A bad replacement must not
+      // destroy the last working import on the next restart.
+      const data = parseSourceCsv(source, contents);
+      writeFileAtomic(storagePath, contents);
+      rememberSourceCsv(source, storagePath, formatKey, path.basename(chosenPath), data);
       writeSettings({ sourceImportPaths: sourceImportPathsForSettings() });
       setStatus({ kind: 'live', message: `${sourceName} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
     } catch (error) {
