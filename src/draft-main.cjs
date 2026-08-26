@@ -13,6 +13,7 @@ const {
 const { normalizeCardName } = require('./draft/csv.cjs');
 const { DEFAULT_SET_CODE, scryfallCacheFileName, setDefinition, untappedCardDataUrl } = require('./draft/set-definitions.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('./draft/pool-plan.cjs');
+const { evaluateRecommendationGate } = require('./draft/coverage-gate.cjs');
 const { buildLimitedDecks, landColors } = require('./draft/deck-builder.cjs');
 const {
   createArchetypeDeck,
@@ -536,49 +537,13 @@ function rebuildLatestLegacyReview(logPath) {
 }
 
 function recommendationGate(recommendations) {
-  const draftable = recommendations.filter((card) => !card.isBasicLand);
-  const coveredByBoth = draftable.filter((card) => card.sourceCoverage === 2).length;
-  const coverage = draftable.length ? coveredByBoth / draftable.length : 0;
-
-  if (!draftable.length) {
-    return { ready: false, kind: 'waiting', message: 'Waiting for a draft pack', coveredByBoth, total: draftable.length };
-  }
-  if (status.kind === 'demo') {
-    return { ready: true, kind: 'demo', message: 'Sample data is active for the sample draft only', coveredByBoth, total: draftable.length };
-  }
-  const importedBoth = Boolean(resolveSourceImport('seventeenLands') && resolveSourceImport('untapped'));
-  if (!importedBoth) {
-    return {
-      ready: false,
-      kind: 'missing-sources',
-      message: `Recommendations paused · import full 17Lands and Untapped exports for ${[draftState.setCode, draftState.format].filter(Boolean).join(' ') || 'this set'}`,
-      coveredByBoth,
-      total: draftable.length
-    };
-  }
-  if (coverage < 0.9) {
-    // Early in a set the sources legitimately lack rows for fringe cards. When almost
-    // every card is covered by at least one import, rank with what exists and say so
-    // instead of pausing; cards with no data at all stay visibly unranked.
-    const coveredByAny = draftable.filter((card) => card.sourceCoverage >= 1).length;
-    if (coveredByAny / draftable.length >= 0.9) {
-      return {
-        ready: true,
-        kind: 'partial',
-        message: `Partial data · ${coveredByBoth}/${draftable.length} cards match both imports; single-source ratings fill the gaps`,
-        coveredByBoth,
-        total: draftable.length
-      };
-    }
-    return {
-      ready: false,
-      kind: 'low-coverage',
-      message: `Recommendations paused · only ${coveredByBoth}/${draftable.length} draftable cards match both imports`,
-      coveredByBoth,
-      total: draftable.length
-    };
-  }
-  return { ready: true, kind: 'ready', message: 'Both sources cover the live pack', coveredByBoth, total: draftable.length };
+  return evaluateRecommendationGate({
+    recommendations,
+    demo: status.kind === 'demo',
+    hasSeventeenLands: Boolean(resolveSourceImport('seventeenLands')),
+    hasUntapped: Boolean(resolveSourceImport('untapped')),
+    contextLabel: [draftState.setCode, draftState.format].filter(Boolean).join(' ') || 'this set'
+  });
 }
 
 function applyScryfallPayload(payload, source = payload?.source || 'cache') {

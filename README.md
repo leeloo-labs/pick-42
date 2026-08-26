@@ -52,7 +52,7 @@ Use the title-bar source controls to import:
 
 The **17L** and **UT** buttons open a per-draft-type menu: each CSV export is assigned to the draft type it was filtered for (Premier, Quick, Traditional, Pick Two) or to **All draft types**. The live draft uses its matching import, falling back to the all-types slot, so a Quick Draft export never silently rates a Pick Two pack. The button shows which import is feeding the active draft.
 
-Live rankings require usable matching rows from both statistical sources for at least 90% of the nonbasic cards in the active pack. Blank values do not count as coverage, missing cards remain unranked, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
+Live rankings are fully covered when usable rows from both statistical sources match at least 90% of the nonbasic cards in the active pack. When at least 90% is covered by either source but not both, Pick 42 runs with a visible **Partial data** status and leaves cards with no usable rating unranked. Packs below 90% single-source coverage remain paused. Blank values do not count as coverage, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
 
 Pick 42 does not scrape 17Lands or Untapped and does not depend on undocumented APIs. Current data is imported by the user.
 
