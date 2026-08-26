@@ -277,15 +277,48 @@ async function importLogSnapshot(file) {
   companion.setStatus({ kind: 'live', message: `Read ${file.name} once · drop it again after more games for a refresh` });
 }
 
-// Drag-and-drop is the reliable way to hand the web shell Arena's log:
-// Chromium's file pickers refuse the folders Arena writes into (~/Library on
-// macOS, AppData on Windows), but handles delivered by a drop deliberately
-// bypass that blocklist, so a dropped Player.log can be watched live.
+// Dropped files route by what they are: Arena's log becomes the watched
+// session, corpus files (including the desktop app's
+// manual-archetype-corpus.json and 17Lands game-data exports) import as a
+// trophy corpus, and ratings CSVs are pointed at the source buttons, which
+// need a draft-type slot a drop cannot choose.
+async function routeDroppedFile(file, handlePromise) {
+  const name = file?.name || '';
+  if (/\.(log|txt)$/i.test(name)) {
+    const handle = await handlePromise;
+    if (handle?.kind === 'file') await watchLogHandle(handle);
+    else if (file) await importLogSnapshot(file);
+    return;
+  }
+  if (/\.(json|gz)$/i.test(name)) {
+    await importCorpusFromFile(file);
+    return;
+  }
+  if (/\.csv$/i.test(name)) {
+    if (await isSeventeenLandsGameData(fileLineSource(file))) {
+      await importCorpusFromFile(file);
+      return;
+    }
+    const headerLine = (await file.slice(0, 4096).text()).split('\n')[0] || '';
+    if (/^deck id,/i.test(headerLine.replace(/^﻿/, ''))) {
+      await importCorpusFromFile(file);
+      return;
+    }
+    companion.setStatus({ kind: 'error', message: 'Ratings CSVs need a draft-type slot · use the 17L or UT buttons to import this file' });
+    return;
+  }
+  companion.setStatus({ kind: 'error', message: 'Drop Player.log or a trophy-corpus file (.json, .csv, .gz)' });
+}
+
+// Drag-and-drop is the reliable way to hand the web shell Arena's log and the
+// desktop app's corpus files: Chromium's file pickers refuse the folders they
+// live in (~/Library on macOS, AppData on Windows), but handles delivered by a
+// drop deliberately bypass that blocklist.
 function installDropTarget() {
   const overlay = document.createElement('div');
   overlay.className = 'drop-overlay';
   const label = document.createElement('div');
-  label.textContent = 'Drop Player.log to watch your drafts';
+  label.textContent = 'Drop Player.log to watch drafts · drop a corpus file to import trophy decks';
   overlay.append(label);
   document.body.append(overlay);
 
@@ -315,13 +348,11 @@ function installDropTarget() {
       ? item.getAsFileSystemHandle().catch(() => null)
       : Promise.resolve(null);
     void (async () => {
-      if (!/\.(log|txt)$/i.test(file?.name || '')) {
-        companion.setStatus({ kind: 'error', message: 'Drop Player.log here · use the 17L, UT, and META buttons for data imports' });
-        return;
+      try {
+        await routeDroppedFile(file, handlePromise);
+      } catch (error) {
+        companion.setStatus({ kind: 'error', message: error.message });
       }
-      const handle = await handlePromise;
-      if (handle?.kind === 'file') await watchLogHandle(handle);
-      else if (file) await importLogSnapshot(file);
     })();
   });
 }
