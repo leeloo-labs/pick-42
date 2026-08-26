@@ -38,6 +38,8 @@
 }
 
 * { box-sizing: border-box; }
+/* The web shell has no window chrome to control. */
+.web-shell .window-actions { display: none; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #bebbb5; color: var(--ink); }
 button, input { font: inherit; }
 button { color: inherit; }

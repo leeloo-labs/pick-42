@@ -1,7 +1,7 @@
-node_modules/
+!fixtures/*.log
+*.log
+.DS_Store
 bin/
 dist/
-.DS_Store
+node_modules/
 npm-debug.log*
-*.log
-!fixtures/*.log
