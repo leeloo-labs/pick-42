@@ -205,3 +205,104 @@ test('captures cumulative attacker choices with granted flying from client comba
   assert.equal(state.combatChoices[0].board.you.life, 4);
   assert.equal(state.combatChoices[0].board.you.creatures.length, 6);
 });
+
+test('emits a cast event from a CastSpell zone transfer even when the spell never snapshots on the stack', () => {
+  const parser = new ArenaLogParser({ catalog: { 501: { name: 'Countered Dragon', manaCost: '{5}{R}{R}', typeLine: 'Creature — Dragon' } } });
+  const feed = (message) => parser.feed(JSON.stringify({ Payload: JSON.stringify(message) }));
+  feed({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: { matchID: 'cast-match', gameNumber: 1 },
+        gameObjects: [{ instanceId: 168, grpId: 501, type: 'GameObjectType_Card', ownerSeatId: 1, zoneId: 31 }],
+        zones: [{ zoneId: 31, type: 'ZoneType_Hand', ownerSeatId: 1, objectInstanceIds: [168] }]
+      }
+    }]
+  });
+  // The cast and the counter resolve inside one message: the spell moves from
+  // hand to graveyard with only annotations recording the stack visit.
+  feed({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: { matchID: 'cast-match', gameNumber: 1 },
+        annotations: [
+          { id: 1, type: ['AnnotationType_ObjectIdChanged'], details: [{ key: 'orig_id', valueInt32: [168] }, { key: 'new_id', valueInt32: [344] }] },
+          {
+            id: 2,
+            type: ['AnnotationType_ZoneTransfer'],
+            affectedIds: [344],
+            details: [
+              { key: 'zone_src', valueInt32: [31] },
+              { key: 'zone_dest', valueInt32: [27] },
+              { key: 'category', type: 'KeyValuePairValueType_string', valueString: ['CastSpell'] }
+            ]
+          }
+        ],
+        zones: [
+          { zoneId: 31, type: 'ZoneType_Hand', ownerSeatId: 1, objectInstanceIds: [] },
+          { zoneId: 33, type: 'ZoneType_Graveyard', ownerSeatId: 1, objectInstanceIds: [344] }
+        ]
+      }
+    }]
+  });
+
+  const state = parser.snapshot();
+  const castEvent = state.events.find((event) => event.kind === 'cast');
+  assert.ok(castEvent, 'a cast event is emitted from the annotation');
+  assert.equal(castEvent.sourceCard.name, 'Countered Dragon');
+  assert.equal(state.stack.length, 0, 'the spell never appears in a stack snapshot');
+});
+
+test('a card cast by its alternate face keeps the printed identity in the cast event', () => {
+  const parser = new ArenaLogParser({
+    catalog: {
+      501: { name: 'Great Dragon', manaCost: '{5}{R}{R}', typeLine: 'Legendary Creature — Dragon' },
+      502: { name: 'Dragon Breath', manaCost: '{1}{R}', typeLine: 'Sorcery' }
+    }
+  });
+  const feed = (message) => parser.feed(JSON.stringify({ Payload: JSON.stringify(message) }));
+  feed({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: { matchID: 'face-match', gameNumber: 1 },
+        gameObjects: [{ instanceId: 168, grpId: 501, type: 'GameObjectType_Card', ownerSeatId: 1, zoneId: 31 }],
+        zones: [{ zoneId: 31, type: 'ZoneType_Hand', ownerSeatId: 1, objectInstanceIds: [168] }]
+      }
+    }]
+  });
+  // Casting the spell face creates a fresh stack instance under the face's
+  // grpId; the ObjectIdChanged annotation links it back to the printed card.
+  feed({
+    greToClientMessages: [{
+      type: 'GREMessageType_GameStateMessage',
+      systemSeatIds: [1],
+      gameStateMessage: {
+        gameInfo: { matchID: 'face-match', gameNumber: 1 },
+        gameObjects: [{ instanceId: 344, grpId: 502, type: 'GameObjectType_Card', ownerSeatId: 1, zoneId: 27 }],
+        annotations: [
+          { id: 1, type: ['AnnotationType_ObjectIdChanged'], details: [{ key: 'orig_id', valueInt32: [168] }, { key: 'new_id', valueInt32: [344] }] },
+          {
+            id: 2,
+            type: ['AnnotationType_ZoneTransfer'],
+            affectedIds: [344],
+            details: [
+              { key: 'zone_src', valueInt32: [31] },
+              { key: 'zone_dest', valueInt32: [27] },
+              { key: 'category', type: 'KeyValuePairValueType_string', valueString: ['CastSpell'] }
+            ]
+          }
+        ]
+      }
+    }]
+  });
+
+  const castEvent = parser.snapshot().events.find((event) => event.kind === 'cast');
+  assert.ok(castEvent);
+  assert.equal(castEvent.sourceCard.name, 'Great Dragon', 'the printed card is the identity');
+  assert.equal(castEvent.faceCard.name, 'Dragon Breath', 'the cast face is reported alongside');
+});

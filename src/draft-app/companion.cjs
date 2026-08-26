@@ -258,7 +258,7 @@ function createDraftCompanion({
 
   function rebuildLatestLegacyReview() {
     const stored = reviewTracker.snapshot().reviews || [];
-    const legacy = stored.find((review) => Number(review.captureVersion || 0) < 4 && review.matchId && review.deck?.total >= 35);
+    const legacy = stored.find((review) => Number(review.captureVersion || 0) < 5 && review.matchId && review.deck?.total >= 35);
     if (!legacy) return false;
     const logText = readLogText();
     if (!logText) return false;

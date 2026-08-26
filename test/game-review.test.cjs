@@ -749,7 +749,7 @@ test('surfaces only a fully confirmed nonlethal-attack-to-menace-lethal turning 
 
   const review = tracker.snapshot().latest;
   const turningPoint = turningPointAnalysis(review);
-  assert.equal(review.captureVersion, 4);
+  assert.equal(review.captureVersion, 5);
   assert.equal(turningPoint.detected, true);
   assert.equal(turningPoint.label, 'TACTICAL EXPOSURE');
   assert.match(turningPoint.title, /Turn 20/);
@@ -1014,4 +1014,79 @@ test('a decided event replaces the final verdict with a draft wrap-up', () => {
   assert.equal(trophyWrap.tone, 'celebration');
 
   assert.equal(eventWrapUpVerdict(reviewEventGroups([game(1, true)], { currentDraftId: 'wrap', currentFormat: 'Pick Two Draft' })[0]), null);
+});
+
+test('a cast that never snapshots on the stack is excluded from LVP', () => {
+  const dragon = card(31, 'Countered Dragon', '{5}{R}{R}', 'Creature — Dragon');
+  const tracker = new GameReviewTracker();
+  tracker.arm({
+    draftId: 'PickTwoDraft_HOB_test',
+    setCode: 'HOB',
+    format: 'Pick Two Draft',
+    deck: {
+      source: 'Arena course deck',
+      name: 'Rakdos',
+      cards: [{ ...dragon, quantity: 1 }],
+      lands: [{ name: 'Mountain', typeLine: 'Basic Land — Mountain', quantity: 17 }],
+      cuts: [],
+      total: 40,
+      mana: { sources: { R: 17 }, targets: { R: 17 } }
+    }
+  });
+
+  tracker.consume(state({ turn: 1, hand: [dragon], lands: [swampOne] }));
+  tracker.consume(state({ turn: 3, hand: [dragon], lands: [swampOne, swampTwo] }));
+  // The cast and its counter resolve within one log batch: the only trace is
+  // the parser's cast event, never a stack snapshot.
+  tracker.consume({
+    ...state({ turn: 5, hand: [], lands: [swampOne, swampTwo], complete: true, won: true }),
+    events: [{ id: 'cast-1', kind: 'cast', turn: 5, sourceCard: { ...dragon, objectType: 'GameObjectType_Card' } }]
+  });
+
+  const review = tracker.snapshot().latest;
+  assert.equal(review.status, 'complete');
+  assert.equal(review.stranded[0]?.name, 'Countered Dragon', 'curve evidence is still recorded');
+  assert.ok(review.observations.some((fact) => /cast but never reached the battlefield/.test(fact)));
+
+  const analyzed = analyzePostGameReview(review, { seventeenLands: [] });
+  const contributions = analyzed.postGame.contributions;
+  assert.deepEqual(contributions.lvp, [], 'a cast card is never a NEVER DEPLOYED LVP, countered or not');
+});
+
+test('a face-cast card is played, not LVP, and the observation names the face', () => {
+  const dragon = card(41, 'Great Dragon', '{5}{R}{R}', 'Legendary Creature — Dragon');
+  const tracker = new GameReviewTracker();
+  tracker.arm({ deck: { name: 'Rakdos', cards: [{ ...dragon, quantity: 1 }], lands: [], cuts: [], total: 40, mana: { sources: {}, targets: {} } } });
+  tracker.consume(state({ turn: 1, hand: [dragon], lands: [swampOne] }));
+  tracker.consume(state({ turn: 3, hand: [dragon], lands: [swampOne, swampTwo] }));
+  tracker.consume({
+    ...state({ turn: 5, hand: [], lands: [swampOne, swampTwo], complete: true, won: true }),
+    events: [{
+      id: 'cast-face-1',
+      kind: 'cast',
+      turn: 5,
+      sourceCard: { ...dragon, objectType: 'GameObjectType_Card' },
+      faceCard: { name: 'Dragon Breath', typeLine: 'Sorcery' }
+    }]
+  });
+
+  const review = tracker.snapshot().latest;
+  assert.ok(review.observations.some((fact) => fact === 'Great Dragon was cast as Dragon Breath.'));
+  assert.ok(!review.observations.some((fact) => /never reached the battlefield/.test(fact)), 'a face cast did what it was played to do');
+
+  const analyzed = analyzePostGameReview(review, { seventeenLands: [] });
+  assert.deepEqual(analyzed.postGame.contributions.lvp, []);
+});
+
+test('resolved instants are never described as failing to reach the battlefield', () => {
+  const trick = card(51, 'Simple Shock', '{R}', 'Instant');
+  const tracker = new GameReviewTracker();
+  tracker.arm({ deck: { name: 'Rakdos', cards: [{ ...trick, quantity: 1 }], lands: [], cuts: [], total: 40, mana: { sources: {}, targets: {} } } });
+  tracker.consume({
+    ...state({ turn: 2, hand: [], lands: [swampOne], complete: true, won: true }),
+    events: [{ id: 'cast-trick-1', kind: 'cast', turn: 2, sourceCard: { ...trick, objectType: 'GameObjectType_Card' } }]
+  });
+
+  const review = tracker.snapshot().latest;
+  assert.ok(!review.observations.some((fact) => /never reached the battlefield/.test(fact)));
 });

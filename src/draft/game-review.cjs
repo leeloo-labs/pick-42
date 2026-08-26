@@ -8,7 +8,7 @@ const { normalizeCardName } = require('./csv.cjs');
 const COLORS = ['W', 'U', 'B', 'R', 'G'];
 const COLOR_NAMES = { W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest' };
 const ANALYSIS_VERSION = 4;
-const CAPTURE_VERSION = 4;
+const CAPTURE_VERSION = 5;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -202,6 +202,15 @@ function groupedPlayedCards(cards) {
     current.playerDamage += Number(entry.playerDamage || 0);
     for (const turn of entry.turnsInPlay || []) current.turnsInPlay.add(turn);
     current.survived += Number(entry.endedOnBattlefield || 0);
+    current.castObserved = Boolean(current.castObserved || entry.castObserved);
+    if (entry.castFaceName) current.castFaceName = entry.castFaceName;
+    // "Cast but never resolved" is only meaningful for permanents cast as
+    // themselves: instants and sorceries never reach the battlefield, and a
+    // card cast by its spell face did exactly what it was played to do.
+    const isPermanent = /Creature|Artifact|Enchantment|Planeswalker|Battle/i.test(String(card.typeLine || ''));
+    if (entry.castObserved && !entry.castFaceName && isPermanent && !entry.turnsInPlay?.size && !entry.endedOnBattlefield && !Number(entry.damage || 0)) {
+      current.neverResolved = (current.neverResolved || 0) + 1;
+    }
     grouped.set(card.name, current);
   }
   return [...grouped.values()].map((entry) => ({
@@ -1477,7 +1486,7 @@ class GameReviewTracker extends EventEmitter {
         playerDamage: 0,
         endedOnBattlefield: false
       };
-      current.card = clone(card);
+      if (!current.identityLocked) current.card = clone(card);
       if (battlefieldKeys.has(key)) current.turnsInPlay.add(Number(state.turn?.number || 0));
       current.endedOnBattlefield = battlefieldKeys.has(key);
       record.playedCards.set(key, current);
@@ -1487,6 +1496,35 @@ class GameReviewTracker extends EventEmitter {
       if (!event?.id || record.processedEventIds.has(event.id)) continue;
       record.processedEventIds.add(event.id);
       if (event.kind === 'damage') record.damageEvents.set(event.id, clone(event));
+      // A cast observed via annotation counts as played even when the spell is
+      // countered inside one log batch and never shows up in a stack snapshot.
+      if (event.kind === 'cast') {
+        const castSource = event.sourceCard;
+        const isOwnCastCard = castSource
+          && Number(castSource.ownerSeatId) === Number(state.localSeatId)
+          && !isLand(castSource)
+          && (!castSource.objectType || castSource.objectType === 'GameObjectType_Card');
+        if (isOwnCastCard) {
+          const key = cardKey(castSource);
+          const current = record.playedCards.get(key) || {
+            card: clone(castSource),
+            firstTurn: Number(event.turn || state.turn?.number || 0),
+            turnsInPlay: new Set(),
+            damage: 0,
+            playerDamage: 0,
+            endedOnBattlefield: false
+          };
+          current.castObserved = true;
+          if (event.faceCard?.name && event.faceCard.name !== castSource.name) current.castFaceName = event.faceCard.name;
+          // The cast event carries the printed identity via the id lineage;
+          // lock it so stack snapshots of an alternate face cannot rename the
+          // entry away from the name the hand and deck evidence use.
+          current.card = clone(castSource);
+          current.identityLocked = true;
+          record.playedCards.set(key, current);
+        }
+        continue;
+      }
       const source = event.sourceCard;
       if (event.kind !== 'damage' || !source || Number(source.ownerSeatId) !== Number(state.localSeatId) || source.objectType === 'GameObjectType_Token' || source.objectType === 'GameObjectType_Ability') continue;
       const key = cardKey(source);
@@ -1614,6 +1652,10 @@ class GameReviewTracker extends EventEmitter {
       facts.push(`${stranded[0].name} was stranded across ${stranded[0].turns} of your turns (${reason}).`);
     } else {
       facts.push('No card was repeatedly stranded by the observed mana base.');
+    }
+    for (const entry of played) {
+      if (entry.castFaceName) facts.push(`${entry.name} was cast as ${entry.castFaceName}.`);
+      if (entry.neverResolved) facts.push(`${entry.name} was cast but never reached the battlefield.`);
     }
     for (const name of conditionalNames) facts.push(`${name} was excluded from curve evidence because its conditional cost reduction could not be verified from the recorded state.`);
     if (opponentColors.length) facts.push(`The opponent revealed ${opponentColors.join('/')} cards.`);

@@ -452,6 +452,34 @@ class ArenaLogParser extends EventEmitter {
       this.objectRoots.set(originalId, this.#stableInstanceId(originalId));
       this.objectRoots.set(newId, this.#stableInstanceId(originalId));
     }
+    // Casts are announced by zone-transfer annotations. Emitting them as events
+    // matters because a cast that is countered within one log batch never
+    // appears in any stack snapshot — the annotation is the only trace.
+    for (const annotation of annotations) {
+      const types = Array.isArray(annotation.type) ? annotation.type : [annotation.type];
+      if (!types.includes('AnnotationType_ZoneTransfer')) continue;
+      if (this.#annotationString(annotation, ['category']) !== 'CastSpell') continue;
+      const castId = (annotation.affectedIds || []).map(Number).find(Number.isFinite);
+      if (!castId) continue;
+      // The identity comes from the id lineage's root: a card cast by an
+      // alternate face gets a fresh stack instance with the face's grpId, and
+      // the printed card is what hand and deck evidence know it as. The stack
+      // instance may also exist only as a bare zone entry.
+      const direct = this.objects.get(castId);
+      const rootObject = this.objects.get(this.#stableInstanceId(castId));
+      const identity = (rootObject?.grpId ? rootObject : null) || (direct?.grpId ? direct : null) || direct || { instanceId: castId };
+      const sourceCard = this.#cardForObject(identity);
+      const faceCard = direct?.grpId && rootObject?.grpId && Number(direct.grpId) !== Number(rootObject.grpId)
+        ? this.#cardForObject(direct)
+        : null;
+      this.#addEvent({
+        kind: 'cast',
+        title: sourceCard?.name ? `${sourceCard.name} cast` : 'A spell was cast',
+        detail: faceCard?.name ? `as ${faceCard.name}` : this.#seatLabel(sourceCard?.ownerSeatId),
+        sourceCard,
+        faceCard
+      });
+    }
     for (const annotation of annotations) {
       const types = Array.isArray(annotation.type) ? annotation.type : [annotation.type];
       if (!types.includes('AnnotationType_DamageDealt')) continue;
@@ -480,6 +508,17 @@ class ArenaLogParser extends EventEmitter {
       current = next;
     }
     return current;
+  }
+
+  #annotationString(annotation, keys) {
+    for (const detail of annotation.details || []) {
+      const key = String(detail.key || '').toLowerCase();
+      if (keys.some((candidate) => key.includes(candidate))) {
+        const value = detail.valueString?.[0];
+        if (value !== undefined && value !== null) return String(value);
+      }
+    }
+    return null;
   }
 
   #annotationNumber(annotation, keys) {
