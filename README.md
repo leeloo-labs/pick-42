@@ -41,7 +41,9 @@ npm run web
 
 This builds `dist/web` and serves it at `http://localhost:4242` (`npm run build:web` produces the deployable static files). The renderer is byte-identical to the desktop app's; only the platform layer differs: settings, reviews, imports, and the Scryfall cache persist in browser storage, CSV/corpus imports use the browser file picker, and the Arena log is connected by **dragging `Player.log` onto the window** — Chromium's file picker refuses the folders Arena writes into (`~/Library` on macOS, `AppData` on Windows), but a dropped file hands over a live handle that is then polled for appended bytes. The remembered file resumes on the next visit, silently where the browser kept the permission and otherwise with one click on **LOG ▸ BROWSE**. The LOG menu shows exactly where `Player.log` lives, with a copy-path button for Finder's ⇧⌘G. The drop target also accepts trophy-corpus files — including the desktop app's `manual-archetype-corpus.json` and 17Lands game-data exports (`.csv.gz`), which are processed in the browser via `DecompressionStream`.
 
-Web-shell limits today: Chromium-only (Firefox and Safari lack the File System Access API), no always-on-top compact panel, and live drafts show placeholder card names until Scryfall publishes Arena ids for the active set (the desktop app reads Arena's own card database instead). Everything stays local: the only network request either shell makes is the public Scryfall set download.
+Live drafts need Arena's grpId-to-card mapping, which the browser cannot read from Arena's installation. The desktop app exports it automatically as `arena-card-catalog.json` in its data folder — drag that file onto the web app once (it persists in the browser and a watched log is re-read immediately with real names). Without it, live web drafts show placeholder card ids until Scryfall publishes Arena ids for the active set.
+
+Web-shell limits today: Chromium-only (Firefox and Safari lack the File System Access API) and no always-on-top compact panel. Everything stays local: the only network request either shell makes is the public Scryfall set download.
 
 ## Product principles
 

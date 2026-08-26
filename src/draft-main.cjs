@@ -352,9 +352,30 @@ function registerIpc() {
   ipcMain.handle('draft:close', () => app.quit());
 }
 
+// The web shell has no Arena installation to read grpIds from, so the desktop
+// exports its catalog as a droppable file whenever Arena's database is newer.
+function exportArenaCatalog() {
+  if (!arenaCatalogResult.count || !arenaCatalogResult.source) return;
+  const exportPath = path.join(app.getPath('userData'), 'arena-card-catalog.json');
+  try {
+    const sourceMtime = fs.statSync(arenaCatalogResult.source).mtimeMs;
+    if (fs.existsSync(exportPath) && fs.statSync(exportPath).mtimeMs > sourceMtime) return;
+    writeFileAtomic(exportPath, JSON.stringify({
+      version: 1,
+      source: 'Arena card database',
+      generatedAt: new Date().toISOString(),
+      count: arenaCatalogResult.count,
+      cards: arenaCatalogResult.catalog
+    }));
+  } catch {
+    // The export is a convenience for the web shell; the desktop app is whole without it.
+  }
+}
+
 app.whenReady().then(async () => {
   loadSampleSources();
   corpusStore.readManual();
+  exportArenaCatalog();
   const saved = companion.hydrate();
   if (saved.archetypeCorpusPath && fs.existsSync(saved.archetypeCorpusPath)) {
     try { corpusStore.loadImported(saved.archetypeCorpusPath); } catch { /* Keep drafting if an old corpus moved or changed. */ }

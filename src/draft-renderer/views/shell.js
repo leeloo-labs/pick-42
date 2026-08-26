@@ -268,6 +268,7 @@ function renderLogMenu(menu) {
       help.append(element('small', '', isMac
         ? 'The browser’s file picker cannot open this folder (Chrome blocks the Library folder). In Finder press ⇧⌘G, paste the path above, then drag Player.log onto the Pick 42 window.'
         : 'If the picker refuses the AppData folder, open it in Explorer and drag Player.log onto the Pick 42 window.'));
+      help.append(element('small', '', 'For real card names in live drafts, also drag arena-card-catalog.json from the desktop app’s data folder (next to its imports).'));
     } else {
       help.append(element('small', '', isMac
         ? 'The Library folder is hidden: press ⇧⌘G in the file picker and paste the path above.'

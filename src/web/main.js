@@ -12,7 +12,7 @@ const { fetchScryfallSet } = require('../draft/scryfall.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('../draft/seventeenlands-dataset.cjs');
 const { createLogPoller } = require('./log-poller.js');
 const { fileLineSource } = require('./file-lines.js');
-const { loadHandle, saveHandle } = require('./handle-store.js');
+const { loadData, loadHandle, saveData, saveHandle } = require('./handle-store.js');
 const demoCatalogFixture = require('../../fixtures/demo-draft-cards.json');
 // Bundled sample data must be statically imported; mirror set-definitions'
 // sampleFixtures when the active set changes.
@@ -168,6 +168,14 @@ async function pickFile({ description, accept }) {
 const LOG_HANDLE_KEY = 'player-log';
 let watchedLogHandle = null;
 
+// Cards the catalog cannot name render as "Arena card <id>"; say how to fix it.
+function watchingStatusMessage() {
+  const unresolved = companion.draftState().pool.filter((card) => /^Arena card \d+$/.test(card.name)).length;
+  return unresolved
+    ? `Watching Arena log · ${unresolved} cards need names — drag arena-card-catalog.json from the Pick 42 data folder`
+    : 'Watching Arena log';
+}
+
 async function watchLogHandle(handle, { remember = true } = {}) {
   watchedLogHandle = handle;
   watchedLogName = handle.name;
@@ -175,7 +183,7 @@ async function watchLogHandle(handle, { remember = true } = {}) {
   companion.setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: handle.name });
   await poller.start(handle);
   companion.completeLogScan();
-  companion.setStatus({ kind: 'live', message: 'Watching Arena log', path: handle.name });
+  companion.setStatus({ kind: 'live', message: watchingStatusMessage(), path: handle.name });
   if (remember) void saveHandle(LOG_HANDLE_KEY, handle);
 }
 
@@ -217,6 +225,31 @@ function restorePersistedData() {
   const corpus = readStoredJson(storageKey('corpus'));
   if (corpus?.text) {
     try { corpusStore.loadImportedText(corpus.text, corpus.label || 'corpus'); } catch { /* Skip a stale corpus. */ }
+  }
+}
+
+const CATALOG_DATA_KEY = 'arena-catalog';
+
+function applyArenaCatalog(payload) {
+  // The desktop's Arena database is authoritative: it overwrites the bundled
+  // sample entries so live drafts show Arena's real names, and the parsers see
+  // the change through the shared catalog object.
+  Object.assign(catalog, payload.cards);
+  catalogInfo.count = Object.keys(catalog).length;
+  catalogInfo.source = payload.source || 'Imported Arena catalog';
+}
+
+// An arena-card-catalog.json exported by the desktop app: apply it, remember
+// it, and re-read a watched log so the current draft picks up real names.
+async function importArenaCatalog(payload) {
+  applyArenaCatalog(payload);
+  await saveData(CATALOG_DATA_KEY, payload);
+  const cardCount = Object.keys(payload.cards || {}).length.toLocaleString();
+  if (poller.active() && watchedLogHandle) {
+    await watchLogHandle(watchedLogHandle, { remember: false });
+    companion.setStatus({ kind: 'live', message: `${cardCount} Arena card names imported · log re-read`, path: watchedLogName });
+  } else {
+    companion.setStatus({ kind: 'live', message: `${cardCount} Arena card names imported` });
   }
 }
 
@@ -274,7 +307,13 @@ async function importLogSnapshot(file) {
   companion.feedLog(await file.text());
   companion.completeLogScan();
   lastLogActivityAt = Date.now();
-  companion.setStatus({ kind: 'live', message: `Read ${file.name} once · drop it again after more games for a refresh` });
+  const unresolved = companion.draftState().pool.filter((card) => /^Arena card \d+$/.test(card.name)).length;
+  companion.setStatus({
+    kind: 'live',
+    message: unresolved
+      ? `Read ${file.name} once · ${unresolved} cards need names — drag arena-card-catalog.json from the Pick 42 data folder`
+      : `Read ${file.name} once · drop it again after more games for a refresh`
+  });
 }
 
 // Dropped files route by what they are: Arena's log becomes the watched
@@ -290,7 +329,16 @@ async function routeDroppedFile(file, handlePromise) {
     else if (file) await importLogSnapshot(file);
     return;
   }
-  if (/\.(json|gz)$/i.test(name)) {
+  if (/\.json$/i.test(name)) {
+    const parsed = JSON.parse(await file.text());
+    if (parsed && parsed.cards && !parsed.decks) {
+      await importArenaCatalog(parsed);
+      return;
+    }
+    await importCorpusFromFile(file);
+    return;
+  }
+  if (/\.gz$/i.test(name)) {
     await importCorpusFromFile(file);
     return;
   }
@@ -485,6 +533,10 @@ companion.hydrate();
 restorePersistedData();
 installDropTarget();
 void (async () => {
+  // The remembered catalog must be in place before the log replays, so the
+  // resumed draft resolves real names on the first parse.
+  const storedCatalog = await loadData(CATALOG_DATA_KEY);
+  if (storedCatalog?.cards) applyArenaCatalog(storedCatalog);
   if (await resumeStoredLog({ gesture: false })) return;
   const remembered = await loadHandle(LOG_HANDLE_KEY);
   companion.startDemo();
