@@ -340,18 +340,23 @@ function installDropTarget() {
   window.addEventListener('drop', (event) => {
     event.preventDefault();
     hide();
-    const item = event.dataTransfer?.items?.[0];
-    if (!item || item.kind !== 'file') return;
     // Both accessors must be called synchronously, before the event settles.
-    const file = item.getAsFile();
-    const handlePromise = typeof item.getAsFileSystemHandle === 'function'
+    // Some drag sources populate files but not items; take whichever exists.
+    const item = event.dataTransfer?.items?.[0];
+    const file = (item?.kind === 'file' ? item.getAsFile() : null) || event.dataTransfer?.files?.[0] || null;
+    if (!file) {
+      companion.setStatus({ kind: 'error', message: 'Nothing droppable was received · drop a file from Finder or Explorer' });
+      return;
+    }
+    const handlePromise = item && typeof item.getAsFileSystemHandle === 'function'
       ? item.getAsFileSystemHandle().catch(() => null)
       : Promise.resolve(null);
     void (async () => {
       try {
         await routeDroppedFile(file, handlePromise);
       } catch (error) {
-        companion.setStatus({ kind: 'error', message: error.message });
+        console.warn('Pick 42 drop failed:', error);
+        companion.setStatus({ kind: 'error', message: `Could not read the dropped file · ${error.message}` });
       }
     })();
   });
