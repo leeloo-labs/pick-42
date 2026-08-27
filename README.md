@@ -10,9 +10,15 @@ The current product flow is:
 
 Pick 42 is advisory. It does not connect to private Arena services, reveal hidden cards, automate game input, scrape 17Lands or Untapped, or upload your `Player.log`.
 
-Pick 42 is proprietary software owned by Leeloo Labs LLC. It is not licensed for public use, copying, modification, or distribution. See [LICENSE](LICENSE).
+Pick 42 is proprietary software owned by Leeloo Labs LLC. Official builds are free for personal, non-commercial use; the source is published for inspection. See [LICENSE](LICENSE).
 
-## Run Pick 42
+## Download
+
+The latest macOS build (Apple Silicon) is on the [releases page](https://github.com/leeloo-labs/pick-42/releases). Unzip it and drag **Pick 42** into Applications. The build is not yet notarized, so macOS refuses it on first launch: approve it once under System Settings → Privacy & Security → Open Anyway.
+
+`scripts/package-mac.sh` builds the distributable from a checkout.
+
+## Run Pick 42 from source
 
 Requirements: Node.js 22 or newer and npm.
 
