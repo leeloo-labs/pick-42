@@ -5,8 +5,13 @@ set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="$repo/dist/mac"
-app="$out/Pick 42.app"
-zip="$out/Pick-42-mac-arm64.zip"
+# Assemble outside the checkout: an iCloud-synced Documents folder keeps
+# restamping provenance/FinderInfo xattrs onto the bundle, which codesign
+# refuses. Only the finished zip moves back into the repo.
+work="$(mktemp -d /tmp/pick42-package.XXXXXX)"
+trap 'rm -rf "$work"' EXIT
+app="$work/Pick 42.app"
+zip="$work/Pick-42-mac-arm64.zip"
 version="$(node -e "process.stdout.write(require('$repo/package.json').version)")"
 
 rm -rf "$out"
@@ -61,7 +66,9 @@ xattr -cr "$app"
 codesign --force --deep --sign - "$app" 2>&1 | grep -v "replacing existing signature" || true
 codesign --verify --deep "$app"
 
-# 6. Zip for release (ditto keeps bundle structure and permissions).
+# 6. Zip for release (ditto keeps bundle structure and permissions), then
+#    move only the zip into the repo.
 ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
-echo "Built $zip"
-du -sh "$app" "$zip"
+mv "$zip" "$out/"
+echo "Built $out/$(basename "$zip")"
+du -sh "$out/$(basename "$zip")"
