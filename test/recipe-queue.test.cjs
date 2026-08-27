@@ -37,6 +37,29 @@ test('recipe orders removals, spells, drafted lands, then basics', () => {
   assert.deepEqual(tasks.map((task) => task.target), [0, 0, 2, 1, 1, 8, 8]);
 });
 
+test('surplus copies of a kept card never produce a remove-extras task', () => {
+  const build = sampleBuild();
+  build.excluded.push({ name: 'Two Drop', quantity: 1, manaCost: '{1}{G}', typeLine: 'Creature' });
+  const tasks = buildRecipeTasks(build);
+
+  assert.deepEqual(tasks.filter((task) => task.kind === 'cut').map((task) => task.card.name), [
+    'Off-color Land', 'White Card'
+  ]);
+  const kept = tasks.find((task) => task.kind === 'add' && task.card.name === 'Two Drop');
+  assert.equal(kept.target, 2);
+});
+
+test('surplus copies of a kept drafted land never produce a remove-extras task', () => {
+  const build = sampleBuild();
+  build.excluded.push({ name: 'Mirkwood', quantity: 1, typeLine: 'Land' });
+  const tasks = buildRecipeTasks(build);
+
+  assert.deepEqual(tasks.filter((task) => task.kind === 'cut').map((task) => task.card.name), [
+    'Off-color Land', 'White Card'
+  ]);
+  assert.equal(tasks.find((task) => task.card.name === 'Mirkwood').target, 1);
+});
+
 test('progress advances past confirmed and skipped tasks', () => {
   const tasks = buildRecipeTasks(sampleBuild());
   const done = new Set([tasks[0].id]);

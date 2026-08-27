@@ -13,8 +13,20 @@
     return String(left.name || '').localeCompare(String(right.name || ''));
   }
 
+  function cardKey(card) {
+    return `${card.name}|${card.manaCost || ''}|${card.typeLine || ''}`;
+  }
+
   function buildRecipeTasks(build = {}) {
+    // build.excluded holds surplus copies, so a card kept at a lower quantity
+    // appears there too. Its SET task already states the final count; a cut
+    // task ("remove every copy") may only name cards with zero kept copies.
+    const kept = new Set([
+      ...(build.mainDeck || []),
+      ...(build.lands || []).filter((card) => !card.basic)
+    ].map(cardKey));
     const cuts = (build.excluded || build.cuts || [])
+      .filter((card) => !kept.has(cardKey(card)))
       .map((card) => ({ ...card, land: /\bLand\b/i.test(card.typeLine || '') }))
       .sort(byName);
     const spells = (build.mainDeck || [])
