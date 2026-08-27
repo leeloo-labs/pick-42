@@ -80,6 +80,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Draw-quality tiers are copy-aware: the summed hypergeometric chance of seeing each top-four card (its copy count, the deck size, the cards actually seen) sets an expected baseline that the summary quotes. `strong` requires beating the baseline by 0.75 drawn cards and `exceptional` by 1.5, so seeing one of three copies is never counted as fortune. Captures without drawn quantities keep the absolute tiers.
 - Exclude cards with unverified conditional cost reductions from printed-mana curve evidence, and count stranded evidence by distinct turn rather than by copies in hand.
 - Persist completed reviews locally in the legacy Pick 42/Arcane user-data directory; never upload raw game data.
+- Games played on another device never reach this machine's log. The current event card offers PLAYED ELSEWHERE steppers that store a manual per-draft record: it counts toward event records, trophies, and wrap-ups (which disclose the manually recorded games), clamps to the format's win/loss caps, and never contributes game evidence. The current draft always has an event card so the record can be entered before the first logged game; sample courses never accept manual records. The reviews store persists `{ reviews, manualRecords }` and still reads the legacy bare-array shape.
 
 ## Voice and copy
 
@@ -103,7 +104,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 153 passing tests.
+- The test suite currently contains 157 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

@@ -52,6 +52,14 @@ function reviewEventGroupCard(group, displayed, latest) {
       : (group.status === 'live' ? `${group.record} · LIVE` : group.record));
   heading.append(title, record);
   const chips = element('div', 'review-event-games');
+  if (group.manualRecord) {
+    const chip = element('span', 'review-game-chip manual');
+    chip.append(
+      element('strong', '', `ELSEWHERE · ${group.manualRecord}`),
+      element('small', '', 'recorded manually · no game evidence')
+    );
+    chips.append(chip);
+  }
   for (const entry of group.games) {
     const resultClass = entry.won === true ? 'won' : (entry.won === false ? 'lost' : '');
     const chip = element('button', `review-game-chip ${resultClass} ${displayed && entry.id === displayed.id ? 'selected' : ''}`);
@@ -69,14 +77,44 @@ function reviewEventGroupCard(group, displayed, latest) {
     chips.append(chip);
   }
   section.append(heading, chips);
+  if (group.isCurrent) section.append(manualRecordControls(group));
   return section;
+}
+
+// Games played on another device never reach this machine's log. The steppers
+// record their result so the event math stays honest; they add no evidence.
+function manualRecordControls(group) {
+  const wrap = element('div', 'review-manual-record');
+  wrap.append(element('small', 'review-manual-label', 'PLAYED ELSEWHERE'));
+  const stepper = (kind, value) => {
+    const cell = element('span', 'review-manual-step');
+    const apply = (delta) => updateFrom(() => window.draftCompanion.setManualRecord({
+      draftId: group.draftId,
+      wins: (group.manualWins || 0) + (kind === 'wins' ? delta : 0),
+      losses: (group.manualLosses || 0) + (kind === 'losses' ? delta : 0)
+    }));
+    const minus = element('button', 'review-manual-button', '−');
+    minus.type = 'button';
+    minus.disabled = value <= 0;
+    minus.addEventListener('click', () => apply(-1));
+    const plus = element('button', 'review-manual-button', '+');
+    plus.type = 'button';
+    plus.addEventListener('click', () => apply(1));
+    cell.append(minus, element('b', '', `${value} ${kind === 'wins' ? 'W' : 'L'}`), plus);
+    return cell;
+  };
+  wrap.append(stepper('wins', group.manualWins || 0), stepper('losses', group.manualLosses || 0));
+  wrap.append(element('small', 'review-manual-note', 'Counts in the record · adds no game evidence'));
+  return wrap;
 }
 
 function renderReviewGameStrip(groups, displayed, latest) {
   const strip = byId('review-game-strip');
   strip.replaceChildren();
-  const totalGames = groups.reduce((sum, group) => sum + group.games.length, 0);
-  const hidden = totalGames < 1;
+  const totalGames = groups.reduce((sum, group) => sum + group.games.length + (group.manualWins || 0) + (group.manualLosses || 0), 0);
+  // A current event with no games yet still shows: its card is where a record
+  // played on another device gets entered.
+  const hidden = totalGames < 1 && !groups.some((group) => group.isCurrent);
   strip.hidden = hidden;
   if (hidden) return;
 

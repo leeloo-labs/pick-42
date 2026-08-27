@@ -307,6 +307,7 @@ function registerIpc() {
   });
   ipcMain.handle('draft:set-lane-preference', (_event, mode) => companion.setLanePreference(mode));
   ipcMain.handle('draft:set-pool-card-excluded', (_event, cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded));
+  ipcMain.handle('draft:set-manual-record', (_event, record) => companion.setManualRecord(record));
   ipcMain.handle('draft:start-demo', (_event, mode) => { companion.startDemo(mode); return viewModel(); });
   ipcMain.handle('draft:advance-demo', () => { companion.advanceDemo(); return viewModel(); });
   ipcMain.handle('draft:select-build', (_event, buildId) => companion.selectBuild(buildId));

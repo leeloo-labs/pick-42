@@ -2,6 +2,7 @@
 
 const { generateSamplePack } = require('../draft/sample-draft.cjs');
 
+const SAMPLE_COURSE_ID = 'sample-draft-course';
 const DEMO_ROUNDS = { premier: 14, 'pick-two': 7 };
 const DEMO_PICKS = { premier: 1, 'pick-two': 2 };
 
@@ -27,7 +28,7 @@ function createDemoDriver({ parser, catalog, setDisplayCode, choosePickNames, on
     parser.reset();
     draft = { mode, packNumber: 1, round: 1, done: false };
     parser.feed(`${JSON.stringify({
-      Courses: [{ CourseId: 'sample-draft-course', InternalEventName: eventName(), CurrentModule: 'PlayerDraft', ModulePayload: '', CardPool: [], DraftId: 'sample-draft-session' }]
+      Courses: [{ CourseId: SAMPLE_COURSE_ID, InternalEventName: eventName(), CurrentModule: 'PlayerDraft', ModulePayload: '', CardPool: [], DraftId: 'sample-draft-session' }]
     })}\n`);
     feedPack();
     onStatus({
@@ -66,7 +67,7 @@ function createDemoDriver({ parser, catalog, setDisplayCode, choosePickNames, on
       if (draft.packNumber > 3) {
         draft.done = true;
         parser.feed(`${JSON.stringify({
-          Courses: [{ CourseId: 'sample-draft-course', InternalEventName: eventName(), CurrentModule: 'CreateMatch', ModulePayload: '', CardPool: [...snapshot.pickedCardIds], DraftId: 'sample-draft-session' }]
+          Courses: [{ CourseId: SAMPLE_COURSE_ID, InternalEventName: eventName(), CurrentModule: 'CreateMatch', ModulePayload: '', CardPool: [...snapshot.pickedCardIds], DraftId: 'sample-draft-session' }]
         })}\n`);
         onStatus({ kind: 'demo', message: `Sample draft complete · ${snapshot.pickedCardIds.length} cards drafted · open DECKS · Next pick restarts` });
         return;
@@ -88,4 +89,4 @@ function createDemoDriver({ parser, catalog, setDisplayCode, choosePickNames, on
   };
 }
 
-module.exports = { createDemoDriver };
+module.exports = { SAMPLE_COURSE_ID, createDemoDriver };

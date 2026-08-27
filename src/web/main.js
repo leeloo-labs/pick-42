@@ -477,6 +477,7 @@ window.draftCompanion = {
     return companion.viewModel();
   },
   setLanePreference: async (mode) => companion.setLanePreference(mode),
+  setManualRecord: async (record) => companion.setManualRecord(record),
   setPoolCardExcluded: async (cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded),
   startDemo: async (mode) => {
     companion.startDemo(mode);

@@ -14,6 +14,7 @@ const { DraftLogParser } = require('../draft/draft-log-parser.cjs');
 const {
   GameReviewTracker,
   analyzePostGameReview,
+  clampManualRecord,
   deckFingerprint,
   draftDeckMatchDecision,
   eventWrapUpVerdict,
@@ -24,7 +25,7 @@ const {
 const { buildScryfallIndex, findScryfallCard } = require('../draft/scryfall.cjs');
 const { ArenaLogParser } = require('../core/arena-log-parser.cjs');
 const { ArenaSceneTracker } = require('../core/arena-scene-tracker.cjs');
-const { createDemoDriver } = require('./demo-driver.cjs');
+const { SAMPLE_COURSE_ID, createDemoDriver } = require('./demo-driver.cjs');
 
 // The platform-agnostic draft session. Everything Pick 42 computes — draft
 // state, rankings, deck builds, reviews, the full renderer view model — lives
@@ -57,6 +58,11 @@ function createDraftCompanion({
 
   let draftState = parser.snapshot();
   let reviewState = reviewTracker.snapshot();
+  // Wins and losses entered by hand for games played away from this machine
+  // (Arena on a phone writes no log here). Keyed by draftId, persisted with
+  // the reviews, counted in event records, never used as game evidence.
+  let manualRecords = {};
+  const persistReviews = () => reviews.write({ reviews: reviewTracker.snapshot().reviews, manualRecords });
   let reviewArmed = false;
   const reviewMatchDecisions = new Map();
   let status = { kind: 'demo', message: `Sample ${activeSet.displayCode} pack · import current exports when ready` };
@@ -235,7 +241,8 @@ function createDraftCompanion({
       relatedReviews
     });
     const analyzed = completed.map((review) => analyze(review, completed));
-    const eventGroups = reviewEventGroups(analyzed, { currentDraftId: draftState.draftId, currentFormat: draftState.format });
+    const liveDraftId = draftState.draftId === SAMPLE_COURSE_ID ? null : draftState.draftId;
+    const eventGroups = reviewEventGroups(analyzed, { currentDraftId: liveDraftId, currentFormat: draftState.format, manualRecords });
     const latest = analyze(reviewState.latest, activeRelated);
     // The final game of a decided event carries the draft wrap-up instead of advice
     // about a deck that has no next game.
@@ -284,7 +291,7 @@ function createDraftCompanion({
     if (!rebuilt) return false;
     const next = replaceRebuiltReviewInPlace(stored, legacy, rebuilt);
     reviewTracker.hydrate(next);
-    reviews.write(reviewTracker.snapshot().reviews);
+    persistReviews();
     return true;
   }
 
@@ -548,7 +555,7 @@ function createDraftCompanion({
     reviewState = nextState;
     notify();
   });
-  reviewTracker.on('complete', () => reviews.write(reviewTracker.snapshot().reviews));
+  reviewTracker.on('complete', () => persistReviews());
   sceneTracker.on('scene', (nextScene) => {
     onScene(nextScene);
     onContextChanged();
@@ -599,8 +606,12 @@ function createDraftCompanion({
 
   // Restore persisted preferences and completed reviews.
   function hydrate() {
-    reviewTracker.hydrate(reviews.read());
-    reviews.write(reviewTracker.snapshot().reviews);
+    // The store was once the bare reviews array; both shapes stay readable.
+    const stored = reviews.read();
+    reviewTracker.hydrate(Array.isArray(stored) ? stored : stored?.reviews || []);
+    manualRecords = (stored && !Array.isArray(stored) && typeof stored.manualRecords === 'object' && stored.manualRecords) || {};
+    delete manualRecords[SAMPLE_COURSE_ID];
+    persistReviews();
     const saved = settings.read();
     lanePreference = saved.lanePreference && ['lock-no-splash', 'lock-splash', 'stay-open'].includes(saved.lanePreference.mode)
       ? saved.lanePreference
@@ -661,6 +672,27 @@ function createDraftCompanion({
       }
       settings.write({ lanePreference });
       onContextChanged();
+      notify();
+      return viewModel();
+    },
+    setManualRecord(record = {}) {
+      const draftId = String(record.draftId || draftState.draftId || '');
+      if (!draftId || draftId === SAMPLE_COURSE_ID) return viewModel();
+      const isCurrent = draftId === String(draftState.draftId || '');
+      const format = record.format
+        || (isCurrent ? draftState.format : null)
+        || reviewTracker.snapshot().reviews.find((review) => String(review.draftId) === draftId)?.format
+        || manualRecords[draftId]?.format
+        || null;
+      const clamped = clampManualRecord(format, record);
+      if (!clamped.wins && !clamped.losses) {
+        delete manualRecords[draftId];
+      } else {
+        const deckName = manualRecords[draftId]?.deckName || record.deckName
+          || (isCurrent ? reviewDeckSnapshot()?.name : null) || null;
+        manualRecords[draftId] = { ...clamped, format: format || null, deckName, updatedAt: new Date().toISOString() };
+      }
+      persistReviews();
       notify();
       return viewModel();
     },

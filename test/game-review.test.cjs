@@ -11,6 +11,7 @@ const {
   buildDeviationAnalysis,
   castableByManaBase,
   castingProblem,
+  clampManualRecord,
   dominanceAnalysis,
   draftDeckMatchDecision,
   eventWrapUpVerdict,
@@ -975,6 +976,57 @@ test('groups reviews per draft with format-aware trophy and elimination states',
   assert.equal(quick.trophy, false);
   assert.equal(quick.eliminated, true);
   assert.equal(quick.status, 'eliminated');
+});
+
+test('a manual record counts toward the event math but carries no games', () => {
+  const game = (index, won) => ({ id: `pm:${index}`, draftId: 'pm', won, completedAt: `2026-08-27T0${index}:00:00Z`, deck: { name: 'Rakdos' }, postGame: {} });
+  const context = { currentDraftId: 'pm', currentFormat: 'Pick Two Draft', manualRecords: { pm: { wins: 2, losses: 0, format: 'Pick Two Draft' } } };
+
+  const live = reviewEventGroups([game(1, true)], context)[0];
+  assert.equal(live.record, '3-0');
+  assert.equal(live.manualRecord, '2-0');
+  assert.equal(live.status, 'live');
+  assert.equal(live.games.length, 1);
+
+  const trophy = reviewEventGroups([game(1, true), game(2, true)], context)[0];
+  assert.equal(trophy.record, '4-0');
+  assert.equal(trophy.trophy, true);
+
+  const wrapUp = eventWrapUpVerdict(trophy);
+  assert.equal(wrapUp.label, 'TROPHY');
+  assert.equal(wrapUp.evidence, '4 GAMES · 4-0 · TROPHY');
+  assert.match(wrapUp.summary, /2 games were recorded manually and carried no game evidence/);
+});
+
+test('a draft played entirely elsewhere still gets an event entry', () => {
+  const groups = reviewEventGroups([], {
+    currentDraftId: 'phone-only',
+    currentFormat: 'Pick Two Draft',
+    manualRecords: { 'phone-only': { wins: 1, losses: 2, format: 'Pick Two Draft', deckName: 'Boros Dwarves' } }
+  });
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].record, '1-2');
+  assert.equal(groups[0].name, 'Boros Dwarves');
+  assert.equal(groups[0].eliminated, true);
+  assert.equal(groups[0].games.length, 0);
+});
+
+test('the current draft gets an event entry before its first logged game', () => {
+  const groups = reviewEventGroups([], { currentDraftId: 'fresh', currentFormat: 'Pick Two Draft' });
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].record, '0-0');
+  assert.equal(groups[0].status, 'live');
+  assert.equal(groups[0].isCurrent, true);
+  assert.equal(groups[0].games.length, 0);
+});
+
+test('manual records clamp to the format caps and reject junk', () => {
+  assert.deepEqual(clampManualRecord('Pick Two Draft', { wins: 9, losses: 9 }), { wins: 4, losses: 2 });
+  assert.deepEqual(clampManualRecord('Premier Draft', { wins: 9, losses: 9 }), { wins: 7, losses: 3 });
+  assert.deepEqual(clampManualRecord('Pick Two Draft', { wins: -3, losses: 1.7 }), { wins: 0, losses: 1 });
+  assert.deepEqual(clampManualRecord(null, { wins: 2.9, losses: 'x' }), { wins: 2, losses: 0 });
 });
 
 test('a pick-two draft ends at two losses and stays live before that', () => {

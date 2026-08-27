@@ -1002,6 +1002,16 @@ button { color: inherit; }
 .review-game-chip.lost strong { color: var(--red); }
 .review-game-chip:hover { border-color: rgba(112,84,179,.32); }
 .review-game-chip.selected { border-color: rgba(112,84,179,.48); background: rgba(112,84,179,.1); }
+.review-game-chip.manual { cursor: default; border-style: dashed; background: rgba(255,255,255,.16); }
+.review-game-chip.manual:hover { border-color: var(--line); }
+.review-manual-record { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 9px; }
+.review-manual-label { color: var(--quiet); font-size: 10px; font-weight: 850; letter-spacing: .11em; }
+.review-manual-step { display: inline-flex; align-items: center; gap: 6px; }
+.review-manual-step b { min-width: 26px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+.review-manual-button { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.28); color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; }
+.review-manual-button:hover:not(:disabled) { border-color: rgba(112,84,179,.32); color: var(--ink); }
+.review-manual-button:disabled { opacity: .4; cursor: default; }
+.review-manual-note { color: var(--quiet); font-size: 10px; }
 .review-heading p { max-width: 700px; margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .review-status-pill { flex: 0 0 auto; padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--quiet); background: rgba(255,255,255,.28); font-size: 10px; font-weight: 850; letter-spacing: .11em; }
 .review-status-pill.recording { border-color: rgba(38,121,131,.28); color: var(--cyan); background: rgba(38,121,131,.08); }

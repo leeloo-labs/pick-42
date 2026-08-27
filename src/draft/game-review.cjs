@@ -1077,22 +1077,47 @@ const EVENT_LOSS_CAPS = { premier: 3, quick: 3, 'pick-two': 2, traditional: null
 // Groups completed reviews into their drafts, numbers games per draft, and derives
 // the event record with format-aware trophy and elimination states. Records count
 // recorded games only, so a game played while Pick 42 was closed is not invented.
-function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = null } = {}) {
+// Games played away from this machine (Arena on a phone) never reach the log.
+// A manually entered record keeps the event math honest — it counts toward the
+// win/loss caps but carries no game evidence. Entries clamp to the format's
+// own caps so an impossible record cannot be stored.
+function clampManualRecord(formatText, record = {}) {
+  const format = formatText ? normalizeFormat(formatText) : null;
+  const winsTarget = format ? trophyThreshold(format) : null;
+  const lossCap = format ? EVENT_LOSS_CAPS[format] ?? null : null;
+  const toCount = (value, cap) => {
+    const count = Math.max(0, Math.floor(Number(value) || 0));
+    return cap === null || cap === undefined ? count : Math.min(count, cap);
+  };
+  return { wins: toCount(record.wins, winsTarget), losses: toCount(record.losses, lossCap) };
+}
+
+function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = null, manualRecords = {} } = {}) {
   const groups = new Map();
   for (const review of reviews || []) {
     const key = String(review?.draftId || 'unknown-draft');
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(review);
   }
+  // A draft whose games were all played elsewhere still needs an event entry,
+  // and the current draft always gets one so its record can be adjusted
+  // before the first logged game.
+  for (const [draftId, manual] of Object.entries(manualRecords || {})) {
+    if (groups.has(draftId)) continue;
+    if ((Number(manual?.wins) || 0) + (Number(manual?.losses) || 0) > 0) groups.set(draftId, []);
+  }
+  if (currentDraftId && !groups.has(String(currentDraftId))) groups.set(String(currentDraftId), []);
 
   const result = [];
   for (const [draftId, games] of groups.entries()) {
     const ordered = [...games].sort((left, right) => String(left.completedAt || '').localeCompare(String(right.completedAt || '')));
     const isCurrent = Boolean(currentDraftId) && draftId === String(currentDraftId);
-    const formatText = ordered.find((game) => game.format)?.format || (isCurrent ? currentFormat : null);
+    const manualEntry = manualRecords?.[draftId] || null;
+    const formatText = ordered.find((game) => game.format)?.format || (isCurrent ? currentFormat : null) || manualEntry?.format || null;
     const format = formatText ? normalizeFormat(formatText) : null;
     const winsTarget = format ? trophyThreshold(format) : null;
     const lossCap = format ? EVENT_LOSS_CAPS[format] ?? null : null;
+    const manual = clampManualRecord(formatText, manualEntry || {});
 
     let wins;
     let losses;
@@ -1111,21 +1136,27 @@ function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = nul
       losses = ordered.filter((game) => game.won === false).length;
     }
 
+    wins += manual.wins;
+    losses += manual.losses;
+
     const trophy = winsTarget !== null && wins >= winsTarget;
     const eliminated = !trophy && lossCap !== null && losses >= lossCap;
     result.push({
       draftId,
-      name: [...ordered].reverse().find((game) => game.deck?.name)?.deck?.name || 'Limited deck',
+      name: [...ordered].reverse().find((game) => game.deck?.name)?.deck?.name || manualEntry?.deckName || 'Limited deck',
       format,
       formatLabel: formatText || null,
       wins,
       losses,
       record: `${wins}-${losses}`,
+      manualWins: manual.wins,
+      manualLosses: manual.losses,
+      manualRecord: manual.wins + manual.losses > 0 ? `${manual.wins}-${manual.losses}` : null,
       trophy,
       eliminated,
       status: trophy ? 'trophy' : (eliminated ? 'eliminated' : (isCurrent ? 'live' : 'ended')),
       isCurrent,
-      latestAt: ordered.length ? String(ordered[ordered.length - 1].completedAt || '') : '',
+      latestAt: ordered.length ? String(ordered[ordered.length - 1].completedAt || '') : String(manualEntry?.updatedAt || ''),
       games: ordered.map((game, index) => ({ ...game, draftGameNumber: index + 1, earlyConcession: isEarlyConcession(game) }))
     });
   }
@@ -1162,7 +1193,11 @@ function eventWrapUpVerdict(group) {
   const repeatedMvp = tally((game) => game.postGame?.contributions?.mvp);
   const repeatedLvp = tally((game) => game.postGame?.contributions?.lvp);
 
-  const evidence = `${games.length} GAMES · ${group.record} · ${group.trophy ? 'TROPHY' : 'EVENT COMPLETE'}`;
+  const manualCount = (group.manualWins || 0) + (group.manualLosses || 0);
+  const manualNote = manualCount
+    ? ` ${manualCount} game${manualCount === 1 ? ' was' : 's were'} recorded manually and carried no game evidence.`
+    : '';
+  const evidence = `${games.length + manualCount} GAMES · ${group.record} · ${group.trophy ? 'TROPHY' : 'EVENT COMPLETE'}`;
   if (group.trophy) {
     return {
       scope: 'event',
@@ -1170,11 +1205,11 @@ function eventWrapUpVerdict(group) {
       label: 'TROPHY',
       title: `Trophy: ${group.record} with ${group.name}.`,
       evidence,
-      summary: `You finished the event at ${group.record}.${repeatedMvp ? ` ${repeatedMvp.name} delivered attributable damage in ${repeatedMvp.count} of the wins.` : ''}${varianceLosses ? ` ${varianceLosses === 1 ? 'The loss' : 'Some losses'} came with a mana-variance excuse.` : ''}`,
+      summary: `You finished the event at ${group.record}.${repeatedMvp ? ` ${repeatedMvp.name} delivered attributable damage in ${repeatedMvp.count} of the wins.` : ''}${varianceLosses ? ` ${varianceLosses === 1 ? 'The loss' : 'Some losses'} came with a mana-variance excuse.` : ''}${manualNote}`,
       action: 'Bank it. This deck is finished — bring the run to a fresh draft.'
     };
   }
-  const summaryParts = [`You finished the event at ${group.record}${abandoned ? `, including ${abandoned} early concession${abandoned === 1 ? '' : 's'} that carried no deck evidence` : ''}.`];
+  const summaryParts = [`You finished the event at ${group.record}${abandoned ? `, including ${abandoned} early concession${abandoned === 1 ? '' : 's'} that carried no deck evidence` : ''}.${manualNote}`];
   if (varianceLosses) summaryParts.push(`${varianceLosses} of the ${losses.length} losses crossed a mana-variance threshold, which limits deck-level conclusions.`);
   if (repeatedLvp) summaryParts.push(`${repeatedLvp.name} drew concrete negative evidence in ${repeatedLvp.count} games — the clearest repeatable signal of the run.`);
   return {
@@ -1752,6 +1787,7 @@ module.exports = {
   analyzePostGameReview,
   buildDeviationAnalysis,
   castableByManaBase,
+  clampManualRecord,
   castingProblem,
   deckFingerprint,
   dominanceAnalysis,
