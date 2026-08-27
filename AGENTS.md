@@ -60,6 +60,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Present decks as an Arena-style, seven-column card board with stacked cards, visible quantities, and enlarged hover previews.
 - Match Arena's card ordering and color grouping.
 - Hybrid cards and matching dual lands use a two-color split treatment without a gold outline. Gold cards retain a gold outline and display both required colors.
+- A drafted basic-fetching land (sacrifice: search for a basic land) is a guaranteed one-copy inclusion whenever the build includes no on-color dual land, and it counts as a flexible source of every deck color.
 - Use a warm neutral light theme so white and black cards both remain visually distinct.
 - Recipe Mode is the reliable deck-building aid: it gives deterministic add/drop quantity instructions and preserves progress locally.
 - The positional OCR overlay remains experimental and disabled in normal startup because Arena grid reordering and scrolling made it unreliable.
@@ -101,7 +102,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 149 passing tests.
+- The test suite currently contains 150 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

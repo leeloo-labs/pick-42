@@ -282,14 +282,24 @@ function colorDemand(selected, archetype) {
   return { demand, earlyCards, doublePips, coloredCards };
 }
 
+function isBasicFetchLand(card) {
+  return isLand(card) && /search your library for a basic land/i.test(String(card.rulesText || ''));
+}
+
 function allocateLands(selected, draftedLands, archetype, landCount) {
-  const nonbasics = draftedLands.filter((card) => {
+  const duals = draftedLands.filter((card) => {
     const produced = landColors(card).filter((color) => archetype.colors.includes(color));
     return produced.length >= 2;
   }).slice(0, 2);
+  // With no on-color dual, one drafted basic-fetching land is the only fixing
+  // available and always starts. It counts as a flexible source of every deck
+  // color because it finds whichever basic the hand is missing.
+  const fetchers = duals.length ? [] : draftedLands.filter(isBasicFetchLand).slice(0, 1);
+  const nonbasics = [...duals, ...fetchers];
+  const effectiveColors = (land) => (isBasicFetchLand(land) ? archetype.colors : landColors(land));
   const basicSlots = landCount - nonbasics.length;
   const demand = colorDemand(selected, archetype);
-  const nonbasicSources = Object.fromEntries(archetype.colors.map((color) => [color, nonbasics.filter((land) => landColors(land).includes(color)).length]));
+  const nonbasicSources = Object.fromEntries(archetype.colors.map((color) => [color, nonbasics.filter((land) => effectiveColors(land).includes(color)).length]));
   const targets = {};
   for (const color of archetype.colors) {
     if (archetype.splashColors.includes(color)) {
@@ -316,7 +326,7 @@ function allocateLands(selected, draftedLands, archetype, landCount) {
 
   const lands = [
     ...archetype.colors.filter((color) => basics[color] > 0).map((color) => ({ name: COLOR_NAMES[color], quantity: basics[color], colors: [color], basic: true })),
-    ...groupedCards(nonbasics).map((land) => ({ ...land, colors: landColors(land), basic: false }))
+    ...groupedCards(nonbasics).map((land) => ({ ...land, colors: effectiveColors(land), basic: false }))
   ];
   const sources = Object.fromEntries(archetype.colors.map((color) => [color, basics[color] + nonbasicSources[color]]));
   const warnings = archetype.colors

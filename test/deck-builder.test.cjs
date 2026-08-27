@@ -58,6 +58,30 @@ test('builds complete Golgari, Jund, and Rakdos limited decks', () => {
   assert.ok(builds.find((build) => build.id === 'rakdos').excluded.some((entry) => entry.name === 'Mirkwood'));
 });
 
+test('a basic-fetching land always starts when the deck has no dual land', () => {
+  const pool = syntheticPool();
+  pool.push({
+    name: 'Hobbit Hole',
+    manaCost: '',
+    typeLine: 'Land',
+    rulesText: '{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nHalflingcycling {4}'
+  });
+  const builds = buildLimitedDecks({ pool, ...sourceRows(pool) });
+
+  const rakdos = builds.find((build) => build.id === 'rakdos');
+  const fetcher = rakdos.lands.find((land) => land.name === 'Hobbit Hole');
+  assert.ok(fetcher, 'Hobbit Hole missing from the dual-less Rakdos mana base');
+  assert.equal(fetcher.quantity, 1);
+  assert.deepEqual(fetcher.colors, rakdos.colors);
+  assert.equal(rakdos.lands.reduce((total, entry) => total + entry.quantity, 0), 17);
+  assert.equal(rakdos.mana.warnings.length, 0);
+
+  const golgari = builds.find((build) => build.id === 'golgari');
+  assert.ok(golgari.lands.some((land) => land.name === 'Mirkwood'));
+  assert.ok(!golgari.lands.some((land) => land.name === 'Hobbit Hole'));
+  assert.ok(golgari.excluded.some((entry) => entry.name === 'Hobbit Hole'));
+});
+
 test('every suggested spell is castable within its archetype colors', () => {
   const pool = syntheticPool();
   const builds = buildLimitedDecks({ pool, ...sourceRows(pool) });
