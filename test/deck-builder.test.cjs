@@ -80,6 +80,16 @@ test('a basic-fetching land always starts when the deck has no dual land', () =>
   assert.ok(golgari.lands.some((land) => land.name === 'Mirkwood'));
   assert.ok(!golgari.lands.some((land) => land.name === 'Hobbit Hole'));
   assert.ok(golgari.excluded.some((entry) => entry.name === 'Hobbit Hole'));
+
+  // A splash build starts the fetcher even alongside its dual: it also finds
+  // the splash basic.
+  const jund = builds.find((build) => build.id === 'jund');
+  assert.ok(jund.splashColors.length > 0);
+  assert.ok(jund.lands.some((land) => land.name === 'Mirkwood'));
+  const splashFetcher = jund.lands.find((land) => land.name === 'Hobbit Hole');
+  assert.ok(splashFetcher, 'Hobbit Hole missing from the splash mana base');
+  assert.deepEqual(splashFetcher.colors, jund.colors);
+  assert.equal(jund.lands.reduce((total, entry) => total + entry.quantity, 0), 17);
 });
 
 test('every suggested spell is castable within its archetype colors', () => {

@@ -292,9 +292,12 @@ function allocateLands(selected, draftedLands, archetype, landCount) {
     return produced.length >= 2;
   }).slice(0, 2);
   // With no on-color dual, one drafted basic-fetching land is the only fixing
-  // available and always starts. It counts as a flexible source of every deck
-  // color because it finds whichever basic the hand is missing.
-  const fetchers = duals.length ? [] : draftedLands.filter(isBasicFetchLand).slice(0, 1);
+  // available and always starts. A splash build starts one even alongside a
+  // dual, since the fetcher also finds the splash basic. It counts as a
+  // flexible source of every deck color because it finds whichever basic the
+  // hand is missing.
+  const wantsFetcher = !duals.length || archetype.splashColors.length > 0;
+  const fetchers = wantsFetcher ? draftedLands.filter(isBasicFetchLand).slice(0, 1) : [];
   const nonbasics = [...duals, ...fetchers];
   const effectiveColors = (land) => (isBasicFetchLand(land) ? archetype.colors : landColors(land));
   const basicSlots = landCount - nonbasics.length;
