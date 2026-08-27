@@ -309,6 +309,19 @@ function varianceAnalysis(review) {
   };
 }
 
+// Chance of seeing at least one of `copies` in `seen` draws from a `deckSize`
+// deck (hypergeometric, as the running product of consecutive misses).
+function topSeenProbability(copies, deckSize, seen) {
+  if (!copies || !deckSize || seen <= 0) return 0;
+  let missedAll = 1;
+  for (let draw = 0; draw < Math.min(seen, deckSize); draw += 1) {
+    const nonCopies = deckSize - copies - draw;
+    if (nonCopies <= 0) return 1;
+    missedAll *= nonCopies / (deckSize - draw);
+  }
+  return 1 - missedAll;
+}
+
 function drawQualityAnalysis(review, seventeenLands = []) {
   const rows = new Map(seventeenLands.map((row) => [normalizeCardName(row.name), row]));
   const deckCards = (review.deck?.cards || []).filter((card) => !isLand(card));
@@ -316,7 +329,7 @@ function drawQualityAnalysis(review, seventeenLands = []) {
     const row = rows.get(normalizeCardName(card.name));
     const rawIih = row?.improvementInHand ?? row?.improvementWhenDrawn;
     const iih = rawIih === null || rawIih === undefined || rawIih === '' ? NaN : Number(rawIih);
-    return Number.isFinite(iih) ? { name: card.name, iih, gamesInHand: Number(row.gamesInHand || 0) } : null;
+    return Number.isFinite(iih) ? { name: card.name, iih, gamesInHand: Number(row.gamesInHand || 0), copies: Number(card.quantity) || 1 } : null;
   }).filter(Boolean).sort((left, right) => right.iih - left.iih || left.name.localeCompare(right.name));
   const drawn = new Map((review.drawnCards || review.cardsSeen || []).filter((card) => !isLand(card)).map((card) => [normalizeCardName(card.name), card]));
   const reliable = ratedDeck.filter((card) => card.gamesInHand >= 1000);
@@ -336,22 +349,39 @@ function drawQualityAnalysis(review, seventeenLands = []) {
     .filter((card) => drawn.has(normalizeCardName(card.name)) && card.iih <= -2 && card.gamesInHand >= 1000 && !topNames.has(normalizeCardName(card.name)))
     .sort((left, right) => left.iih - right.iih || right.gamesInHand - left.gamesInHand)
     .map((card) => displayCard(card, 'NOTABLE LIABILITY'));
+  // A tripled card is expected in hand far more often than a singleton, so
+  // "strong" and "exceptional" must beat a copy-aware baseline: the summed
+  // hypergeometric chance of seeing each top card in the cards actually seen.
+  const deckSize = Number(review.deck?.total)
+    || [...(review.deck?.cards || []), ...(review.deck?.lands || [])].reduce((total, card) => total + (Number(card.quantity) || 1), 0);
+  const seenCount = review.captureVersion >= 2
+    ? (review.drawnCards || review.cardsSeen || []).reduce((total, card) => total + (Number(card.quantity) || 1), 0)
+    : 0;
+  const expected = seenCount && deckSize
+    ? Number(top.reduce((total, card) => total + topSeenProbability(card.copies, deckSize, seenCount), 0).toFixed(2))
+    : null;
+  const beatsBaseline = (margin) => expected === null || topDrawn.length - expected >= margin;
   let tier = 'unrated';
   if (top.length >= 4 && topDrawn.length === top.length) tier = 'near-ceiling';
-  else if (top.length >= 4 && topDrawn.length >= 3) tier = 'exceptional';
-  else if (topDrawn.length >= 2) tier = 'strong';
-  else if (topDrawn.length === 1) tier = 'average';
+  else if (top.length >= 4 && topDrawn.length >= 3 && beatsBaseline(1.5)) tier = 'exceptional';
+  else if (topDrawn.length >= 2 && beatsBaseline(0.75)) tier = 'strong';
+  else if (topDrawn.length >= 1) tier = 'average';
   else if (top.length && liabilities.length) tier = 'rough';
   else if (top.length) tier = 'average';
+  const baseline = expected === null
+    ? ''
+    : ` Copy counts put the expected baseline near ${expected.toFixed(1)} of ${top.length} for the ${seenCount} cards you saw.`;
   return {
     available: ratedDeck.length > 0,
     tier,
     topCount: top.length,
     topDrawnCount: topDrawn.length,
+    expectedTopDrawn: expected,
+    seenCount: seenCount || null,
     summary: ratedDeck.length
-      ? `You saw ${topDrawn.length} of the ${top.length} highest-IIH cards in this deck${topDrawn.length ? `: ${topDrawn.map((card) => card.name).join(', ')}` : ''}.`
+      ? `You saw ${topDrawn.length} of the ${top.length} highest-IIH cards in this deck${topDrawn.length ? `: ${topDrawn.map((card) => card.name).join(', ')}` : ''}.${baseline}`
       : 'No matching 17Lands IIH rows were available for the registered deck.',
-    note: 'The full top four is marked drawn or not drawn; beyond that, only reliable draws at or below −2.0pp IIH are shown. IIH is historical correlation, not causal credit.',
+    note: 'The full top four is marked drawn or not drawn; beyond that, only reliable draws at or below −2.0pp IIH are shown. The baseline weighs each card’s copy count against the cards seen. IIH is historical correlation, not causal credit.',
     cards: [...topCards, ...liabilities]
   };
 }
@@ -717,7 +747,7 @@ function verdictAnalysis(review, { variance, drawQuality, contributions }) {
   const opponentVariance = variance?.opponent || { level: 'LOW', kind: 'stable' };
   const tier = drawQuality?.tier || 'unrated';
   const topEvidence = drawQuality?.topCount
-    ? `${drawQuality.topDrawnCount} of ${drawQuality.topCount} top-IIH cards`
+    ? `${drawQuality.topDrawnCount} of ${drawQuality.topCount} top-IIH cards${Number.isFinite(drawQuality.expectedTopDrawn) ? `, about ${drawQuality.expectedTopDrawn.toFixed(1)} expected` : ''}`
     : 'insufficient IIH coverage';
   const drawPhrase = ({
     'near-ceiling': `a near-ceiling draw (${topEvidence})`,

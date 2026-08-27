@@ -77,6 +77,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - A win or loss by itself is never evidence for a deck change, and IIH is historical correlation rather than causal credit for the result.
 - Review contexts snapshot the recommended build (`deck.modeledBuild`) when armed, and reports show a factual build-vs-model diff (added, cut, basic-land shifts) for the registered Arena deck. The deviation is context only: the verdict may suggest a reversible swap back toward the model when concrete negative evidence lands on a card the player added, and may offer the swap as a clearly optional test after a loss, but a deviation plus a result is never itself treated as evidence.
 - In the post-game IIH card list, show the complete top-four group with explicit drawn/not-drawn status, plus reliable drawn liabilities at or below −2.0 percentage points; hide everything else near neutral.
+- Draw-quality tiers are copy-aware: the summed hypergeometric chance of seeing each top-four card (its copy count, the deck size, the cards actually seen) sets an expected baseline that the summary quotes. `strong` requires beating the baseline by 0.75 drawn cards and `exceptional` by 1.5, so seeing one of three copies is never counted as fortune. Captures without drawn quantities keep the absolute tiers.
 - Exclude cards with unverified conditional cost reductions from printed-mana curve evidence, and count stranded evidence by distinct turn rather than by copies in hand.
 - Persist completed reviews locally in the legacy Pick 42/Arcane user-data directory; never upload raw game data.
 
@@ -102,7 +103,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 150 passing tests.
+- The test suite currently contains 153 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

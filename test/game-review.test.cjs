@@ -400,6 +400,71 @@ test('summarizes opponent mana variance, IIH draw quality, and observable card c
   assert.equal(analyzed.postGame.contributions.lvp[0].name, 'Draw Liability');
 });
 
+function drawLuckReview({ copies, drawnFiller, captureVersion = 2 }) {
+  const filler = Array.from({ length: 20 }, (_, index) => ({ name: `Filler ${index + 1}`, typeLine: 'Creature', quantity: 1 }));
+  return {
+    captureVersion,
+    deck: {
+      total: 40,
+      lands: [
+        { name: 'Mountain', typeLine: 'Basic Land — Mountain', quantity: 9 },
+        { name: 'Swamp', typeLine: 'Basic Land — Swamp', quantity: 8 }
+      ],
+      cards: [
+        { name: 'Burn, Burn.', typeLine: 'Instant', quantity: copies },
+        { name: 'Top Two', typeLine: 'Creature', quantity: 1 },
+        { name: 'Top Three', typeLine: 'Creature', quantity: 1 },
+        { name: 'Top Four', typeLine: 'Creature', quantity: 1 },
+        ...filler
+      ]
+    },
+    drawnCards: [
+      { name: 'Burn, Burn.', typeLine: 'Instant', quantity: 1 },
+      { name: 'Top Two', typeLine: 'Creature', quantity: 1 },
+      { name: 'Mountain', typeLine: 'Basic Land — Mountain', quantity: 4 },
+      { name: 'Swamp', typeLine: 'Basic Land — Swamp', quantity: 2 },
+      ...filler.slice(0, drawnFiller).map((card) => ({ ...card, quantity: 1 }))
+    ],
+    cardsPlayed: [],
+    stranded: [],
+    playerMana: { you: { timeline: [] }, opponent: { timeline: [] } }
+  };
+}
+
+const drawLuckRows = [
+  { name: 'Burn, Burn.', improvementInHand: 5, gamesInHand: 10000 },
+  { name: 'Top Two', improvementInHand: 4, gamesInHand: 10000 },
+  { name: 'Top Three', improvementInHand: 3, gamesInHand: 10000 },
+  { name: 'Top Four', improvementInHand: 2, gamesInHand: 10000 }
+];
+
+test('drawing one of three copies is the expected baseline, not a strong draw', () => {
+  const analyzed = analyzePostGameReview(drawLuckReview({ copies: 3, drawnFiller: 8 }), { seventeenLands: drawLuckRows });
+  const drawQuality = analyzed.postGame.drawQuality;
+
+  assert.equal(drawQuality.topDrawnCount, 2);
+  assert.equal(drawQuality.expectedTopDrawn, 2);
+  assert.equal(drawQuality.tier, 'average');
+  assert.match(drawQuality.summary, /near 2\.0 of 4 for the 16 cards you saw/);
+});
+
+test('the same two top draws stay strong when every top card is a singleton seen early', () => {
+  const analyzed = analyzePostGameReview(drawLuckReview({ copies: 1, drawnFiller: 0 }), { seventeenLands: drawLuckRows });
+  const drawQuality = analyzed.postGame.drawQuality;
+
+  assert.equal(drawQuality.topDrawnCount, 2);
+  assert.equal(drawQuality.tier, 'strong');
+  assert.ok(drawQuality.expectedTopDrawn < 1.25);
+});
+
+test('captures without drawn quantities keep the absolute draw tiers', () => {
+  const analyzed = analyzePostGameReview(drawLuckReview({ copies: 3, drawnFiller: 8, captureVersion: 1 }), { seventeenLands: drawLuckRows });
+  const drawQuality = analyzed.postGame.drawQuality;
+
+  assert.equal(drawQuality.expectedTopDrawn, null);
+  assert.equal(drawQuality.tier, 'strong');
+});
+
 test('IIH review hides near-neutral draws and keeps reliable material liabilities', () => {
   const review = {
     captureVersion: 2,
