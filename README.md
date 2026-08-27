@@ -16,7 +16,7 @@ Pick 42 is proprietary software owned by Leeloo Labs LLC. Official builds are fr
 
 The latest macOS build (Apple Silicon) is on the [releases page](https://github.com/leeloo-labs/pick-42/releases). Unzip it and drag **Pick 42** into Applications. The build is not yet notarized, so macOS refuses it on first launch: approve it once under System Settings → Privacy & Security → Open Anyway.
 
-`scripts/package-mac.sh` builds the distributable from a checkout.
+`npm run release:mac` cuts a new release from a clean checkout: it bumps the version, runs the suite, rebuilds the distributable (`scripts/package-mac.sh`), and publishes it so the latest-release download stays current.
 
 ## Run Pick 42 from source
 
