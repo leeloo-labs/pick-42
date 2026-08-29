@@ -194,11 +194,19 @@ function sourceLaneQuality(card, landsByName, untappedByName) {
   return clamp(0.78 + (rate - 55) * 0.045, 0.4, 1.28);
 }
 
+const LANE_THEMES = Object.freeze([
+  { name: 'Boros', label: 'Boros Dwarves', test: (card) => creatureSubtypes(card).includes('Dwarf') },
+  { name: 'Rakdos', label: 'Rakdos Amass', test: (card) => /\bamass/i.test(String(card.rulesText || '')) },
+  { name: 'Golgari', label: 'Golgari Ferocious', test: (card) => /\bferocious\b/i.test(String(card.rulesText || '')) },
+  { name: 'Azorius', label: 'Azorius Recruit', test: (card) => /\brecruit/i.test(String(card.rulesText || '')) },
+  { name: 'Simic', label: 'Simic Elves', test: (card) => creatureSubtypes(card).includes('Elf') }
+]);
+
+// A lane earns its themed name only when the drafted pool actually shows the
+// theme: at least two cards carrying the tribe or mechanic.
 function laneThemeLabel(name, colors, pool) {
-  if (name === 'Boros') {
-    const dwarves = pool.filter((card) => creatureSubtypes(card).includes('Dwarf')).length;
-    if (dwarves >= 2) return 'Boros Dwarves';
-  }
+  const theme = LANE_THEMES.find((entry) => entry.name === name);
+  if (theme && pool.filter(theme.test).length >= 2) return theme.label;
   return name || pairKey(colors);
 }
 
@@ -1224,6 +1232,7 @@ module.exports = {
   evaluateDraftLaneFit,
   explicitSubtypeRequirements,
   ferociousEnablerWeight,
+  laneThemeLabel,
   inferColorContext,
   inferDraftLane,
   impactSampleConfidence,

@@ -15,6 +15,7 @@ const {
   ferociousEnablerWeight,
   inferColorContext,
   inferDraftLane,
+  laneThemeLabel,
   manaProfile,
   recommendPickTwoPair,
   scoreDraftPack
@@ -430,6 +431,25 @@ function borosDraftPool() {
     { name: 'Lakeshore Apothecary', manaCost: '{1}{U}', typeLine: 'Creature — Elf Druid' }
   ];
 }
+
+test('every guild lane earns its themed name when the pool shows the theme', () => {
+  const amass = { rulesText: 'You draw a card and lose 1 life.\nAmass Goblins 2.' };
+  const amasses = { rulesText: 'When Azog enters, destroy up to one other target creature. Its controller amasses Goblins X.' };
+  const ferocious = { rulesText: 'Ferocious — Whenever this creature attacks while you control a creature with power 4 or greater, it gets +1/+0.' };
+  const recruit = { rulesText: 'When this creature dies, recruit.' };
+  const elf = { typeLine: 'Creature — Elf Druid' };
+  const dwarf = { typeLine: 'Creature — Dwarf Warrior' };
+
+  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass, amasses]), 'Rakdos Amass');
+  assert.equal(laneThemeLabel('Golgari', ['B', 'G'], [ferocious, ferocious]), 'Golgari Ferocious');
+  assert.equal(laneThemeLabel('Azorius', ['W', 'U'], [recruit, recruit]), 'Azorius Recruit');
+  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [elf, elf]), 'Simic Elves');
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf]), 'Boros Dwarves');
+
+  // One themed card is coincidence, not an archetype; other guilds stay plain.
+  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass]), 'Rakdos');
+  assert.equal(laneThemeLabel('Dimir', ['U', 'B'], [amass, amasses]), 'Dimir');
+});
 
 test('infers a committed Boros Dwarves lane instead of accepting every drafted color', () => {
   const lane = inferDraftLane({

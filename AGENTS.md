@@ -35,6 +35,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Basic lands are never ranked as flexible colorless cards.
 - Shrink IIH toward zero using sample confidence before it changes a card score.
 - Flag reliable extreme draw impact as `HIGH IMPACT`, `POSITIVE IIH`, `DRAW LIABILITY`, or `NEGATIVE IIH`; use `LOW-SAMPLE IIH` when the sample is too weak.
+- Lane and matching build names use the set's themed archetype names — Boros Dwarves, Rakdos Amass, Golgari Ferocious, Azorius Recruit, Simic Elves — only when the pool contains at least two cards showing the tribe or mechanic; otherwise the plain guild name stands (`LANE_THEMES` in the blend engine; a new set means new entries there).
 - Infer and surface a two-color `LEANING` or `COMMITTED` lane, but make the lane policy the only manual drafting control: lock with no splash, lock while open to a light splash, or stay open. A manual lock is authoritative except for a narrow, data-backed bomb exception.
 - Treat premium removal, curve needs, real synergy enablers, duplicate pressure, and splash burden explicitly.
 - Apply legend-rule duplicate pressure separately: a second copy may remain playable, while a third ordinary legendary should receive a major, visible deck-construction penalty.
@@ -104,7 +105,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 157 passing tests.
+- The test suite currently contains 158 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
