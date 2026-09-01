@@ -27,6 +27,9 @@ The companion must remain transparent and advisory:
 - **Scryfall:** public set data for card images, Oracle text, and presentation enrichment. Arena group IDs remain the live identity source.
 - **Archetype corpus:** authorized local CSV/JSON deck records, including set, format, result, archetype, and main-deck quantities. The corpus may come from a manual export, licensed feed, or offline processing of a licensed public dataset.
 - Do not scrape 17Lands or Untapped or depend on undocumented/private APIs.
+- The active set is selectable and persisted: the SET PREP card in the draft view's empty state picks it, a live draft's log set code switches it automatically, and Scryfall images (per-set caches), external data links, and readiness checks all follow it. The demo sample universe stays pinned to the boot set, which ships fixtures. Set identity still lives in `set-definitions.cjs` — a new set is one entry there.
+- SET PREP measures readiness per set and draft type, never assumes (`src/draft/set-readiness.cjs`): a ratings slot counts only when most of its rows name the set's cards, the trophy corpus counts same-set decks, and card images count once Scryfall loads.
+- When the exact draft type has no usable trophy corpus (17Lands rarely publishes every format), same-set decks from other formats stand in with a visible cross-format label and dampened influence. A set mismatch never falls back.
 
 The blend engine exposes a confidence-aware raw score and one contextual recommendation model. Important invariants:
 
@@ -42,7 +45,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Hybrid mana can be paid by either color. Gold mana requires every listed color.
 - Nonbasic lands are evaluated by the colors they actually produce; an off-plan dual land is not treated as universally colorless fixing. Hybrid cards may satisfy a supported lane through either payable half.
 - Hard subtype requirements must be supported by the drafted pool; for example, Dwarven Mattock should be penalized without Dwarfs.
-- Archetype-corpus signals must match the live set and event format, require at least four trophy decks and two distinguishing pool cards, shrink for sample size and age, and remain bounded. A reliable corpus match may support lane inference and the unified contextual ranking.
+- Archetype-corpus signals must match the live set and prefer the exact event format, falling back to same-set cross-format trophies only with the visible label and dampened influence. They require at least four trophy decks and two distinguishing pool cards, shrink for sample size and age, and remain bounded. A reliable corpus match may support lane inference and the unified contextual ranking.
 - Lane overrides are local and draft-scoped: lock the inferred lane with no splash, lock it while remaining open to a light premium splash, or stay open. A stale choice must not carry into a different draft.
 - Synergy checks are bidirectional. A candidate can require support already in the pool, or satisfy a requirement on a drafted payoff; Equipment and creature subtypes both count when explicitly referenced.
 - Created permanents count as synergy material. For example, an Equipment token can enable existing Equip/attach payoffs, and a card that creates Equipment while carrying double strike receives a visible self-contained package bonus.
@@ -105,7 +108,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 158 passing tests.
+- The test suite currently contains 163 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

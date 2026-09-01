@@ -79,21 +79,21 @@ function buildCatalogFromScryfall(payload) {
   return entries;
 }
 
-const scryfallCacheKey = storageKey('scryfall', ACTIVE_SET.code);
+const scryfallCacheKey = (setCode = ACTIVE_SET.code) => storageKey('scryfall', setCode);
 
 const scryfallAdapter = {
-  readCache: () => {
-    const cached = readStoredJson(scryfallCacheKey);
+  readCache: (set = ACTIVE_SET) => {
+    const cached = readStoredJson(scryfallCacheKey(set.code));
     return cached?.cards?.length ? cached : null;
   },
-  load: async () => {
-    const cached = scryfallAdapter.readCache();
+  load: async (set = ACTIVE_SET) => {
+    const cached = scryfallAdapter.readCache(set);
     let payload;
     if (cached && Date.now() - (cached.fetchedAt || 0) < SCRYFALL_CACHE_TTL_MS) {
       payload = { ...cached, source: 'cache' };
     } else {
-      payload = { ...(await fetchScryfallSet({ setCode: ACTIVE_SET.scryfallSetCode })), source: 'network' };
-      writeStoredJson(scryfallCacheKey, payload);
+      payload = { ...(await fetchScryfallSet({ setCode: set.scryfallSetCode })), source: 'network' };
+      writeStoredJson(scryfallCacheKey(set.code), payload);
     }
     // Scryfall's arena ids double as the live-draft card catalog: the web has
     // no Arena installation to read, so the set payload fills that role.
@@ -290,9 +290,9 @@ async function importCorpusFromFile(file) {
 }
 
 const EXTERNAL_LINKS = {
-  seventeenLandsCardData: 'https://www.17lands.com/card_data',
-  seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
-  untappedCardData: untappedCardDataUrl(ACTIVE_SET.code)
+  seventeenLandsCardData: () => `https://www.17lands.com/card_data?expansion=${companion.activeSetInfo().displayCode}`,
+  seventeenLandsTrophies: () => 'https://www.17lands.com/trophy_decks',
+  untappedCardData: () => untappedCardDataUrl(companion.activeSetInfo().code)
 };
 
 // A one-time read of a dropped log for engines that cannot hand out a live
@@ -478,6 +478,8 @@ window.draftCompanion = {
   },
   setLanePreference: async (mode) => companion.setLanePreference(mode),
   setManualRecord: async (record) => companion.setManualRecord(record),
+  setActiveSet: async (setCode) => companion.setActiveSet(setCode),
+  setPrepFormat: async (format) => companion.setPrepFormat(format),
   setPoolCardExcluded: async (cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded),
   startDemo: async (mode) => {
     companion.startDemo(mode);
@@ -500,7 +502,7 @@ window.draftCompanion = {
   scanVisualGuide: async () => companion.viewModel(),
   openScreenSettings: async () => {},
   openLink: async (key) => {
-    const url = EXTERNAL_LINKS[String(key || '')];
+    const url = EXTERNAL_LINKS[String(key || '')]?.();
     if (url) window.open(url, '_blank', 'noopener');
     return Boolean(url);
   },

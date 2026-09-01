@@ -16,6 +16,14 @@ const SET_DEFINITIONS = Object.freeze({
       seventeenLands: 'sample-17lands-hob.csv',
       untapped: 'sample-untapped-hob.csv'
     })
+  }),
+  sos: Object.freeze({
+    code: 'sos',
+    displayCode: 'SOS',
+    name: 'Secrets of Strixhaven',
+    scryfallSetCode: 'sos',
+    untappedSlug: 'secrets-of-strixhaven',
+    sampleFixtures: null
   })
 });
 
@@ -47,9 +55,14 @@ function untappedCardDataUrl(setCode = DEFAULT_SET_CODE) {
     : null;
 }
 
+function knownSetDefinitions() {
+  return Object.values(SET_DEFINITIONS);
+}
+
 module.exports = {
   DEFAULT_SET_CODE,
   SET_DEFINITIONS,
+  knownSetDefinitions,
   scryfallCacheFileName,
   setDefinition,
   untappedCardDataUrl

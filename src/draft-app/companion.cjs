@@ -23,6 +23,9 @@ const {
   reviewEventGroups
 } = require('../draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard } = require('../draft/scryfall.cjs');
+const { computeSetReadiness } = require('../draft/set-readiness.cjs');
+const { knownSetDefinitions, setDefinition } = require('../draft/set-definitions.cjs');
+const { SOURCE_FORMATS } = require('./source-imports.cjs');
 const { ArenaLogParser } = require('../core/arena-log-parser.cjs');
 const { ArenaSceneTracker } = require('../core/arena-scene-tracker.cjs');
 const { SAMPLE_COURSE_ID, createDemoDriver } = require('./demo-driver.cjs');
@@ -58,6 +61,12 @@ function createDraftCompanion({
 
   let draftState = parser.snapshot();
   let reviewState = reviewTracker.snapshot();
+  // The set whose Scryfall images, external links, and readiness checks are
+  // active. It follows live drafts and the SET PREP picker; the demo sample
+  // universe stays pinned to the boot set, which ships fixtures.
+  let currentSet = activeSet;
+  let prepFormat = 'any';
+  let scryfallLoadToken = 0;
   // Wins and losses entered by hand for games played away from this machine
   // (Arena on a phone writes no log here). Keyed by draftId, persisted with
   // the reviews, counted in event records, never used as game evidence.
@@ -72,8 +81,8 @@ function createDraftCompanion({
   let scryfallIndex = {};
   let scryfallState = {
     kind: 'loading',
-    setCode: activeSet.code,
-    setName: activeSet.name,
+    setCode: currentSet.code,
+    setName: currentSet.name,
     count: 0,
     fetchedAt: null,
     source: null,
@@ -85,6 +94,26 @@ function createDraftCompanion({
   function setStatus(next) {
     status = next;
     notify();
+  }
+
+  function applySetChange(setCode, { persist = true } = {}) {
+    const next = setDefinition(setCode);
+    if (!next.code || next.code === currentSet.code) return false;
+    currentSet = next;
+    if (persist) settings.write({ activeSetCode: next.code });
+    scryfallIndex = {};
+    scryfallState = {
+      kind: 'loading',
+      setCode: next.code,
+      setName: next.name,
+      count: 0,
+      fetchedAt: null,
+      source: null,
+      message: `Loading ${next.name} card images`
+    };
+    void initializeScryfall();
+    onContextChanged();
+    return true;
   }
 
   function poolSummary(pool) {
@@ -310,8 +339,8 @@ function createDraftCompanion({
     scryfallIndex = buildScryfallIndex(payload.cards);
     scryfallState = {
       kind: 'ready',
-      setCode: payload.setCode || activeSet.code,
-      setName: payload.setName || activeSet.name,
+      setCode: payload.setCode || currentSet.code,
+      setName: payload.setName || currentSet.name,
       count: payload.cards.length,
       fetchedAt: payload.fetchedAt || null,
       source,
@@ -321,7 +350,10 @@ function createDraftCompanion({
 
   async function initializeScryfall() {
     if (!scryfall) return;
-    const cached = await scryfall.readCache();
+    const token = ++scryfallLoadToken;
+    const forSet = currentSet;
+    const cached = await scryfall.readCache(forSet);
+    if (token !== scryfallLoadToken) return;
     if (cached?.cards?.length) {
       applyScryfallPayload(cached, 'cache');
       notify();
@@ -329,12 +361,14 @@ function createDraftCompanion({
 
     try {
       if (!cached) {
-        scryfallState = { ...scryfallState, kind: 'loading', message: `Downloading ${activeSet.name} card images from Scryfall` };
+        scryfallState = { ...scryfallState, kind: 'loading', message: `Downloading ${forSet.name} card images from Scryfall` };
         notify();
       }
-      const payload = await scryfall.load();
+      const payload = await scryfall.load(forSet);
+      if (token !== scryfallLoadToken) return;
       applyScryfallPayload(payload, payload.source);
     } catch (error) {
+      if (token !== scryfallLoadToken) return;
       scryfallState = {
         ...scryfallState,
         kind: cached ? 'ready' : 'offline',
@@ -448,7 +482,7 @@ function createDraftCompanion({
         source: corpusStore.sourceInfo(),
         match: corpusMatch,
         defaults: {
-          setCode: draftState.setCode || activeSet.displayCode,
+          setCode: draftState.setCode || currentSet.displayCode,
           format: draftState.format || 'Player Draft',
           eventDate: new Date().toISOString().slice(0, 10)
         },
@@ -485,7 +519,33 @@ function createDraftCompanion({
         cards: scryfallCardsForView(recommendations, deckBuilds)
       },
       catalog: catalogInfo,
+      setPrep: buildSetPrep(),
       demo: demoDriver.state()
+    };
+  }
+
+  function buildSetPrep() {
+    const scryfallReady = scryfallState.kind === 'ready'
+      && String(scryfallState.setCode || '').toLowerCase() === currentSet.code;
+    return {
+      ...computeSetReadiness({
+        set: currentSet,
+        format: prepFormat,
+        cardNames: scryfallReady ? new Set(Object.keys(scryfallIndex)) : new Set(),
+        sources: {
+          seventeenLands: sourceStore.slotEntries('seventeenLands'),
+          untapped: sourceStore.slotEntries('untapped')
+        },
+        corpusDecks: corpusStore.corpus()?.decks || [],
+        images: { ready: scryfallReady, detail: scryfallState.message }
+      }),
+      availableSets: knownSetDefinitions().map((entry) => ({
+        code: entry.code,
+        displayCode: entry.displayCode,
+        name: entry.name,
+        active: entry.code === currentSet.code
+      })),
+      formats: SOURCE_FORMATS
     };
   }
 
@@ -533,6 +593,10 @@ function createDraftCompanion({
       selectedBuildId = null;
       settings.write({ selectedBuildId: null });
     }
+    // A live draft names its own set; follow it so images, links, and
+    // readiness all point at what is actually being drafted.
+    const liveSetCode = String(nextState.setCode || '').trim().toLowerCase();
+    if (liveSetCode && status.kind !== 'demo' && liveSetCode !== currentSet.code) applySetChange(liveSetCode);
     onContextChanged();
     notify();
   });
@@ -620,6 +684,14 @@ function createDraftCompanion({
       ? saved.poolExclusions
       : null;
     selectedBuildId = String(saved.selectedBuildId || '').trim() || null;
+    if (saved.activeSetCode) {
+      const restored = setDefinition(saved.activeSetCode);
+      if (restored.code !== currentSet.code) {
+        currentSet = restored;
+        scryfallState = { ...scryfallState, setCode: restored.code, setName: restored.name };
+      }
+    }
+    prepFormat = SOURCE_FORMATS.includes(saved.prepFormat) ? saved.prepFormat : 'any';
     return saved;
   }
 
@@ -675,6 +747,19 @@ function createDraftCompanion({
       notify();
       return viewModel();
     },
+    setActiveSet(setCode) {
+      applySetChange(setCode);
+      notify();
+      return viewModel();
+    },
+    setPrepFormat(format) {
+      const key = String(format || 'any');
+      prepFormat = SOURCE_FORMATS.includes(key) ? key : 'any';
+      settings.write({ prepFormat });
+      notify();
+      return viewModel();
+    },
+    activeSetInfo: () => currentSet,
     setManualRecord(record = {}) {
       const draftId = String(record.draftId || draftState.draftId || '');
       if (!draftId || draftId === SAMPLE_COURSE_ID) return viewModel();

@@ -420,6 +420,24 @@ function recencyWeights(decks) {
 }
 
 function buildArchetypeContext({ pool = [], corpus, setCode = null, format = null }) {
+  const exact = buildArchetypeContextExact({ pool, corpus, setCode, format });
+  const targetFormat = normalizeFormat(format);
+  if (exact.available || targetFormat === 'any') return exact;
+  // 17Lands rarely publishes datasets for every draft type, so a quick draft
+  // may only have premier trophies to learn from. Same-set decks from other
+  // formats stand in — visibly, and with dampened influence.
+  const fallback = buildArchetypeContextExact({ pool, corpus, setCode, format: 'any' });
+  if (!fallback.available) return exact;
+  return {
+    ...fallback,
+    status: 'cross-format',
+    crossFormat: true,
+    corpusFormats: [...new Set(fallback.allDecks.map((deck) => deck.format).filter(Boolean))].sort(),
+    influence: 0.85
+  };
+}
+
+function buildArchetypeContextExact({ pool = [], corpus, setCode = null, format = null }) {
   const empty = (status, detail) => ({ available: false, status, score: 0, detail, confidence: 0 });
   if (!corpus?.decks?.length) return empty('missing', 'No archetype corpus imported');
   const summary = summarizeArchetypeCorpus(corpus, { setCode, format });
@@ -501,12 +519,13 @@ function evaluateArchetypeSignal({ card, pool = [], corpus, setCode = null, form
   const sampleConfidence = clamp((best.decks.length - MIN_ARCHETYPE_DECKS + 2) / 8, 0.35, 1);
   const laneConfidence = clamp((best.laneStrength - 0.35) / 1.65, 0, 1);
   const confidence = sampleConfidence * (0.55 + laneConfidence * 0.45);
+  const influence = Number(active.influence) || 1;
   const rawScore = (groupPresence.rate - 0.4) * 7 + conditionalDelta * 9 + trophyLift * 3;
-  const score = clamp(rawScore * confidence, -8, 8);
+  const score = clamp(rawScore * confidence * influence, -8, 8);
   const inclusionCount = best.decks.filter((deck) => deck.cardKeys.has(key)).length;
   const direction = score >= 0 ? 'supports' : 'questions';
   const matchNames = best.matches.sort((a, b) => b.contribution - a.contribution).slice(0, 3).map((entry) => entry.name);
-  const detail = `${best.name} trophy pattern ${direction} this pick · ${inclusionCount}/${best.decks.length} decks · linked to ${matchNames.join(', ')}`;
+  const detail = `${best.name} trophy pattern ${direction} this pick · ${inclusionCount}/${best.decks.length} decks · linked to ${matchNames.join(', ')}${active.crossFormat ? ' · cross-format trophies' : ''}`;
 
   return {
     available: true,

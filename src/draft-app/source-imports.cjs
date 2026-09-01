@@ -48,6 +48,11 @@ function createSourceImportStore() {
     return null;
   };
 
+  // Every real import with its parsed rows, for set-readiness measurement.
+  const slotEntries = (source) => SOURCE_FORMATS
+    .filter((format) => imports[source]?.[format])
+    .map((format) => ({ format, ...imports[source][format] }));
+
   const inventory = (source) => {
     const result = {};
     for (const format of SOURCE_FORMATS) {
@@ -100,6 +105,7 @@ function createSourceImportStore() {
     resolve,
     has: (source, format) => Boolean(imports[source][format]),
     inventory,
+    slotEntries,
     viewState,
     settingsPayload,
     activeData

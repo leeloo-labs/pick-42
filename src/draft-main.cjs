@@ -34,7 +34,7 @@ const tailer = new LogTailer();
 const ACTIVE_SET = setDefinition(DEFAULT_SET_CODE);
 const store = createLocalStore(app.getPath('userData'));
 const { readSettings, writeSettings, readGameReviews, writeGameReviews, manualArchetypeCorpusPath } = store;
-const scryfallCachePath = () => store.scryfallCachePath(scryfallCacheFileName(ACTIVE_SET.code));
+const scryfallCachePath = (setCode = ACTIVE_SET.code) => store.scryfallCachePath(scryfallCacheFileName(setCode));
 // Imports are copied into the app's own storage so they keep working after the
 // original download is moved, deleted, or blocked by macOS folder permissions.
 const importedCsvStoragePath = store.importedCsvStoragePath;
@@ -71,8 +71,8 @@ const companion = createDraftCompanion({
   settings: { read: readSettings, write: writeSettings },
   reviews: { read: readGameReviews, write: writeGameReviews },
   scryfall: {
-    readCache: () => readScryfallCache(scryfallCachePath()),
-    load: () => loadScryfallSet({ cachePath: scryfallCachePath(), setCode: ACTIVE_SET.scryfallSetCode })
+    readCache: (set = ACTIVE_SET) => readScryfallCache(scryfallCachePath(set.code)),
+    load: (set = ACTIVE_SET) => loadScryfallSet({ cachePath: scryfallCachePath(set.code), setCode: set.scryfallSetCode })
   },
   describeLog: () => ({
     path: watchedLogPath,
@@ -308,6 +308,8 @@ function registerIpc() {
   ipcMain.handle('draft:set-lane-preference', (_event, mode) => companion.setLanePreference(mode));
   ipcMain.handle('draft:set-pool-card-excluded', (_event, cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded));
   ipcMain.handle('draft:set-manual-record', (_event, record) => companion.setManualRecord(record));
+  ipcMain.handle('draft:set-active-set', (_event, setCode) => companion.setActiveSet(setCode));
+  ipcMain.handle('draft:set-prep-format', (_event, format) => companion.setPrepFormat(format));
   ipcMain.handle('draft:start-demo', (_event, mode) => { companion.startDemo(mode); return viewModel(); });
   ipcMain.handle('draft:advance-demo', () => { companion.advanceDemo(); return viewModel(); });
   ipcMain.handle('draft:select-build', (_event, buildId) => companion.selectBuild(buildId));
@@ -328,14 +330,14 @@ function registerIpc() {
     return viewModel();
   });
   ipcMain.handle('draft:open-screen-settings', () => shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
+  // Links resolve at click time so they always point at the active set.
   const EXTERNAL_LINKS = {
-    seventeenLandsCardData: 'https://www.17lands.com/card_data',
-    seventeenLandsTrophies: 'https://www.17lands.com/trophy_decks',
-    // Untapped's limited card data is per-set; the slug lives in set-definitions.
-    untappedCardData: untappedCardDataUrl(ACTIVE_SET.code)
+    seventeenLandsCardData: () => `https://www.17lands.com/card_data?expansion=${companion.activeSetInfo().displayCode}`,
+    seventeenLandsTrophies: () => 'https://www.17lands.com/trophy_decks',
+    untappedCardData: () => untappedCardDataUrl(companion.activeSetInfo().code)
   };
   ipcMain.handle('draft:open-link', (_event, key) => {
-    const url = EXTERNAL_LINKS[String(key || '')];
+    const url = EXTERNAL_LINKS[String(key || '')]?.();
     if (url) shell.openExternal(url);
     return Boolean(url);
   });

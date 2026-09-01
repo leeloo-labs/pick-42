@@ -234,8 +234,11 @@ test('finds a supported trophy archetype only with enough pool and sample eviden
   const prowler = evaluateArchetypeSignal({
     card: { name: 'Desolation Prowler' }, pool, corpus, setCode: 'HOB', format: 'Player Draft'
   });
-  const mismatch = evaluateArchetypeSignal({
+  const crossFormat = evaluateArchetypeSignal({
     card: { name: 'Dwarven Mauler' }, pool, corpus, setCode: 'HOB', format: 'Quick Draft'
+  });
+  const wrongSet = evaluateArchetypeSignal({
+    card: { name: 'Dwarven Mauler' }, pool, corpus, setCode: 'SOS', format: 'Quick Draft'
   });
 
   assert.equal(mauler.available, true);
@@ -243,8 +246,13 @@ test('finds a supported trophy archetype only with enough pool and sample eviden
   assert.ok(mauler.score > 2);
   assert.ok(mauler.detail.includes('4/6 decks'));
   assert.ok(prowler.score < -2);
-  assert.equal(mismatch.available, false);
-  assert.equal(mismatch.status, 'mismatch');
+  // No quick corpus exists, so same-set decks from other formats stand in —
+  // visibly, and with dampened influence. A wrong set never falls back.
+  assert.equal(crossFormat.available, true);
+  assert.ok(crossFormat.detail.includes('cross-format trophies'));
+  assert.ok(crossFormat.score > 0 && crossFormat.score < mauler.score);
+  assert.equal(wrongSet.available, false);
+  assert.equal(wrongSet.status, 'mismatch');
 });
 
 test('trophy exemplars adjust Mauler only when a corpus is loaded', () => {

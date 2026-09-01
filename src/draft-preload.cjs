@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   setLanePreference: (mode) => ipcRenderer.invoke('draft:set-lane-preference', mode),
   setPoolCardExcluded: (cardName, excluded) => ipcRenderer.invoke('draft:set-pool-card-excluded', cardName, excluded),
   setManualRecord: (record) => ipcRenderer.invoke('draft:set-manual-record', record),
+  setActiveSet: (setCode) => ipcRenderer.invoke('draft:set-active-set', setCode),
+  setPrepFormat: (format) => ipcRenderer.invoke('draft:set-prep-format', format),
   startDemo: (mode) => ipcRenderer.invoke('draft:start-demo', mode),
   advanceDemo: () => ipcRenderer.invoke('draft:advance-demo'),
   pickPairFor: (cardName) => ipcRenderer.invoke('draft:pick-pair-for', cardName),

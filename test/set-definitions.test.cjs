@@ -42,3 +42,15 @@ test('an unknown set degrades visibly instead of borrowing Hobbit assets', () =>
   assert.equal(unknown.sampleFixtures, null);
   assert.equal(untappedCardDataUrl('xyz'), null);
 });
+
+test('Secrets of Strixhaven resolves with full metadata and no sample fixtures', () => {
+  const { setDefinition, knownSetDefinitions, untappedCardDataUrl } = require('../src/draft/set-definitions.cjs');
+  const sos = setDefinition('SOS');
+
+  assert.equal(sos.displayCode, 'SOS');
+  assert.equal(sos.name, 'Secrets of Strixhaven');
+  assert.equal(sos.scryfallSetCode, 'sos');
+  assert.equal(sos.sampleFixtures, null);
+  assert.equal(untappedCardDataUrl('sos'), 'https://mtga.untapped.gg/limited/draft/secrets-of-strixhaven/card-data');
+  assert.deepEqual(knownSetDefinitions().map((entry) => entry.code), ['hob', 'sos']);
+});
