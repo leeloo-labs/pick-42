@@ -3,9 +3,12 @@
 const { normalizeCardName, numberValue, parseCsv, readColumn } = require('./csv.cjs');
 
 const COLOR_ORDER = ['W', 'U', 'B', 'R', 'G'];
+// Guild names plus the Strixhaven college names, which stand alone as SOS
+// lane and deck names (Silverquill, never Orzhov Silverquill).
 const ARCHETYPE_COLORS = Object.freeze({
   azorius: ['W', 'U'], dimir: ['U', 'B'], rakdos: ['B', 'R'], gruul: ['R', 'G'], selesnya: ['W', 'G'],
-  orzhov: ['W', 'B'], izzet: ['U', 'R'], golgari: ['B', 'G'], boros: ['W', 'R'], simic: ['U', 'G']
+  orzhov: ['W', 'B'], izzet: ['U', 'R'], golgari: ['B', 'G'], boros: ['W', 'R'], simic: ['U', 'G'],
+  silverquill: ['W', 'B'], prismari: ['U', 'R'], witherbloom: ['B', 'G'], lorehold: ['W', 'R'], quandrix: ['U', 'G']
 });
 const COLOR_NAMES = Object.freeze({
   W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green',

@@ -191,6 +191,14 @@ test('keeps a substantially supported third color in a true three-color deck', (
   assert.equal(deck.archetype, 'White/Blue/Green');
 });
 
+test('a college name alone resolves a corpus deck to its colors', () => {
+  const deck = createArchetypeDeck({ id: 'sos-1', setCode: 'SOS', format: 'PremierDraft', record: '7-1', archetype: 'Silverquill', cards: { 'Inkling Mascot': 2 } });
+  assert.deepEqual(deck.colors, ['W', 'B']);
+  assert.equal(deck.archetype, 'Silverquill');
+  assert.deepEqual(createArchetypeDeck({ id: 'sos-2', archetype: 'Witherbloom', cards: { 'Pest Mascot': 1 } }).colors, ['B', 'G']);
+  assert.deepEqual(createArchetypeDeck({ id: 'sos-3', archetype: 'Quandrix', cards: { 'Fractal Mascot': 1 } }).colors, ['U', 'G']);
+});
+
 test('reclassifies generated labels while preserving custom archetype labels', () => {
   const catalog = {
     1: { name: 'White Spell', manaCost: '{W}', typeLine: 'Creature' },

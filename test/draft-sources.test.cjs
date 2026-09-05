@@ -470,6 +470,54 @@ test('themed names never leave their set, even when another set shows the same t
   assert.equal(plainLaneName('Golgari', 'SOS'), 'Golgari');
 });
 
+test('every SOS college lane earns its name when the pool shows the college', () => {
+  const repartee = { rulesText: 'Repartee — Whenever you cast an instant or sorcery spell that targets a creature, each opponent loses 1 life and you gain 1 life.' };
+  const opus = { rulesText: 'Flying\nVigilance\nOpus — Whenever you cast an instant or sorcery spell, this creature gets +1/+0 until end of turn.' };
+  const leaves = { rulesText: 'Whenever one or more cards leave your graveyard, put a +1/+1 counter on this creature.' };
+  const flashback = { rulesText: 'You gain 2 life. You may discard a card. If you do, draw two cards.\nFlashback {2oRoW}' };
+  const increment = { typeLine: 'Creature — Insect', rulesText: 'Flash\nFlying\nTrample\nIncrement' };
+  const fractal = { typeLine: 'Creature — Fractal Elk', rulesText: 'Trample' };
+  const infusion = { rulesText: 'Menace\nInfusion — This creature gets +2/+0 as long as you gained life this turn.' };
+  const pest = { typeLine: 'Creature — Skeleton Pest', rulesText: 'Menace\nWhenever this creature attacks, you gain 1 life.' };
+
+  assert.equal(laneThemeLabel('Orzhov', ['W', 'B'], [repartee, repartee], 'SOS'), 'Silverquill');
+  assert.equal(laneThemeLabel('Izzet', ['U', 'R'], [opus, opus], 'SOS'), 'Prismari');
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [leaves, flashback], 'SOS'), 'Lorehold');
+  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [increment, fractal], 'SOS'), 'Quandrix');
+  const xCost = { manaCost: '{X}{G}{U}', typeLine: 'Creature — Dinosaur Fractal', rulesText: 'Flying\nThis creature enters with X +1/+1 counters on it.' };
+  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [xCost, { manaCost: '{X}{U}', typeLine: 'Sorcery', rulesText: 'Draw X cards.' }], 'SOS'), 'Quandrix');
+  const spellMana = { typeLine: 'Creature — Merfolk Wizard', rulesText: '{T}: Add {U}. Spend this mana only to cast an instant or sorcery spell.' };
+  const spellGate = { typeLine: 'Artifact', rulesText: "{T}: You gain 2 life. Activate only if you've cast an instant or sorcery spell this turn." };
+  assert.equal(laneThemeLabel('Izzet', ['U', 'R'], [spellMana, spellGate], 'SOS'), 'Prismari');
+  assert.equal(laneThemeLabel('Izzet', ['U', 'R'], [repartee, repartee], 'SOS'), 'Izzet');
+  assert.equal(laneThemeLabel('Golgari', ['B', 'G'], [infusion, pest], 'SOS'), 'Witherbloom');
+
+  // The two-card gate and the set scope hold for SOS exactly as for HOB.
+  assert.equal(laneThemeLabel('Orzhov', ['W', 'B'], [repartee], 'SOS'), 'Orzhov');
+  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [repartee, repartee], 'SOS'), 'Rakdos');
+  assert.equal(laneThemeLabel('Orzhov', ['W', 'B'], [repartee, repartee], 'HOB'), 'Orzhov');
+  assert.equal(plainLaneName('Silverquill', 'HOB'), 'Orzhov');
+  assert.equal(plainLaneName('Silverquill', 'SOS'), 'Silverquill');
+});
+
+test('an SOS pool built around Repartee infers a Silverquill lane', () => {
+  const pool = [
+    { name: 'Inkling Mascot', manaCost: '{W}{B}', typeLine: 'Creature — Inkling Cat', rulesText: 'Repartee — Whenever you cast an instant or sorcery spell that targets a creature, this creature gains flying until end of turn. Surveil 1.' },
+    { name: 'Scolding Administrator', manaCost: '{W}{B}', typeLine: 'Creature — Dwarf Cleric', rulesText: 'Menace\nRepartee — Whenever you cast an instant or sorcery spell that targets a creature, put a +1/+1 counter on this creature.' },
+    { name: 'Melancholic Poet', manaCost: '{1}{B}', typeLine: 'Creature — Elf Bard', rulesText: 'Repartee — Whenever you cast an instant or sorcery spell that targets a creature, each opponent loses 1 life and you gain 1 life.' },
+    { name: 'Imperious Inkmage', manaCost: '{1}{W}{B}', typeLine: 'Creature — Orc Warlock', rulesText: 'Vigilance\nWhen this creature enters, surveil 2.' },
+    { name: 'Render Speechless', manaCost: '{2}{W}{B}', typeLine: 'Sorcery', rulesText: 'Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nPut two +1/+1 counters on up to one target creature.' },
+    { name: 'Elite Interceptor', manaCost: '{2}{W}', typeLine: 'Creature — Human Cleric', rulesText: 'Flying' },
+    { name: 'Last Gasp', manaCost: '{1}{B}', typeLine: 'Instant', rulesText: 'Target creature gets -3/-3 until end of turn.' },
+    { name: 'Silverquill Charm', manaCost: '{W}{B}', typeLine: 'Instant', rulesText: 'Choose one —\n• Put two +1/+1 counters on target creature.\n• Exile target creature with power 2 or less.\n• Each opponent loses 3 life and you gain 3 life.' }
+  ];
+  const lane = inferDraftLane({ pool, setCode: 'SOS', packNumber: 2, pickNumber: 3, draftId: 'sos-orzhov' });
+
+  assert.deepEqual(new Set(lane.colors), new Set(['W', 'B']));
+  assert.equal(lane.label, 'Silverquill');
+  assert.equal(inferDraftLane({ pool, setCode: 'HOB', packNumber: 2, pickNumber: 3, draftId: 'hob-orzhov' }).label, 'Orzhov');
+});
+
 test('infers a committed Boros Dwarves lane instead of accepting every drafted color', () => {
   const lane = inferDraftLane({
     pool: borosDraftPool(),

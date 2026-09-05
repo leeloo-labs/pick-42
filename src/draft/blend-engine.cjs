@@ -194,16 +194,57 @@ function sourceLaneQuality(card, landsByName, untappedByName) {
   return clamp(0.78 + (rate - 55) * 0.045, 0.4, 1.28);
 }
 
+function rulesTextOf(card) {
+  return String(card?.rulesText || '');
+}
+
 // Themed archetype names belong to the set they were named for: a Dwarf in
 // another set is not a Boros Dwarves signal. Every entry carries its set code
 // and only drafts of that set may use it; a set with no entries here keeps
-// the plain guild names until its archetypes are named.
+// the plain guild names until its archetypes are named. Rules-text patterns
+// are checked against Arena's card text, which keeps ability words such as
+// "Repartee —" and lists bare keywords such as "Increment".
 const LANE_THEMES = Object.freeze([
   { setCode: 'hob', name: 'Boros', label: 'Boros Dwarves', test: (card) => creatureSubtypes(card).includes('Dwarf') },
-  { setCode: 'hob', name: 'Rakdos', label: 'Rakdos Amass', test: (card) => /\bamass/i.test(String(card.rulesText || '')) },
-  { setCode: 'hob', name: 'Golgari', label: 'Golgari Ferocious', test: (card) => /\bferocious\b/i.test(String(card.rulesText || '')) },
-  { setCode: 'hob', name: 'Azorius', label: 'Azorius Recruit', test: (card) => /\brecruit/i.test(String(card.rulesText || '')) },
-  { setCode: 'hob', name: 'Simic', label: 'Simic Elves', test: (card) => creatureSubtypes(card).includes('Elf') }
+  { setCode: 'hob', name: 'Rakdos', label: 'Rakdos Amass', test: (card) => /\bamass/i.test(rulesTextOf(card)) },
+  { setCode: 'hob', name: 'Golgari', label: 'Golgari Ferocious', test: (card) => /\bferocious\b/i.test(rulesTextOf(card)) },
+  { setCode: 'hob', name: 'Azorius', label: 'Azorius Recruit', test: (card) => /\brecruit/i.test(rulesTextOf(card)) },
+  { setCode: 'hob', name: 'Simic', label: 'Simic Elves', test: (card) => creatureSubtypes(card).includes('Elf') },
+  // Secrets of Strixhaven drafts along its five colleges, one per enemy
+  // pair, each carrying its own ability word or tribe. The college name is
+  // the archetype name here, so no guild word is prepended; the corpus color
+  // map knows the college names too.
+  { setCode: 'sos', name: 'Orzhov', label: 'Silverquill', test: (card) => /\brepartee\b/i.test(rulesTextOf(card)) },
+  {
+    // Prismari is the spells deck: Opus payoffs, its Elementals, mana that
+    // only pays for instants and sorceries, and "cast a spell this turn" gates.
+    setCode: 'sos',
+    name: 'Izzet',
+    label: 'Prismari',
+    test: (card) => /\bopus\b/i.test(rulesTextOf(card))
+      || /\bElemental\b/.test(rulesTextOf(card))
+      || creatureSubtypes(card).includes('Elemental')
+      || /\bspend this mana only to cast (?:an )?instant (?:and|or) sorcery spells?\b/i.test(rulesTextOf(card))
+      || /\bcast (?:another )?(?:an )?instant or sorcery spell this turn\b/i.test(rulesTextOf(card))
+  },
+  { setCode: 'sos', name: 'Boros', label: 'Lorehold', test: (card) => /\b(?:leave|left) your graveyard\b|\bflashback\b/i.test(rulesTextOf(card)) },
+  {
+    // Quandrix grows: Increment, Fractals, and X costs (any X in a mana cost,
+    // whichever way the catalog spells the symbol).
+    setCode: 'sos',
+    name: 'Simic',
+    label: 'Quandrix',
+    test: (card) => /\bincrement\b/i.test(rulesTextOf(card))
+      || /\bFractal\b|\{X\}/.test(rulesTextOf(card))
+      || creatureSubtypes(card).includes('Fractal')
+      || /X/.test(String(card?.manaCost || ''))
+  },
+  {
+    setCode: 'sos',
+    name: 'Golgari',
+    label: 'Witherbloom',
+    test: (card) => /\binfusion\b|\bwhenever you gain life\b/i.test(rulesTextOf(card)) || /\bPest\b/.test(rulesTextOf(card)) || creatureSubtypes(card).includes('Pest')
+  }
 ]);
 
 function normalizeSetCode(setCode) {
