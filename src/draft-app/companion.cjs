@@ -775,7 +775,12 @@ function createDraftCompanion({
       } else {
         const deckName = manualRecords[draftId]?.deckName || record.deckName
           || (isCurrent ? reviewDeckSnapshot()?.name : null) || null;
-        manualRecords[draftId] = { ...clamped, format: format || null, deckName, updatedAt: new Date().toISOString() };
+        // The set lets the Play view file an elsewhere-only event under the right divider.
+        const setCode = manualRecords[draftId]?.setCode
+          || (isCurrent ? draftState.setCode : null)
+          || reviewTracker.snapshot().reviews.find((review) => String(review.draftId) === draftId)?.setCode
+          || null;
+        manualRecords[draftId] = { ...clamped, format: format || null, deckName, setCode, updatedAt: new Date().toISOString() };
       }
       persistReviews();
       notify();

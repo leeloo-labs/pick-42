@@ -1018,6 +1018,15 @@ test('groups reviews per draft with format-aware trophy and elimination states',
   assert.equal(quick.status, 'eliminated');
 });
 
+test('an event carries the set it was played in, from its games or its manual record', () => {
+  const groups = reviewEventGroups(
+    [{ id: 'x:1', draftId: 'x', won: true, completedAt: '2026-09-04T00:00:00Z', setCode: 'SOS', format: 'Quick Draft', deck: { name: 'Golgari' } }],
+    { manualRecords: { phone: { wins: 1, losses: 0, format: 'Quick Draft', deckName: 'Rakdos', setCode: 'HOB' } } }
+  );
+  assert.equal(groups.find((group) => group.draftId === 'x').setCode, 'SOS');
+  assert.equal(groups.find((group) => group.draftId === 'phone').setCode, 'HOB');
+});
+
 test('a manual record counts toward the event math but carries no games', () => {
   const game = (index, won) => ({ id: `pm:${index}`, draftId: 'pm', won, completedAt: `2026-08-27T0${index}:00:00Z`, deck: { name: 'Rakdos' }, postGame: {} });
   const context = { currentDraftId: 'pm', currentFormat: 'Pick Two Draft', manualRecords: { pm: { wins: 2, losses: 0, format: 'Pick Two Draft' } } };

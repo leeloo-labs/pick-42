@@ -1028,6 +1028,10 @@ button { color: inherit; }
 .review-past-pill:hover { border-color: rgba(112,84,179,.32); }
 .review-past-pill.open { border-color: rgba(112,84,179,.45); background: rgba(112,84,179,.1); }
 .review-past-pill.trophy { border-color: rgba(150,101,30,.4); }
+.review-past-divider { display: inline-flex; align-items: center; margin-left: var(--space-2); padding: 5px var(--space-2); border: 1px solid rgba(38,121,131,.22); border-radius: var(--radius-sm); color: var(--cyan); background: rgba(38,121,131,.07); font-size: var(--text-xs); font-weight: 850; letter-spacing: .1em; }
+.review-past-divider.lead { margin-left: 0; }
+.review-past-toggle { padding: 6px var(--space-3); border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: var(--text-xs); font-weight: 850; letter-spacing: .1em; cursor: pointer; }
+.review-past-toggle:hover { border-color: rgba(112,84,179,.32); color: var(--ink); }
 .review-game-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.28); text-align: left; cursor: pointer; }
 .review-game-chip strong { font-size: 11px; font-weight: 800; letter-spacing: .05em; }
 .review-game-chip small { color: var(--quiet); font-size: 10px; }

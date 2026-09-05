@@ -32,6 +32,26 @@ function varianceLabel(entry) {
 }
 
 let expandedEventId = null;
+let showAllPastEvents = false;
+const PAST_EVENTS_PREVIEW = 8;
+
+function pastEventPill(group, openId) {
+  const pill = element('button', `review-past-pill ${group.status} ${openId === group.draftId ? 'open' : ''}`);
+  pill.type = 'button';
+  if (group.trophy) {
+    const icon = element('span', 'review-event-trophy');
+    icon.append(iconElement('trophy'));
+    pill.append(icon);
+  }
+  pill.append(element('strong', '', group.name), element('span', '', group.record));
+  pill.title = [group.name, group.formatLabel, group.setCode, `${group.games.length} recorded game${group.games.length === 1 ? '' : 's'}`]
+    .filter(Boolean).join(' · ');
+  pill.addEventListener('click', () => {
+    expandedEventId = expandedEventId === group.draftId ? null : group.draftId;
+    renderReview();
+  });
+  return pill;
+}
 
 function reviewEventGroupCard(group, displayed, latest) {
   const section = element('div', `review-event-group ${group.status}`);
@@ -130,21 +150,46 @@ function renderReviewGameStrip(groups, displayed, latest) {
     bar.append(element('span', 'review-past-label', `PREVIOUS EVENTS · ${past.length}`));
     const holdsSelection = displayed ? past.find((group) => group.games.some((entry) => entry.id === displayed.id)) : null;
     const openId = expandedEventId || holdsSelection?.draftId || null;
-    for (const group of past) {
-      const pill = element('button', `review-past-pill ${group.status} ${openId === group.draftId ? 'open' : ''}`);
-      pill.type = 'button';
-      if (group.trophy) {
-        const icon = element('span', 'review-event-trophy');
-        icon.append(iconElement('trophy'));
-        pill.append(icon);
+    // The bar shows the newest eight until asked for everything; an open event
+    // always stays reachable. Once the history spans more than one set, pills
+    // gather under a divider per set, newest set first.
+    const collapsed = !showAllPastEvents && past.length > PAST_EVENTS_PREVIEW;
+    const visible = collapsed ? past.slice(0, PAST_EVENTS_PREVIEW) : [...past];
+    if (collapsed && openId && !visible.some((group) => group.draftId === openId)) {
+      const open = past.find((group) => group.draftId === openId);
+      if (open) visible.push(open);
+    }
+    const setCounts = new Map();
+    for (const group of past) setCounts.set(group.setCode || '', (setCounts.get(group.setCode || '') || 0) + 1);
+    const dividers = [...setCounts.keys()].filter(Boolean).length > 1;
+    const buckets = new Map();
+    for (const group of visible) {
+      const key = group.setCode || '';
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(group);
+    }
+    // The set being drafted leads; the rest follow by their newest event.
+    const activeCode = String(model?.setPrep?.displayCode || '').toUpperCase();
+    const orderedBuckets = [...buckets.entries()].sort((left, right) => Number(right[0] === activeCode) - Number(left[0] === activeCode));
+    let lead = true;
+    for (const [setCode, members] of orderedBuckets) {
+      if (dividers) {
+        const count = setCounts.get(setCode);
+        const divider = element('span', `review-past-divider ${lead ? 'lead' : ''}`, `${setCode || 'OTHER'} · ${count}`);
+        divider.title = `${count} event${count === 1 ? '' : 's'} ${setCode ? `in ${setCode}` : 'without a set'}`;
+        bar.append(divider);
       }
-      pill.append(element('strong', '', group.name), element('span', '', group.record));
-      pill.title = `${group.name}${group.formatLabel ? ` · ${group.formatLabel}` : ''} · ${group.games.length} recorded game${group.games.length === 1 ? '' : 's'}`;
-      pill.addEventListener('click', () => {
-        expandedEventId = expandedEventId === group.draftId ? null : group.draftId;
+      lead = false;
+      for (const group of members) bar.append(pastEventPill(group, openId));
+    }
+    if (past.length > PAST_EVENTS_PREVIEW) {
+      const toggle = element('button', 'review-past-toggle', collapsed ? `SHOW ALL ${past.length}` : `SHOW NEWEST ${PAST_EVENTS_PREVIEW}`);
+      toggle.type = 'button';
+      toggle.addEventListener('click', () => {
+        showAllPastEvents = !showAllPastEvents;
         renderReview();
       });
-      bar.append(pill);
+      bar.append(toggle);
     }
     strip.append(bar);
     const open = past.find((group) => group.draftId === openId);

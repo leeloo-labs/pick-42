@@ -163,7 +163,7 @@ Leave `npm run draft` open while playing the drafted deck, then open **PLAY**. P
 The report intentionally focuses on evidence that can change a decision:
 
 - a compact result, play/draw, game-turn, mulligan, and game-shape summary;
-- a game history grouped by draft: the live event stays expanded with its record and format-aware state (gold trophy at 7 wins for Premier/Quick, 4 for Pick Two, 3-0 for Traditional; ENDED at the loss cap), while previous events collapse into compact record pills that expand on demand;
+- a game history grouped by draft: the live event stays expanded with its record and format-aware state (gold trophy at 7 wins for Premier/Quick, 4 for Pick Two, 3-0 for Traditional; ENDED at the loss cap), while previous events collapse into compact record pills that expand on demand, grouped under a divider per set once you have drafted more than one and capped at the newest eight until you ask for the full list;
 - early concessions (a loss conceded within the first few of your turns) are labeled on the game, receive a LIMITED EVIDENCE verdict instead of deck conclusions, and stay out of series-level card evidence while still counting toward the event record;
 - low, moderate, or high mana-variance analysis for both players;
 - the deck's four highest reliable 17Lands IIH cards, each marked drawn or not drawn;

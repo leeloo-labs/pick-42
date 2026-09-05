@@ -1146,6 +1146,7 @@ function reviewEventGroups(reviews, { currentDraftId = null, currentFormat = nul
       name: [...ordered].reverse().find((game) => game.deck?.name)?.deck?.name || manualEntry?.deckName || 'Limited deck',
       format,
       formatLabel: formatText || null,
+      setCode: ordered.find((game) => game.setCode)?.setCode || manualEntry?.setCode || null,
       wins,
       losses,
       record: `${wins}-${losses}`,
