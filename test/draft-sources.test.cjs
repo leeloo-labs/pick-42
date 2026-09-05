@@ -17,6 +17,7 @@ const {
   inferDraftLane,
   laneThemeLabel,
   manaProfile,
+  plainLaneName,
   recommendPickTwoPair,
   scoreDraftPack
 } = require('../src/draft/blend-engine.cjs');
@@ -432,7 +433,7 @@ function borosDraftPool() {
   ];
 }
 
-test('every guild lane earns its themed name when the pool shows the theme', () => {
+test('every HOB guild lane earns its themed name when the pool shows the theme', () => {
   const amass = { rulesText: 'You draw a card and lose 1 life.\nAmass Goblins 2.' };
   const amasses = { rulesText: 'When Azog enters, destroy up to one other target creature. Its controller amasses Goblins X.' };
   const ferocious = { rulesText: 'Ferocious — Whenever this creature attacks while you control a creature with power 4 or greater, it gets +1/+0.' };
@@ -440,20 +441,39 @@ test('every guild lane earns its themed name when the pool shows the theme', () 
   const elf = { typeLine: 'Creature — Elf Druid' };
   const dwarf = { typeLine: 'Creature — Dwarf Warrior' };
 
-  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass, amasses]), 'Rakdos Amass');
-  assert.equal(laneThemeLabel('Golgari', ['B', 'G'], [ferocious, ferocious]), 'Golgari Ferocious');
-  assert.equal(laneThemeLabel('Azorius', ['W', 'U'], [recruit, recruit]), 'Azorius Recruit');
-  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [elf, elf]), 'Simic Elves');
-  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf]), 'Boros Dwarves');
+  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass, amasses], 'HOB'), 'Rakdos Amass');
+  assert.equal(laneThemeLabel('Golgari', ['B', 'G'], [ferocious, ferocious], 'HOB'), 'Golgari Ferocious');
+  assert.equal(laneThemeLabel('Azorius', ['W', 'U'], [recruit, recruit], 'HOB'), 'Azorius Recruit');
+  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [elf, elf], 'HOB'), 'Simic Elves');
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf], 'hob'), 'Boros Dwarves');
 
   // One themed card is coincidence, not an archetype; other guilds stay plain.
-  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass]), 'Rakdos');
-  assert.equal(laneThemeLabel('Dimir', ['U', 'B'], [amass, amasses]), 'Dimir');
+  assert.equal(laneThemeLabel('Rakdos', ['B', 'R'], [amass], 'HOB'), 'Rakdos');
+  assert.equal(laneThemeLabel('Dimir', ['U', 'B'], [amass, amasses], 'HOB'), 'Dimir');
+});
+
+test('themed names never leave their set, even when another set shows the same tribe', () => {
+  const dwarf = { typeLine: 'Creature — Dwarf Warrior' };
+  const elf = { typeLine: 'Creature — Elf Druid' };
+
+  // SOS prints Dwarves and Elves too, but they are not the HOB archetypes.
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf], 'SOS'), 'Boros');
+  assert.equal(laneThemeLabel('Simic', ['U', 'G'], [elf, elf], 'SOS'), 'Simic');
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf], null), 'Boros');
+  assert.equal(laneThemeLabel('Boros', ['W', 'R'], [dwarf, dwarf]), 'Boros');
+
+  // A label recorded under another set's theme resolves back to its guild.
+  assert.equal(plainLaneName('Boros Dwarves', 'SOS'), 'Boros');
+  assert.equal(plainLaneName('Simic Elves', 'sos'), 'Simic');
+  assert.equal(plainLaneName('Boros Dwarves', 'HOB'), 'Boros Dwarves');
+  assert.equal(plainLaneName('Boros Dwarves', null), 'Boros Dwarves');
+  assert.equal(plainLaneName('Golgari', 'SOS'), 'Golgari');
 });
 
 test('infers a committed Boros Dwarves lane instead of accepting every drafted color', () => {
   const lane = inferDraftLane({
     pool: borosDraftPool(),
+    setCode: 'HOB',
     packNumber: 2,
     pickNumber: 2,
     draftId: 'draft-42'
@@ -466,8 +486,25 @@ test('infers a committed Boros Dwarves lane instead of accepting every drafted c
   assert.notEqual(lane.evidence.runnerUp, 'Boros');
 });
 
+test('the same Dwarf-heavy pool in another set is a plain Boros lane', () => {
+  const common = { pool: borosDraftPool(), setCode: 'SOS', packNumber: 2, pickNumber: 2, draftId: 'draft-sos' };
+  const lane = inferDraftLane(common);
+
+  assert.equal(lane.status, 'committed');
+  assert.equal(lane.label, 'Boros');
+  assert.deepEqual(new Set(lane.colors), new Set(['W', 'R']));
+
+  // A lock saved before themes were set-scoped still shows the plain guild.
+  const locked = inferDraftLane({
+    ...common,
+    preference: { mode: 'lock-no-splash', draftId: 'draft-sos', colors: ['W', 'R'], label: 'Boros Dwarves' }
+  });
+  assert.equal(locked.status, 'locked');
+  assert.equal(locked.label, 'Boros');
+});
+
 test('manual lane choices are scoped to the current draft', () => {
-  const common = { pool: borosDraftPool(), packNumber: 2, pickNumber: 2, draftId: 'draft-42' };
+  const common = { pool: borosDraftPool(), setCode: 'HOB', packNumber: 2, pickNumber: 2, draftId: 'draft-42' };
   const noSplash = inferDraftLane({
     ...common,
     preference: { mode: 'lock-no-splash', draftId: 'draft-42', colors: ['W', 'R'], label: 'Boros Dwarves' }

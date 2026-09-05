@@ -355,6 +355,46 @@ test('migrates the old Bat-Cloud and off-color recommendation out of saved revie
   assert.ok(review.observations.some((fact) => /conditional cost reduction/i.test(fact)));
 });
 
+test('hydrating repairs a deck name that borrowed another set\'s themed archetype', () => {
+  const tracker = new GameReviewTracker();
+  const saved = (draftId, setCode, name, completedAt) => ({
+    id: `${draftId}:1`,
+    draftId,
+    setCode,
+    status: 'complete',
+    gameNumber: 1,
+    won: false,
+    completedAt,
+    deck: {
+      name,
+      cards: [],
+      lands: [],
+      cuts: [],
+      mana: { sources: {}, targets: {} },
+      modeledBuild: { name, score: 50, cards: {} }
+    }
+  });
+  tracker.hydrate([
+    saved('sos-dwarves', 'SOS', 'Boros Dwarves', '2026-09-02T19:54:41.346Z'),
+    saved('sos-elves', 'SOS', 'Simic Elves', '2026-09-01T19:54:41.346Z'),
+    saved('hob-dwarves', 'HOB', 'Boros Dwarves', '2026-08-28T19:54:41.346Z'),
+    saved('no-set', null, 'Boros Dwarves', '2026-08-27T19:54:41.346Z')
+  ]);
+
+  const reviews = tracker.snapshot().reviews;
+  const byDraft = Object.fromEntries(reviews.map((entry) => [entry.draftId, entry]));
+  assert.equal(byDraft['sos-dwarves'].deck.name, 'Boros');
+  assert.equal(byDraft['sos-dwarves'].deck.modeledBuild.name, 'Boros');
+  assert.equal(byDraft['sos-elves'].deck.name, 'Simic');
+  assert.equal(byDraft['hob-dwarves'].deck.name, 'Boros Dwarves');
+  assert.equal(byDraft['hob-dwarves'].deck.modeledBuild.name, 'Boros Dwarves');
+  assert.equal(byDraft['no-set'].deck.name, 'Boros Dwarves');
+
+  const groups = reviewEventGroups(reviews);
+  assert.equal(groups.find((group) => group.draftId === 'sos-dwarves').name, 'Boros');
+  assert.equal(groups.find((group) => group.draftId === 'hob-dwarves').name, 'Boros Dwarves');
+});
+
 test('summarizes opponent mana variance, IIH draw quality, and observable card contribution', () => {
   const review = {
     captureVersion: 2,

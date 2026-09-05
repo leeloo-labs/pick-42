@@ -1,7 +1,7 @@
 'use strict';
 
 const { EventEmitter } = require('node:events');
-const { manaProfile, manaValue } = require('./blend-engine.cjs');
+const { manaProfile, manaValue, plainLaneName } = require('./blend-engine.cjs');
 const { normalizeFormat, trophyThreshold } = require('./archetype-corpus.cjs');
 const { normalizeCardName } = require('./csv.cjs');
 
@@ -1327,6 +1327,18 @@ function reanalyzePersistedReview(review) {
   return next;
 }
 
+// Deck names recorded before themed lane names were scoped to their set can
+// carry another set's archetype, such as an SOS deck saved as Boros Dwarves.
+// The set on the review is authoritative, so such a name falls back to its
+// guild; a review without a set is left alone.
+function repairPersistedDeckName(review) {
+  const setCode = review?.setCode;
+  if (!setCode || !review?.deck?.name) return review;
+  const deck = { ...review.deck, name: plainLaneName(review.deck.name, setCode) };
+  if (deck.modeledBuild?.name) deck.modeledBuild = { ...deck.modeledBuild, name: plainLaneName(deck.modeledBuild.name, setCode) };
+  return { ...review, deck };
+}
+
 function replaceRebuiltReviewInPlace(reviews, legacy, rebuilt) {
   if (!Array.isArray(reviews) || !legacy?.id || !rebuilt || rebuilt.id !== legacy.id) return reviews;
   return reviews.map((review) => review.id === legacy.id
@@ -1374,7 +1386,7 @@ class GameReviewTracker extends EventEmitter {
       ? trimReviewHistory(
           reviews
             .filter((review) => !reviewClearlyMismatchesDeck(review))
-            .map(reanalyzePersistedReview),
+            .map((review) => repairPersistedDeckName(reanalyzePersistedReview(review))),
           this.maxReviews
         )
       : [];

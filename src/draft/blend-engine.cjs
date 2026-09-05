@@ -194,20 +194,40 @@ function sourceLaneQuality(card, landsByName, untappedByName) {
   return clamp(0.78 + (rate - 55) * 0.045, 0.4, 1.28);
 }
 
+// Themed archetype names belong to the set they were named for: a Dwarf in
+// another set is not a Boros Dwarves signal. Every entry carries its set code
+// and only drafts of that set may use it; a set with no entries here keeps
+// the plain guild names until its archetypes are named.
 const LANE_THEMES = Object.freeze([
-  { name: 'Boros', label: 'Boros Dwarves', test: (card) => creatureSubtypes(card).includes('Dwarf') },
-  { name: 'Rakdos', label: 'Rakdos Amass', test: (card) => /\bamass/i.test(String(card.rulesText || '')) },
-  { name: 'Golgari', label: 'Golgari Ferocious', test: (card) => /\bferocious\b/i.test(String(card.rulesText || '')) },
-  { name: 'Azorius', label: 'Azorius Recruit', test: (card) => /\brecruit/i.test(String(card.rulesText || '')) },
-  { name: 'Simic', label: 'Simic Elves', test: (card) => creatureSubtypes(card).includes('Elf') }
+  { setCode: 'hob', name: 'Boros', label: 'Boros Dwarves', test: (card) => creatureSubtypes(card).includes('Dwarf') },
+  { setCode: 'hob', name: 'Rakdos', label: 'Rakdos Amass', test: (card) => /\bamass/i.test(String(card.rulesText || '')) },
+  { setCode: 'hob', name: 'Golgari', label: 'Golgari Ferocious', test: (card) => /\bferocious\b/i.test(String(card.rulesText || '')) },
+  { setCode: 'hob', name: 'Azorius', label: 'Azorius Recruit', test: (card) => /\brecruit/i.test(String(card.rulesText || '')) },
+  { setCode: 'hob', name: 'Simic', label: 'Simic Elves', test: (card) => creatureSubtypes(card).includes('Elf') }
 ]);
 
-// A lane earns its themed name only when the drafted pool actually shows the
-// theme: at least two cards carrying the tribe or mechanic.
-function laneThemeLabel(name, colors, pool) {
-  const theme = LANE_THEMES.find((entry) => entry.name === name);
-  if (theme && pool.filter(theme.test).length >= 2) return theme.label;
+function normalizeSetCode(setCode) {
+  return String(setCode || '').trim().toLowerCase();
+}
+
+// A lane earns its themed name only when the draft is in the theme's set and
+// the drafted pool actually shows the theme: at least two cards carrying the
+// tribe or mechanic. A missing or unknown set gets the plain guild name.
+function laneThemeLabel(name, colors, pool, setCode = null) {
+  const code = normalizeSetCode(setCode);
+  const theme = LANE_THEMES.find((entry) => entry.setCode === code && entry.name === name);
+  if (theme && (pool || []).filter(theme.test).length >= 2) return theme.label;
   return name || pairKey(colors);
+}
+
+// The guild name behind a themed label that belongs to a different set than
+// the one given. Anything that is not another set's theme passes through
+// unchanged, as does every label when the set is unknown.
+function plainLaneName(label, setCode) {
+  const code = normalizeSetCode(setCode);
+  if (!code) return label;
+  const theme = LANE_THEMES.find((entry) => entry.label === label);
+  return theme && theme.setCode !== code ? theme.name : label;
 }
 
 function inferDraftLane({
@@ -281,7 +301,7 @@ function inferDraftLane({
     : (pool.length >= 3 && top.score >= 2.25 && confidence >= 0.28 ? 'leaning' : 'open');
   const automatic = {
     status: automaticStatus,
-    label: laneThemeLabel(top.name, top.colors, pool),
+    label: laneThemeLabel(top.name, top.colors, pool, setCode),
     archetype: top.name,
     colors: top.colors,
     confidence: rounded(confidence * 100, 0),
@@ -314,7 +334,7 @@ function inferDraftLane({
       manual: true,
       colors,
       archetype,
-      label: activePreference.label || laneThemeLabel(archetype, colors, pool),
+      label: plainLaneName(activePreference.label, setCode) || laneThemeLabel(archetype, colors, pool, setCode),
       splashPolicy: mode === 'lock-splash' ? 'open' : 'none',
       automatic
     };
@@ -1233,6 +1253,7 @@ module.exports = {
   explicitSubtypeRequirements,
   ferociousEnablerWeight,
   laneThemeLabel,
+  plainLaneName,
   inferColorContext,
   inferDraftLane,
   impactSampleConfidence,
