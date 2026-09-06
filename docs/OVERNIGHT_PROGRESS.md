@@ -14,3 +14,10 @@ Automation: `pick-42-overnight-improvements` (hourly, current task).
 6. Local backup/restore and distribution improvements. Notarization requires existing authorized signing credentials; do not purchase services or invent credentials.
 
 Existing trust fixes are committed as `3025a1e` on `codex/product-trust-review`. Finish coherent work in tested commits. Merge and release validated user-facing work through `npm run release:mac` when closing a batch, avoiding repeated packaging between immediately adjacent tasks. Keep a morning record of what shipped, validation, remaining work, and remaining usage.
+
+
+## First release batch
+
+The initial audit fixes and priorities 1–4 are complete in five focused commits through `97a2aa7`. The release target is 0.1.10, using the required macOS workflow. Before beginning the larger decision-history work, verify the published release and check current usage again. The most recent usage snapshot still reports 8% remaining; it may not reflect the cost of this active turn until the turn settles. Preserve sufficient allowance for a complete next task, tests, and another release. It is preferable to let the overnight continuation reassess a fresh usage snapshot than start a large feature near the account limit.
+
+Next substantive task: saved local draft decisions and a comparison view, followed by a replay benchmark. No scoring calibration change has been made. Backup/restore and signing/notarization remain queued. Do not claim those are complete.

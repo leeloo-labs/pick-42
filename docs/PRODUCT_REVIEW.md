@@ -1,6 +1,6 @@
 # Pick 42 — holistic product review
 
-Baseline: **0.1.9**, commit `8a88e15`. Changes in this review are local to `codex/product-trust-review`; they have not been released.
+Baseline reviewed: **0.1.9**, commit `8a88e15`. This document records the initial findings and proposed sequence. The user subsequently authorized implementation; see [overnight progress](OVERNIGHT_PROGRESS.md) for completed changes and release status.
 
 ## Product judgment
 
