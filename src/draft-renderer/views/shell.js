@@ -155,7 +155,7 @@ function renderView() {
   byId('show-draft').classList.toggle('active', activeView === 'draft');
   byId('show-decks').classList.toggle('active', activeView === 'decks');
   byId('show-play').classList.toggle('active', activeView === 'play');
-  setText('deck-ready-count', (model.deckBuilds || []).length);
+  setText('deck-ready-count', (model.deckBuilds || []).filter((build) => build.available).length);
   setText('play-count', (model.review?.reviews || []).length);
 }
 
@@ -163,7 +163,7 @@ function render() {
   if (!model) return;
   if (model.selectedBuildId && (model.deckBuilds || []).some((build) => build.id === model.selectedBuildId)) selectedBuildId = model.selectedBuildId;
   if (!viewInitialized) {
-    activeView = model.draft.pool.length >= 40 && (model.deckBuilds || []).length ? 'decks' : 'draft';
+    activeView = model.draft.pool.length >= 40 && (model.deckBuilds || []).some((build) => build.available) ? 'decks' : 'draft';
     viewInitialized = true;
   }
   if (selectedName && !model.recommendations.some((card) => card.name === selectedName)) selectedName = null;

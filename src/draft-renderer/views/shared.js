@@ -141,7 +141,7 @@ function configureOutlookFlag(node, card, compact = false) {
 }
 
 function chosenBuild() {
-  const builds = model.deckBuilds || [];
+  const builds = (model.deckBuilds || []).filter((build) => build.available);
   return builds.find((build) => build.id === selectedBuildId) || builds[0] || null;
 }
 

@@ -12,7 +12,7 @@ function sampleBuild() {
     ],
     mainDeck: [
       { name: 'Three Drop', quantity: 1, manaValue: 3, manaCost: '{2}{B}', typeLine: 'Creature' },
-      { name: 'Two Drop', quantity: 2, manaValue: 2, manaCost: '{1}{G}', typeLine: 'Creature' }
+      { name: 'Two Drop', quantity: 22, manaValue: 2, manaCost: '{1}{G}', typeLine: 'Creature' }
     ],
     lands: [
       { name: 'Swamp', quantity: 8, basic: true, typeLine: 'Basic Land — Swamp' },
@@ -34,7 +34,7 @@ test('recipe orders removals, spells, drafted lands, then basics', () => {
   assert.deepEqual(tasks.map((task) => task.card.name), [
     'Off-color Land', 'White Card', 'Two Drop', 'Three Drop', 'Mirkwood', 'Forest', 'Swamp'
   ]);
-  assert.deepEqual(tasks.map((task) => task.target), [0, 0, 2, 1, 1, 8, 8]);
+  assert.deepEqual(tasks.map((task) => task.target), [0, 0, 22, 1, 1, 8, 8]);
 });
 
 test('surplus copies of a kept card never produce a remove-extras task', () => {
@@ -46,7 +46,7 @@ test('surplus copies of a kept card never produce a remove-extras task', () => {
     'Off-color Land', 'White Card'
   ]);
   const kept = tasks.find((task) => task.kind === 'add' && task.card.name === 'Two Drop');
-  assert.equal(kept.target, 2);
+  assert.equal(kept.target, 22);
 });
 
 test('surplus copies of a kept drafted land never produce a remove-extras task', () => {
@@ -74,4 +74,13 @@ test('progress advances past confirmed and skipped tasks', () => {
 test('task identifiers change when the target quantity changes', () => {
   const original = { name: 'Bilbo’s Deadly Slice', quantity: 3, manaCost: '{1}{B}{B}', typeLine: 'Instant' };
   assert.notEqual(taskId('add', original), taskId('add', { ...original, quantity: 4 }));
+});
+
+test('incomplete, oversized, and invalid-quantity decks never generate recipe instructions', () => {
+  for (const quantity of [1, 23, -1, 22.5, NaN]) {
+    const build = sampleBuild();
+    build.mainDeck[1].quantity = quantity;
+    assert.deepEqual(buildRecipeTasks(build), []);
+  }
+  assert.deepEqual(buildRecipeTasks({ ...sampleBuild(), available: false }), []);
 });

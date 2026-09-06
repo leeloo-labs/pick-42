@@ -18,6 +18,10 @@
   }
 
   function buildRecipeTasks(build = {}) {
+    const targets = [...(build.mainDeck || []), ...(build.lands || [])];
+    if (build.available === false || !targets.length
+      || targets.some((card) => !Number.isInteger(card.quantity) || card.quantity <= 0)
+      || targets.reduce((sum, card) => sum + card.quantity, 0) !== 40) return [];
     // build.excluded holds surplus copies, so a card kept at a lower quantity
     // appears there too. Its SET task already states the final count; a cut
     // task ("remove every copy") may only name cards with zero kept copies.

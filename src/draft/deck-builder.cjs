@@ -3,6 +3,8 @@
 const { normalizeCardName } = require('./csv.cjs');
 const {
   analyzeCardRole,
+  analyzePoolSynergy,
+  duplicateAdjustment,
   draftThemeTags,
   ferociousEnablerWeight,
   manaProfile,
@@ -121,13 +123,13 @@ function scorePoolCards({ cards, seventeenLands, untapped, archetype }) {
       poolIndex,
       manaValue: manaValue(card.manaCost),
       roles,
-      sourceValue: rounded(sourceValue),
+      sourceValue: source?.dataScore ?? null,
       deckValue: sourceValue + roleValue - burden,
       splashBurden: burden,
       sourceCoverage: source?.sourceCoverage || 0,
       metrics: source?.metrics || { seventeenLands: null, untapped: null },
       reasons: [
-        sourceValue === 32 ? 'No complete source rating' : `${rounded(sourceValue)} blended data`,
+        source?.dataScore == null ? 'No usable source rating' : `${rounded(sourceValue)} blended data`,
         roles.premiumRemoval ? 'Premium removal' : null,
         burden ? `−${rounded(burden)} splash burden` : null
       ].filter(Boolean)
@@ -192,7 +194,9 @@ function marginalValue(card, selected, archetype, creaturePass = false) {
   if (card.roles.ferociousEnabler && counts.ferociousPayoffs >= 2) value += 1.5;
 
   const duplicateCount = selected.filter((entry) => entry.name === card.name).length;
-  if (duplicateCount >= 2 && !card.roles.premiumRemoval) value -= (duplicateCount - 1) * 1.5;
+  if (/\bLegendary\b/i.test(card.typeLine || '')) value += duplicateAdjustment(card, selected).score;
+  else if (duplicateCount >= 2 && !card.roles.premiumRemoval) value -= (duplicateCount - 1) * 1.5;
+  value += analyzePoolSynergy(card, selected).score;
   if (archetype.splashColors.length && card.splashBurden) value -= card.splashBurden * 0.5;
   return value;
 }
@@ -217,7 +221,46 @@ function selectSpells(scoredCards, archetype, target = 23) {
     selected.push(available.shift());
   }
 
+  // Recheck against the actual deck: support in a cut card cannot enable a
+  // payoff. Repair the strongest unsupported/legendary liabilities with a
+  // bounded swap pass, accepting only improvements to the whole deck.
+  const quality = (deck) => deck.reduce((sum, card, index) => sum + card.deckValue
+    + analyzePoolSynergy(card, deck.filter((_, other) => other !== index)).score
+    + (/\bLegendary\b/i.test(card.typeLine || '') ? duplicateAdjustment(card, deck.slice(0, index)).score : 0), 0);
+  for (let pass = 0; pass < 4 && available.length; pass += 1) {
+    const before = quality(selected);
+    let best = null;
+    for (let index = 0; index < selected.length; index += 1) {
+      const card = selected[index];
+      const rest = selected.filter((_, other) => other !== index);
+      const unsupported = analyzePoolSynergy(card, rest).hardMissing;
+      const legend = /\bLegendary\b/i.test(card.typeLine || '') && duplicateAdjustment(card, rest).candidateCopy >= 3;
+      if (!unsupported && !legend) continue;
+      for (let replacement = 0; replacement < available.length; replacement += 1) {
+        const candidate = available[replacement];
+        if (card.roles.creature && !candidate.roles.creature && selectionCounts(rest).creatures < creatureTarget) continue;
+        const next = [...selected];
+        next[index] = candidate;
+        const gain = quality(next) - before;
+        if (gain > 0.01 && (!best || gain > best.gain)) best = { index, replacement, gain };
+      }
+    }
+    if (!best) break;
+    [selected[best.index], available[best.replacement]] = [available[best.replacement], selected[best.index]];
+  }
   return { selected, available };
+}
+
+function constructionEvidence(card, deck, index = -1) {
+  const rest = deck.filter((_, other) => other !== index);
+  const synergy = analyzePoolSynergy(card, rest);
+  const duplicate = duplicateAdjustment(card, index < 0 ? deck : deck.slice(0, index), { kind: card.roles.premiumRemoval ? 'premium-removal' : null });
+  const legend = /\bLegendary\b/i.test(card.typeLine || '');
+  const detail = [
+    legend && duplicate.detail ? `${duplicate.score} · ${duplicate.detail}` : null,
+    ...synergy.reasons.map((reason) => `${rounded(reason.score)} · ${reason.detail.replace(/in pool/g, 'in deck')}`)
+  ].filter(Boolean);
+  return { ...card, construction: { synergy: synergy.score, hardMissing: synergy.hardMissing, legend: legend ? duplicate.score : 0 }, reasons: [...detail, ...card.reasons] };
 }
 
 function groupedCards(cards) {
@@ -350,19 +393,42 @@ function buildOne({ pool, seventeenLands, untapped, archetype }) {
   const initial = selectSpells(scoredCards, archetype, 23);
   let landCount = lowCurveLandCount(initial.selected);
   let selection = initial;
-  if (landCount === 16) selection = selectSpells(scoredCards, archetype, 24);
+  if (landCount === 16) {
+    const lowCurve = selectSpells(scoredCards, archetype, 24);
+    if (lowCurve.selected.length === 24) selection = lowCurve;
+    else landCount = 17;
+  }
   const selected = selection.selected;
   const mana = allocateLands(selected, draftedLands, archetype, landCount);
   const counts = selectionCounts(selected);
   const averageManaValue = selected.reduce((total, card) => total + card.manaValue, 0) / Math.max(1, selected.length);
   const sourceCoverage = selected.filter((card) => card.sourceCoverage === 2).length;
+  const ratedCount = selected.filter((card) => card.sourceCoverage > 0).length;
+  const complete = selected.length + landCount === 40;
+  const coverage = selected.length ? ratedCount / selected.length : 0;
+  const evidence = {
+    kind: !ratedCount ? 'unrated' : coverage < 0.9 ? 'limited' : sourceCoverage === selected.length ? 'full' : 'partial',
+    rated: ratedCount, both: sourceCoverage, total: selected.length,
+    label: `${!ratedCount ? 'UNRATED BUILD' : coverage < 0.9 ? 'LIMITED DATA' : sourceCoverage === selected.length ? 'BOTH SOURCES' : 'PARTIAL DATA'} · ${ratedCount}/${selected.length} spells rated · ${sourceCoverage}/${selected.length} both sources`
+  };
+  const annotated = selected.map((card, index) => constructionEvidence(card, selected, index));
+  const constructionNotes = [...new Set(annotated.flatMap((card) => card.reasons
+    .filter((reason) => /legendary|no .*support|no .*required|no .*target|no .*equip/i.test(reason))
+    .map((reason) => `${card.name}: ${reason}`)))];
+  for (const card of annotated.filter((entry) => entry.construction.hardMissing)) {
+    const note = `${card.name}: required subtype support is absent from this deck`;
+    if (!constructionNotes.includes(note)) constructionNotes.push(note);
+  }
   const stability = mana.warnings.length ? (archetype.colors.length === 3 ? 'GREEDY' : 'TIGHT') : 'STABLE';
 
   return {
     ...archetype,
-    available: selected.length + landCount === 40,
-    mainDeck: groupedCards(selected),
-    cuts: groupedCards(selection.available),
+    available: complete,
+    shortage: Math.max(0, 40 - selected.length - landCount),
+    evidence,
+    constructionNotes,
+    mainDeck: groupedCards(annotated),
+    cuts: groupedCards(selection.available.map((card) => constructionEvidence(card, selected))),
     lands: mana.lands,
     excluded: excludedCards(pool, selected, mana.lands),
     curve: buildCurve(selected),
@@ -377,7 +443,7 @@ function buildOne({ pool, seventeenLands, untapped, archetype }) {
       averageManaValue: rounded(averageManaValue, 2),
       sourceCoverage: `${sourceCoverage}/${selected.length}`
     },
-    score: rounded(selected.reduce((total, card) => total + card.deckValue, 0) / Math.max(1, selected.length))
+    score: complete && coverage >= 0.9 ? rounded(annotated.reduce((total, card) => total + card.deckValue + card.construction.synergy + card.construction.legend, 0) / Math.max(1, selected.length)) : null
   };
 }
 

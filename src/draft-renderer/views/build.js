@@ -109,7 +109,7 @@ async function undoRecipe() {
 }
 
 function renderBuildOverlay() {
-  const builds = model.deckBuilds || [];
+  const builds = (model.deckBuilds || []).filter((entry) => entry.available);
   const build = chosenBuild();
   byId('build-empty').hidden = Boolean(build);
   byId('build-content').hidden = !build;
@@ -132,7 +132,7 @@ function renderBuildOverlay() {
   if (!build) return;
 
   setText('build-name', build.name);
-  setText('build-label', build.label);
+  setText('build-label', `${build.label} · ${build.evidence?.label || ''}`);
   setText('build-stability', build.mana.stability);
   byId('build-stability').className = `build-stability ${build.mana.warnings.length ? 'warning' : ''}`;
   setText('build-spell-count', build.summary.spells);

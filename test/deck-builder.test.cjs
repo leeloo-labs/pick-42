@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildLimitedDecks, canPlay, lowCurveLandCount } = require('../src/draft/deck-builder.cjs');
 const { manaProfile } = require('../src/draft/blend-engine.cjs');
+const { buildRecipeTasks } = require('../src/draft/recipe-queue.js');
 
 function card(name, manaCost, typeLine = 'Creature — Test', rulesText = '') {
   return { name, manaCost, typeLine, rulesText, printedPower: /Creature/.test(typeLine) ? '2' : null, printedToughness: /Creature/.test(typeLine) ? '2' : null };
@@ -30,6 +31,74 @@ function sourceRows(pool) {
     untapped: spells.map((entry, index) => ({ name: entry.name, inHandWinRate: 54.5 + (index % 6) * 0.7, games: 8000, inHandWinRateDelta: (index % 4) * 0.5 }))
   };
 }
+
+test('incomplete color combinations expose their shortage without a score or recipe', () => {
+  const colors = ['W', 'U', 'B', 'R', 'G'];
+  const pool = Array.from({ length: 23 }, (_, i) => card(`Spell ${i}`, `{2}{${colors[i % 5]}}`));
+  const builds = buildLimitedDecks({ pool, ...sourceRows(pool) });
+  assert.ok(builds.length);
+  for (const build of builds) {
+    assert.equal(build.available, false);
+    assert.equal(build.shortage, 40 - build.summary.total);
+    assert.equal(build.score, null);
+    assert.deepEqual(buildRecipeTasks(build), []);
+  }
+});
+
+test('unrated complete decks expose coverage without a fabricated blended score', () => {
+  const pool = Array.from({ length: 23 }, (_, i) => card(`Spell ${i}`, '{2}{B}'));
+  const build = buildLimitedDecks({ pool })[0];
+  assert.equal(build.available, true);
+  assert.equal(build.score, null);
+  assert.equal(build.evidence.kind, 'unrated');
+  assert.equal(build.evidence.rated, 0);
+  assert.ok(build.mainDeck.every((entry) => entry.sourceValue === null));
+  assert.ok(buildRecipeTasks(build).length);
+});
+
+test('single-source builds carry partial evidence while retaining a supported score', () => {
+  const pool = Array.from({ length: 23 }, (_, i) => card(`Spell ${i}`, '{2}{B}'));
+  const build = buildLimitedDecks({ pool, seventeenLands: sourceRows(pool).seventeenLands })[0];
+  assert.equal(build.evidence.kind, 'partial');
+  assert.equal(build.evidence.both, 0);
+  assert.equal(build.evidence.rated, 23);
+  assert.ok(Number.isFinite(build.score));
+});
+
+test('a low-curve pool with only 23 spells keeps 17 lands and a complete recipe', () => {
+  const pool = Array.from({ length: 23 }, (_, i) => card(`Cheap creature ${i}`, '{B}', 'Creature — Human', i < 3 ? 'When this enters, draw a card.' : ''));
+  const build = buildLimitedDecks({ pool, ...sourceRows(pool) })[0];
+  assert.equal(build.summary.total, 40);
+  assert.equal(build.summary.lands, 17);
+  assert.ok(buildRecipeTasks(build).length);
+});
+
+test('legend-rule pressure leaves a third ordinary legend out when a comparable creature is available', () => {
+  const legend = card('Test Legend', '{2}{B}', 'Legendary Creature — Human');
+  const pool = [legend, { ...legend }, { ...legend }, ...Array.from({ length: 22 }, (_, i) => card(`Creature ${i}`, '{2}{B}'))];
+  const source = sourceRows(pool);
+  for (const row of source.seventeenLands) row.gihWinRate = row.name === legend.name ? 60 : 59;
+  for (const row of source.untapped) row.inHandWinRate = row.name === legend.name ? 60 : 59;
+  const build = buildLimitedDecks({ pool, ...source })[0];
+  assert.ok(build.mainDeck.find((entry) => entry.name === legend.name).quantity <= 2);
+  const cut = build.cuts.find((entry) => entry.name === legend.name);
+  assert.ok(cut);
+  assert.ok(cut.construction.legend <= -15);
+  assert.ok(cut.reasons.some((reason) => /third legendary/.test(reason)));
+});
+
+test('support evidence is measured against the final deck rather than a drafted off-color enabler', () => {
+  const payoff = card('Dwarf Tool', '{2}', 'Artifact — Equipment', 'When this enters, attach it to target Dwarf you control.');
+  const dwarf = card('Off-color Dwarf', '{G}', 'Creature — Dwarf');
+  const pool = [payoff, dwarf, ...Array.from({ length: 22 }, (_, i) => card(`Black creature ${i}`, '{2}{B}'))];
+  const build = buildLimitedDecks({ pool, ...sourceRows(pool), preferredLane: { colors: ['U', 'B'], label: 'Dimir' } })[0];
+  const tool = build.mainDeck.find((entry) => entry.name === payoff.name);
+  assert.equal(tool.construction.hardMissing, true);
+  assert.ok(build.constructionNotes.some((note) => /Dwarf Tool.*support.*absent/.test(note)));
+  const supported = buildLimitedDecks({ pool: [...pool, card('Black Dwarf', '{B}', 'Creature — Dwarf')], preferredLane: { colors: ['U', 'B'], label: 'Dimir' } })[0];
+  const supportedTool = [...supported.mainDeck, ...supported.cuts].find((entry) => entry.name === payoff.name);
+  assert.equal(supportedTool.construction.hardMissing, false);
+});
 
 test('builds complete Golgari, Jund, and Rakdos limited decks', () => {
   const pool = syntheticPool();

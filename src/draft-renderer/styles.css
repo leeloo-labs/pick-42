@@ -40,6 +40,10 @@
 * { box-sizing: border-box; }
 /* Component display rules must never revive hidden session controls. */
 [hidden] { display: none !important; }
+.deck-evidence { margin: 8px 0; color: var(--muted); font-size: 11px; }
+.deck-construction-notes { color: var(--gold); font-size: 11px; line-height: 1.4; }
+.deck-construction-notes p { margin: 4px 0; }
+.deck-tab:disabled { opacity: .6; cursor: default; }
 /* The web shell has no window chrome to control. */
 .web-shell .window-actions { display: none; }
 

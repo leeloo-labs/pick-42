@@ -216,6 +216,7 @@ function renderDeckBuilder() {
   const builds = model.deckBuilds || [];
   const build = chosenBuild();
   const empty = !build;
+  byId('deck-side-panel-button').disabled = empty;
   byId('deck-empty').hidden = !empty;
   byId('deck-board-shell').hidden = empty;
 
@@ -225,7 +226,8 @@ function renderDeckBuilder() {
     const tab = element('button', `deck-tab ${entry.id === build?.id ? 'active' : ''}`);
     const copy = element('span');
     copy.append(element('strong', '', entry.name), element('small', '', entry.label));
-    tab.append(copy, element('span', '', entry.score === null ? '—' : entry.score.toFixed(1)));
+    tab.disabled = !entry.available;
+    tab.append(copy, element('span', '', !entry.available ? `${entry.shortage} spells short` : entry.score === null ? '—' : entry.score.toFixed(1)));
     tab.addEventListener('click', () => {
       selectedBuildId = entry.id;
       renderDeckBuilder();
@@ -240,6 +242,9 @@ function renderDeckBuilder() {
     setText('deck-label', '40 CARDS');
     setText('deck-description', 'Pick 42 will generate color suggestions after enough cards have been drafted.');
     setText('deck-score', '—');
+    setText('deck-evidence', builds.length ? 'These color combinations need more playable spells to reach 40 cards.' : 'Waiting for enough drafted cards.');
+    byId('deck-construction-notes').replaceChildren();
+    for (const id of ['deck-total', 'deck-land-count', 'deck-creature-count', 'deck-interaction-count', 'deck-avg-mv']) setText(id, '—');
     resetDeckSidebar();
     return;
   }
@@ -247,7 +252,11 @@ function renderDeckBuilder() {
   setText('deck-name', build.name);
   setText('deck-label', build.label);
   setText('deck-description', build.description);
-  setText('deck-score', build.score.toFixed(1));
+  setText('deck-score', build.score === null ? '—' : build.score.toFixed(1));
+  setText('deck-evidence', build.evidence?.label || '');
+  const constructionNotes = byId('deck-construction-notes');
+  constructionNotes.replaceChildren();
+  for (const note of build.constructionNotes || []) constructionNotes.append(element('p', '', note));
   setText('deck-total', build.summary.total);
   setText('deck-land-count', build.summary.lands);
   setText('deck-creature-count', `${build.summary.creatures} + tokens`);

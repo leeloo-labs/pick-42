@@ -182,7 +182,7 @@ function createDraftCompanion({
   }
 
   function reviewDeckSnapshot() {
-    const builds = currentDeckBuilds();
+    const builds = currentDeckBuilds().filter((entry) => entry.available);
     const build = builds.find((entry) => entry.id === selectedBuildId) || builds[0] || null;
     const arenaMain = draftState.arenaDeck?.mainDeck || [];
     const arenaSideboard = draftState.arenaDeck?.sideboard || [];
@@ -653,7 +653,7 @@ function createDraftCompanion({
   // played from here on count, so an old match is never mistaken for a new one.
   function completeLogScan() {
     migrateLegacyDraftPreferences(draftState);
-    if (selectedBuildId && !currentDeckBuilds().some((build) => build.id === selectedBuildId)) {
+    if (selectedBuildId && !currentDeckBuilds().some((build) => build.available && build.id === selectedBuildId)) {
       selectedBuildId = null;
       settings.write({ selectedBuildId: null });
     }
@@ -803,7 +803,7 @@ function createDraftCompanion({
       return viewModel();
     },
     selectBuild(buildId) {
-      const available = new Set(currentDeckBuilds().map((build) => build.id));
+      const available = new Set(currentDeckBuilds().filter((build) => build.available).map((build) => build.id));
       if (available.has(buildId)) {
         selectedBuildId = buildId;
         settings.write({ selectedBuildId });
