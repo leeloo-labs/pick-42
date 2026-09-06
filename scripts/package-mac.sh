@@ -45,7 +45,13 @@ plist="$app/Contents/Info.plist"
 payload="$app/Contents/Resources/app"
 mkdir -p "$payload/node_modules/lucide/dist/umd"
 ditto "$repo/src" "$payload/src"
-ditto "$repo/assets" "$payload/assets"
+# Only tracked assets ship: local branding concepts are gitignored and must not
+# ride along inside the bundle (a bare ditto would copy them).
+mkdir -p "$payload/assets"
+git -C "$repo" ls-files -z assets | while IFS= read -r -d '' file; do
+  mkdir -p "$payload/$(dirname "$file")"
+  cp "$repo/$file" "$payload/$file"
+done
 ditto "$repo/fixtures" "$payload/fixtures"
 ditto "$repo/bin" "$payload/bin"
 cp "$repo/node_modules/lucide/dist/umd/lucide.min.js" "$payload/node_modules/lucide/dist/umd/"
