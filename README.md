@@ -76,6 +76,10 @@ The **17L** and **UT** buttons open a per-draft-type menu: each CSV export is as
 
 Live rankings are fully covered when usable rows from both statistical sources match at least 90% of the nonbasic cards in the active pack. When at least 90% is covered by either source but not both, Pick 42 runs with a visible **Partial data** status and leaves cards with no usable rating unranked. Packs below 90% single-source coverage remain paused. Blank values do not count as coverage, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
 
+Paused packs stay in their original pack order with source measurements visible and recommendation ranks and scores withheld in both views. Sample mode is independent of import and connection notifications, so preparing live data or encountering a log error does not change the sample's ratings.
+
+**SET PREP** checks the same ratings slot the live draft will use: the exact draft type first, then the all-types slot. An exact import from another set must be replaced; it cannot borrow the all-types slot's readiness. The checklist shows how many matching cards have usable win rates, and labels set verification as pending when the card catalog is unavailable. Import readiness does not guarantee coverage of a future pack; every live pack is checked separately.
+
 Pick 42 does not scrape 17Lands or Untapped and does not depend on undocumented APIs. Current data is imported by the user.
 
 ### Contextual and raw rankings

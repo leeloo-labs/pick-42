@@ -7,7 +7,7 @@ const {
 } = require('../draft/blend-engine.cjs');
 const { normalizeCardName } = require('../draft/csv.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('../draft/pool-plan.cjs');
-const { evaluateRecommendationGate } = require('../draft/coverage-gate.cjs');
+const { evaluateRecommendationGate, presentDraftRecommendations } = require('../draft/coverage-gate.cjs');
 const { buildLimitedDecks, landColors } = require('../draft/deck-builder.cjs');
 const { normalizeFormat, summarizeArchetypeCorpus } = require('../draft/archetype-corpus.cjs');
 const { DraftLogParser } = require('../draft/draft-log-parser.cjs');
@@ -74,6 +74,9 @@ function createDraftCompanion({
   const persistReviews = () => reviews.write({ reviews: reviewTracker.snapshot().reviews, manualRecords });
   let reviewArmed = false;
   const reviewMatchDecisions = new Map();
+  // Session identity changes only through the log/demo lifecycle. Import
+  // progress and errors are notifications, never a choice of ratings data.
+  let sessionMode = 'idle';
   let status = { kind: 'demo', message: `Sample ${activeSet.displayCode} pack · import current exports when ready` };
   let lanePreference = null;
   let poolExclusionPreference = null;
@@ -132,11 +135,11 @@ function createDraftCompanion({
     return { curve, colors, creatures, total: pool.length };
   }
 
-  const activeSourceData = () => sourceStore.activeData({ demo: status.kind === 'demo', format: draftState.format });
+  const activeSourceData = () => sourceStore.activeData({ demo: sessionMode === 'demo', format: draftState.format });
   const resolveSourceImport = (source, format = draftState.format) => sourceStore.resolve(source, format);
 
   function draftScopeId() {
-    return String(draftState.draftId || (status.kind === 'demo' ? `demo-${activeSet.code}` : 'unidentified-draft'));
+    return String(draftState.draftId || (sessionMode === 'demo' ? `demo-${activeSet.code}` : 'unidentified-draft'));
   }
 
   function activePoolExclusions() {
@@ -230,11 +233,11 @@ function createDraftCompanion({
     const deckNames = new Set([...(deck?.cards || []), ...(deck?.lands || [])]
       .map((card) => normalizeCardName(card.name))
       .filter(Boolean));
-    const resolved = status.kind === 'demo' ? null : resolveSourceImport('seventeenLands');
+    const resolved = sessionMode === 'demo' ? null : resolveSourceImport('seventeenLands');
     return {
       setCode: draftState.setCode || null,
       format: draftState.format || null,
-      sourceLabel: resolved?.label || (status.kind === 'demo' ? '17Lands sample' : null),
+      sourceLabel: resolved?.label || (sessionMode === 'demo' ? '17Lands sample' : null),
       seventeenLands: activeSources.seventeenLands
         .filter((row) => deckNames.has(row.key || normalizeCardName(row.name)))
         .map((row) => ({ ...row }))
@@ -327,7 +330,7 @@ function createDraftCompanion({
   function recommendationGate(recommendations) {
     return evaluateRecommendationGate({
       recommendations,
-      demo: status.kind === 'demo',
+      demo: sessionMode === 'demo',
       hasSeventeenLands: Boolean(resolveSourceImport('seventeenLands')),
       hasUntapped: Boolean(resolveSourceImport('untapped')),
       contextLabel: [draftState.setCode, draftState.format].filter(Boolean).join(' ') || 'this set'
@@ -463,7 +466,7 @@ function createDraftCompanion({
       : null;
     return {
       draft: draftState,
-      recommendations,
+      recommendations: presentDraftRecommendations(recommendations, gate),
       deckBuilds,
       selectedBuildId,
       pickPair,
@@ -475,8 +478,8 @@ function createDraftCompanion({
       },
       poolPlan: { excludedNames },
       sources: {
-        seventeenLands: sourceStore.viewState('seventeenLands', { demo: status.kind === 'demo', format: draftState.format }),
-        untapped: sourceStore.viewState('untapped', { demo: status.kind === 'demo', format: draftState.format })
+        seventeenLands: sourceStore.viewState('seventeenLands', { demo: sessionMode === 'demo', format: draftState.format }),
+        untapped: sourceStore.viewState('untapped', { demo: sessionMode === 'demo', format: draftState.format })
       },
       archetypeCorpus: {
         source: corpusStore.sourceInfo(),
@@ -500,6 +503,7 @@ function createDraftCompanion({
         }))
       },
       draftLane,
+      sessionMode,
       status,
       arenaLog: describeLog(),
       arena: {
@@ -520,7 +524,7 @@ function createDraftCompanion({
       },
       catalog: catalogInfo,
       setPrep: buildSetPrep(),
-      demo: demoDriver.state()
+      demo: sessionMode === 'demo' ? demoDriver.state() : null
     };
   }
 
@@ -555,6 +559,7 @@ function createDraftCompanion({
     setDisplayCode: activeSet.displayCode,
     onStatus: (next) => setStatus(next),
     onBeforeStart: () => {
+      sessionMode = 'demo';
       onDemoStart();
       reviewArmed = false;
       matchParser.reset();
@@ -596,7 +601,7 @@ function createDraftCompanion({
     // A live draft names its own set; follow it so images, links, and
     // readiness all point at what is actually being drafted.
     const liveSetCode = String(nextState.setCode || '').trim().toLowerCase();
-    if (liveSetCode && status.kind !== 'demo' && liveSetCode !== currentSet.code) applySetChange(liveSetCode);
+    if (liveSetCode && sessionMode === 'live' && liveSetCode !== currentSet.code) applySetChange(liveSetCode);
     onContextChanged();
     notify();
   });
@@ -629,6 +634,7 @@ function createDraftCompanion({
   // Log-session lifecycle. The shell owns the transport (fs tailer, browser
   // file polling); the companion owns what the bytes mean.
   function beginLogSession() {
+    sessionMode = 'live';
     reviewArmed = false;
     matchParser.reset();
     reviewMatchDecisions.clear();
@@ -659,6 +665,7 @@ function createDraftCompanion({
   }
 
   function logRotated() {
+    sessionMode = 'live';
     parser.reset();
     matchParser.reset();
     reviewMatchDecisions.clear();
@@ -725,7 +732,7 @@ function createDraftCompanion({
     initializeScryfall,
     augmentCatalog,
     startDemo: (mode) => demoDriver.start(mode),
-    advanceDemo: () => demoDriver.advance(),
+    advanceDemo: () => { if (sessionMode === 'demo') demoDriver.advance(); },
     sceneSnapshot: () => sceneTracker.snapshot(),
     setLanePreference(requestedMode) {
       const mode = String(requestedMode || 'auto');

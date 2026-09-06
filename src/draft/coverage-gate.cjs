@@ -59,4 +59,21 @@ function evaluateRecommendationGate({
   };
 }
 
-module.exports = { evaluateRecommendationGate };
+// The renderer receives measurements even when coverage is insufficient, but
+// never a recommendation order or score disguised as an unranked card list.
+function presentDraftRecommendations(recommendations, gate) {
+  if (gate.ready) return recommendations;
+  return [...recommendations].sort((left, right) => left.packIndex - right.packIndex).map((card) => ({
+    ...card,
+    score: null,
+    dataScore: null,
+    contextualRank: null,
+    rawRank: null,
+    eligible: false,
+    reasons: [],
+    pickOutlook: null,
+    metrics: { ...card.metrics, impactFlag: null }
+  }));
+}
+
+module.exports = { evaluateRecommendationGate, presentDraftRecommendations };

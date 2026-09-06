@@ -56,6 +56,9 @@ function renderLane() {
 }
 
 function activeRecommendations() {
+  if (!model.recommendationGate.ready) {
+    return [...model.recommendations].sort((left, right) => left.packIndex - right.packIndex);
+  }
   if (rankingMode === 'raw') {
     return [...model.recommendations].sort((left, right) => left.rawRank - right.rawRank);
   }
@@ -63,6 +66,7 @@ function activeRecommendations() {
 }
 
 function chosenCard() {
+  if (!model.recommendationGate.ready) return null;
   const cards = activeRecommendations();
   return cards.find((card) => card.name === selectedName && card.eligible)
     || cards.find((card) => card.eligible)
@@ -238,10 +242,12 @@ function renderSetPrep() {
   progress.append(track, element('b', '', `${prep.readyCount} of ${prep.total} ready`));
   card.append(progress);
   const summary = prep.complete
-    ? `${prep.displayCode} is fully prepared. Draft when ready.`
+    ? `${prep.displayCode} prep items are present. Each live pack is checked for ratings coverage.`
     : (prep.rankingsReady
-      ? `${prep.displayCode} rankings can run; the unchecked items add context.`
-      : `Live ${prep.displayCode} rankings pause until both ratings sources are imported.`);
+      ? `Both ratings imports match ${prep.displayCode}. Each live pack is checked for coverage.`
+      : prep.ratingsStatus === 'partial'
+        ? `One ratings import matches ${prep.displayCode}. Packs with at least 90% usable coverage can run with partial data.`
+        : `Import ratings for ${prep.displayCode} and this draft type. Live packs need at least 90% usable coverage.`);
   card.append(element('p', 'set-prep-summary', summary));
 
   const rows = element('div', 'set-prep-items');
@@ -282,7 +288,7 @@ function renderRanking() {
   byId('hero-card').hidden = !hasCards || !ready;
   byId('coverage-gate').hidden = !hasCards || ready;
   setText('coverage-gate-message', model.recommendationGate.message);
-  setText('coverage-gate-count', `${model.recommendationGate.coveredByBoth} / ${model.recommendationGate.total}`);
+  setText('coverage-gate-count', `${model.recommendationGate.coveredByAny} / ${model.recommendationGate.total} rated`);
   setText('list-title', ready ? 'PACK RANKING' : 'PACK CONTENTS');
   setText('list-context', ready
     ? (rankingMode === 'raw' ? 'IN A VACUUM' : 'LANE + ACTIVE POOL')
@@ -311,7 +317,8 @@ function renderRanking() {
     const row = element('article', `rank-row tone-${cardTone(card, cardIsLand)} ${pairRole} ${card.eligible ? '' : 'unranked'} ${chosenCard()?.name === card.name ? 'selected' : ''} ${impactKind ? `impact-${impactKind}` : ''}`);
     applyDeckManaStyle(row, card, cardIsLand);
     row.tabIndex = 0;
-    row.append(element('span', 'rank-number', String(index + 1).padStart(2, '0')));
+    const hasRank = ready && (rankingMode === 'raw' ? card.dataScore !== null : card.eligible);
+    row.append(element('span', 'rank-number', hasRank ? String(index + 1).padStart(2, '0') : '—'));
     const copy = element('div', 'rank-card');
     const title = element('div', 'rank-card-title');
     title.append(element('strong', '', card.name));
@@ -333,7 +340,7 @@ function renderRanking() {
       flag.title = `Best second selection once ${model.pickPair.first.name} joins your pool`;
       title.append(flag);
     }
-    const detail = rankingMode === 'raw' ? rawReasons(card)[0] : card.reasons[0];
+    const detail = !ready ? card.typeLine : (rankingMode === 'raw' ? rawReasons(card)[0] : card.reasons[0]);
     const detailNode = element('span', 'rank-card-detail');
     const detailPips = manaPipsElement(card.manaCost);
     if (detailPips) detailNode.append(detailPips);
@@ -348,9 +355,9 @@ function renderRanking() {
     row.append(sources);
     const scores = element('div', `rank-dual-scores ${card.eligible ? '' : 'unranked-score'}`);
     const contextScore = element('span', `rank-lens-score contextual ${rankingMode === 'contextual' ? 'active' : ''}`);
-    contextScore.append(element('small', '', `CTX #${card.contextualRank}`), element('strong', '', card.eligible ? card.score.toFixed(1) : '—'));
+    contextScore.append(element('small', '', ready && card.eligible ? `CTX #${card.contextualRank}` : 'CTX'), element('strong', '', ready && card.eligible ? card.score.toFixed(1) : '—'));
     const rawScore = element('span', `rank-lens-score raw ${rankingMode === 'raw' ? 'active' : ''}`);
-    rawScore.append(element('small', '', `RAW #${card.rawRank}`), element('strong', '', card.dataScore === null ? '—' : card.dataScore.toFixed(1)));
+    rawScore.append(element('small', '', ready && card.dataScore !== null ? `RAW #${card.rawRank}` : 'RAW'), element('strong', '', !ready || card.dataScore === null ? '—' : card.dataScore.toFixed(1)));
     scores.append(contextScore, rawScore);
     row.append(scores);
     const select = () => { selectedName = card.name; renderHero(); renderRanking(); };
@@ -449,5 +456,5 @@ function renderPool() {
     row.append(quantity, copy, toggle);
     pool.append(row);
   }
-  byId('next-demo').hidden = model.status?.kind !== 'demo';
+  byId('next-demo').hidden = model.sessionMode !== 'demo';
 }

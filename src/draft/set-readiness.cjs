@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalizeCardName } = require('./csv.cjs');
+const { resolveRatingsSlot } = require('./source-slots.cjs');
 
 // How ready the imported data is for drafting a given set and draft type.
 // Everything here is measured, never assumed: a ratings slot only counts when
@@ -16,19 +17,31 @@ function rowMatchRate(rows = [], cardNames = new Set()) {
   return matched / rows.length;
 }
 
-function ratingsReadiness(slots = [], { format = 'any', cardNames }) {
-  const measured = slots
-    .filter((slot) => slot?.data?.length)
-    .map((slot) => ({ format: slot.format, label: slot.label, count: slot.data.length, matchRate: rowMatchRate(slot.data, cardNames) }));
+function ratingsReadiness(slots = [], { format = 'any', cardNames, metric }) {
+  const measured = slots.map((slot) => {
+    const rows = slot.data || [];
+    const matched = rows.filter((row) => cardNames.has(row.key || normalizeCardName(row.name)));
+    return {
+      format: slot.format, label: slot.label, count: rows.length,
+      matchRate: rowMatchRate(rows, cardNames), matchedCount: matched.length,
+      usableCount: matched.filter((row) => Number.isFinite(row[metric])).length
+    };
+  });
   const matching = measured.filter((slot) => slot.matchRate >= MATCH_THRESHOLD);
-  const usable = matching.filter((slot) => slot.format === format || slot.format === 'any' || format === 'any');
-  const ready = usable.length > 0;
+  const selected = resolveRatingsSlot(measured, format);
+  const ready = Boolean(selected && selected.matchRate >= MATCH_THRESHOLD && selected.usableCount > 0);
   let detail;
-  if (ready) detail = usable.map((slot) => `${slot.format} · ${slot.count} cards`).join(' · ');
-  else if (matching.length) detail = `${matching.map((slot) => slot.format).join('/')} slot only · import into ${format} or any`;
-  else if (measured.length) detail = 'imported data names another set';
+  if (selected) {
+    const prefix = `${selected.format} · ${selected.label || 'import'}`;
+    if (!selected.count) detail = `${prefix} · no ratings rows`;
+    else if (!cardNames.size) detail = `${prefix} · set verification pending`;
+    else if (selected.matchRate < MATCH_THRESHOLD) detail = `${prefix} · imported data names another set`;
+    else if (!selected.usableCount) detail = `${prefix} · matching cards have no usable win rates`;
+    else detail = `${prefix} · ${selected.usableCount}/${selected.matchedCount} matching cards rated`;
+  } else if (matching.length) detail = `${matching.map((slot) => slot.format).join('/')} slot only · import into ${format === 'any' ? 'any' : `${format} or any`}`;
+  else if (measured.length) detail = `no ${format} or all-types import selected`;
   else detail = 'no export imported yet';
-  return { ready, detail, slots: measured };
+  return { ready, detail, activeFormat: selected?.format || null, usableCount: selected?.usableCount || 0, slots: measured };
 }
 
 function corpusReadiness(decks = [], { set, format = 'any' }) {
@@ -44,8 +57,8 @@ function corpusReadiness(decks = [], { set, format = 'any' }) {
 }
 
 function computeSetReadiness({ set, format = 'any', cardNames = new Set(), sources = {}, corpusDecks = [], images = {} }) {
-  const seventeenLands = ratingsReadiness(sources.seventeenLands || [], { format, cardNames });
-  const untapped = ratingsReadiness(sources.untapped || [], { format, cardNames });
+  const seventeenLands = ratingsReadiness(sources.seventeenLands || [], { format, cardNames, metric: 'gihWinRate' });
+  const untapped = ratingsReadiness(sources.untapped || [], { format, cardNames, metric: 'inHandWinRate' });
   const corpus = corpusReadiness(corpusDecks, { set, format });
   const imagesReady = Boolean(images.ready);
   const items = [
@@ -66,6 +79,7 @@ function computeSetReadiness({ set, format = 'any', cardNames = new Set(), sourc
     total: items.length,
     percent: Math.round((readyCount / items.length) * 100),
     rankingsReady,
+    ratingsStatus: rankingsReady ? 'full' : (seventeenLands.ready || untapped.ready ? 'partial' : 'none'),
     complete: readyCount === items.length
   };
 }

@@ -38,6 +38,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Component display rules must never revive hidden session controls. */
+[hidden] { display: none !important; }
 /* The web shell has no window chrome to control. */
 .web-shell .window-actions { display: none; }
 

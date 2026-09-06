@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeFormat } = require('../draft/archetype-corpus.cjs');
+const { resolveRatingsSlot } = require('../draft/source-slots.cjs');
 const { parseSeventeenLandsCsv } = require('../draft/sources/seventeenlands.cjs');
 const { parseUntappedCsv } = require('../draft/sources/untapped.cjs');
 
@@ -40,13 +40,7 @@ function createSourceImportStore() {
   };
 
   // The live draft's format selects its matching import; the all-formats slot backs it up.
-  const resolve = (source, format) => {
-    const entries = imports[source] || {};
-    const key = normalizeFormat(format);
-    if (key !== 'any' && entries[key]) return { format: key, ...entries[key] };
-    if (entries.any) return { format: 'any', ...entries.any };
-    return null;
-  };
+  const resolve = (source, format) => resolveRatingsSlot(slotEntries(source), format);
 
   // Every real import with its parsed rows, for set-readiness measurement.
   const slotEntries = (source) => SOURCE_FORMATS
@@ -70,7 +64,7 @@ function createSourceImportStore() {
     const resolved = resolve(source, format);
     return {
       kind: resolved ? 'import' : 'none',
-      label: resolved ? resolved.label : sampleLabel,
+      label: resolved ? resolved.label : `No ${source === 'seventeenLands' ? '17Lands' : 'Untapped'} import for this draft type`,
       count: resolved ? resolved.count : 0,
       activeFormat: resolved ? resolved.format : null,
       imports: inventory(source)

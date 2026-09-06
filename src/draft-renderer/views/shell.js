@@ -8,14 +8,16 @@ function renderStatus() {
   const gate = model.recommendationGate;
   const draftedTotal = model.poolSummary?.draftedTotal || 0;
   setText('coverage-label', gate.total
-    ? `${gate.coveredByBoth} / ${gate.total} draftable cards covered by both sources`
+    ? (gate.kind === 'partial'
+      ? `PARTIAL DATA · ${gate.coveredByAny} / ${gate.total} rated · ${gate.coveredByBoth} / ${gate.total} both sources`
+      : `${model.sessionMode === 'demo' ? 'SAMPLE · ' : ''}${gate.coveredByBoth} / ${gate.total} draftable cards covered by both sources`)
     : (draftedTotal ? `No active pack · ${draftedTotal} cards drafted` : 'Waiting for a draft pack'));
 
   const source17 = model.sources.seventeenLands;
   const sourceUt = model.sources.untapped;
   const shortFormat = { any: 'all', premier: 'premier', quick: 'quick', traditional: 'trad', 'pick-two': 'pick 2' };
   const sourceLabel = (source) => {
-    if (model.status?.kind === 'demo') return 'sample';
+    if (source.kind === 'sample') return 'sample';
     if (source.kind !== 'import') return 'no data';
     return `${source.count} · ${shortFormat[source.activeFormat] || source.activeFormat}`;
   };
@@ -36,7 +38,7 @@ function renderStatus() {
   byId('import-archetypes').title = corpusSource.kind === 'empty'
     ? 'Import an authorized trophy-deck corpus (CSV or JSON)'
     : `${corpusSource.label} · ${corpusMatch.trophyCount} matching trophies across ${corpusMatch.archetypeCount} archetypes`;
-  byId('restart-demo').hidden = model.status?.kind !== 'demo';
+  byId('restart-demo').hidden = model.sessionMode !== 'demo';
 }
 
 function corpusFormatValue(value) {
