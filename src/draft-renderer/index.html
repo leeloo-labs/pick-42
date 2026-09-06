@@ -40,6 +40,7 @@
         <span id="status-message">Starting draft companion</span>
         <span class="status-spacer"></span>
         <span id="coverage-label" class="coverage-label">0 / 0 cards covered by both sources</span>
+        <button id="show-decision-history" class="quiet-button">DECISIONS</button>
         <button id="restart-demo" class="quiet-button"><i data-lucide="rotate-ccw"></i><span>RESET SAMPLE</span></button>
       </div>
 
@@ -586,6 +587,12 @@
       <header class="prep-dialog-heading"><div><small>LOCAL SET PROFILES</small><h1 id="prep-heading">Prepare for a draft</h1></div><button id="prep-close" class="icon-button" aria-label="Close preparation"><i data-lucide="x"></i></button></header>
       <div id="set-prep"></div>
     </dialog>
+    <dialog id="decision-history-dialog" class="history-dialog" aria-labelledby="history-heading">
+      <header class="prep-dialog-heading"><div><small>LOCAL DRAFT HISTORY</small><h1 id="history-heading">Recorded decisions</h1></div><button id="history-close" class="icon-button" aria-label="Close decision history"><i data-lucide="x"></i></button></header>
+      <p id="history-retention" class="history-retention"></p>
+      <label class="history-filter"><input id="history-bookmarks-only" type="checkbox"> Bookmarks only</label>
+      <div class="history-layout"><nav id="history-list" aria-label="Recorded draft decisions"></nav><section id="history-detail"></section></div>
+    </dialog>
     <script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>
     <script src="../draft/save-queue.js"></script>
     <script src="../draft/recipe-queue.js"></script>
@@ -595,6 +602,7 @@
     <script src="views/decks.js"></script>
     <script src="views/build.js"></script>
     <script src="views/play.js"></script>
+    <script src="views/history.js"></script>
     <script src="views/shell.js"></script>
     <script src="views/boot.js"></script>
   </body>

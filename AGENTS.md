@@ -57,6 +57,13 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Show the complete drafted pool as an abbreviated card list. Draft-scoped `OUT` markings remain visible and persisted, but excluded cards must not affect lane inference, recommendations, or generated deck builds.
 - Carry an `OUT` choice forward when another copy of the same card appears later in the draft. Apply a visible preference penalty and `LIKELY SIDEBOARD` outlook unless elite raw data, premium removal quality, or a newly live synergy package provides a transparent reason to reconsider.
 
+## Local decision history
+
+- DECISIONS saves advice available while following a draft, including source measurements/fingerprints, lane policy, OUT choices, the visible pack and prior pool, and the conditional Pick Two pair. Historical scans do not reconstruct past advice.
+- Advice remains editable until a selection is observed in the visible pool, then freezes. Match pool growth by copy count and the preceding decision round; never infer missed picks from unrelated later packs.
+- Retain the latest ten live drafts locally; bookmarks follow the same limit. Sample history stays in memory and resets with the sample. Desktop uses `draft-decisions.json`; the web shell uses IndexedDB. No raw log data is uploaded.
+- Comparison scores are recorded values, never retroactively rescored and never interpreted as predicted win-rate changes.
+
 ## Deck builder and UI
 
 - Generate 40-card limited decks, normally with 17 lands; use 16 only for a genuinely low curve with card flow.
@@ -108,7 +115,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 209 passing tests.
+- The test suite currently contains 216 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

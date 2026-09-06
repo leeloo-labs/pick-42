@@ -9,7 +9,7 @@ const { createSourceImportStore } = require('../src/draft-app/source-imports.cjs
 const { createCorpusStore } = require('../src/draft-app/corpus-store.cjs');
 const { setDefinition } = require('../src/draft/set-definitions.cjs');
 
-function session() {
+function session(decisions = { read: () => null, write: () => {} }) {
   const catalog = structuredClone(require('../fixtures/demo-draft-cards.json'));
   const sourceStore = createSourceImportStore();
   sourceStore.loadSamples({
@@ -22,7 +22,7 @@ function session() {
   });
   let saved = {};
   const companion = createDraftCompanion({
-    catalog, demoCatalog: catalog, activeSet: setDefinition('hob'), sourceStore, corpusStore,
+    decisions, catalog, demoCatalog: catalog, activeSet: setDefinition('hob'), sourceStore, corpusStore,
     settings: { read: () => saved, write: (patch) => { saved = { ...saved, ...patch }; } },
     reviews: { read: () => [], write: () => {} }
   });
@@ -134,4 +134,37 @@ test('preparing another set does not replace the live draft ratings profile', ()
   assert.equal(after.setPrep.imports.seventeenLands.quick.label, 'sos.csv');
   companion.setActiveSet('hob');
   assert.equal(companion.viewModel().setPrep.imports.seventeenLands.quick.label, 'hob.csv');
+});
+
+
+test('decision history skips historical scans and captures the current live pack after the scan', () => {
+  let stored;
+  const { companion } = session({ read: () => null, write: (value) => { stored = value; } });
+  companion.beginLogSession(); companion.feedLog(quickPack());
+  assert.equal(companion.viewModel().decisionHistory.entries.length, 0);
+  companion.completeLogScan();
+  const entry = companion.viewModel().decisionHistory.entries[0];
+  const record = companion.decisionDetails(entry.id);
+  assert.equal(record.gate.ready, false);
+  assert.equal(record.recommendations.every((card) => card.score === null && card.adjustments === null), true);
+  assert.deepEqual(record.recommended, []);
+  assert.equal(stored.records.length, 1);
+  companion.feedLog(JSON.stringify({ EventName: 'QuickDraft_HOB_20260820', PickedCards: [103385] }) + '\n');
+  assert.equal(companion.decisionDetails(entry.id).actual[0].grpId, 103385);
+  companion.logRotated(); companion.feedLog(quickPack('SOS'));
+  assert.equal(companion.viewModel().decisionHistory.entries.length, 1);
+});
+
+test('sample decision history records the conditional Pick Two pair and remains session-only', () => {
+  let writes = 0;
+  const { companion } = session({ read: () => null, write: () => writes++ });
+  companion.startDemo('pick-two');
+  const model = companion.viewModel(), entry = model.decisionHistory.entries[0];
+  const record = companion.decisionDetails(entry.id);
+  assert.deepEqual(record.recommended, [model.pickPair.first.name, model.pickPair.second.name]);
+  assert.deepEqual(record.pair, model.pickPair);
+  companion.advanceDemo();
+  assert.equal(companion.decisionDetails(entry.id).actual.length, 2);
+  assert.equal(writes, 0);
+  companion.startDemo(); assert.equal(companion.viewModel().decisionHistory.entries.length, 1);
 });

@@ -68,6 +68,7 @@ const companion = createDraftCompanion({
   activeSet: ACTIVE_SET,
   sourceStore,
   corpusStore,
+  decisions: { read: store.readDecisions, write: store.writeDecisions },
   persistence: store.persistence,
   settings: { read: readSettings, write: writeSettings },
   reviews: { read: readGameReviews, write: writeGameReviews },
@@ -288,6 +289,8 @@ function registerIpc() {
     companion.removeTrophyDeck(deckId);
     return viewModel();
   });
+  ipcMain.handle('draft:decision-details', (_event, id) => companion.decisionDetails(id));
+  ipcMain.handle('draft:bookmark-decision', (_event, id, marked) => companion.bookmarkDecision(id, marked));
   ipcMain.handle('draft:retry-local-saves', () => companion.retryLocalSaves());
   ipcMain.handle('draft:read-clipboard', () => ({ text: clipboard.readText() }));
   ipcMain.handle('draft:choose-log', async () => {

@@ -2,6 +2,10 @@
 
 // Event wiring and bootstrap. Loads last; every view is defined by now.
 
+byId('show-decision-history').addEventListener('click', () => { byId('decision-history-dialog').showModal(); renderDecisionHistory(); });
+byId('history-close').addEventListener('click', () => byId('decision-history-dialog').close());
+byId('history-bookmarks-only').addEventListener('change', renderDecisionHistory);
+
 const openSetPrep = () => { renderSetPrep(); byId('prep-dialog').showModal(); };
 byId('show-prep').addEventListener('click', openSetPrep);
 byId('empty-prep').addEventListener('click', openSetPrep);

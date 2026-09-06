@@ -134,6 +134,7 @@ companion = createDraftCompanion({
   activeSet: ACTIVE_SET,
   sourceStore,
   corpusStore,
+  decisions: { read: () => null, write: (value) => saveQueue.save(storageKey('decisions'), 'draft decisions', () => saveData(storageKey('decisions'), value)) },
   persistence: { labels: saveQueue.labels, retry: saveQueue.retry },
   settings: {
     read: () => readStoredJson(storageKey('settings'), {}) || {},
@@ -440,6 +441,8 @@ function installDropTarget() {
 }
 
 window.draftCompanion = {
+  decisionDetails: async (id) => companion.decisionDetails(id),
+  bookmarkDecision: async (id, marked) => companion.bookmarkDecision(id, marked),
   bootstrap: async () => companion.viewModel(),
   importSource: async (source, format) => {
     if (!['seventeenLands', 'untapped'].includes(source)) throw new Error('Unknown draft data source.');
@@ -563,6 +566,7 @@ installDropTarget();
 void (async () => {
   // The remembered catalog must be in place before the log replays, so the
   // resumed draft resolves real names on the first parse.
+  companion.hydrateDecisionHistory(await loadData(storageKey('decisions')));
   const storedCatalog = await loadData(CATALOG_DATA_KEY);
   if (storedCatalog?.cards) applyArenaCatalog(storedCatalog);
   if (await resumeStoredLog({ gesture: false })) return;

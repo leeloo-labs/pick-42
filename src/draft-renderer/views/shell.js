@@ -170,6 +170,7 @@ function render() {
   if (selectedName && !model.recommendations.some((card) => card.name === selectedName)) selectedName = null;
   renderStatus();
   renderLocalSaveStatus();
+  renderDecisionHistory();
   renderSourceMenu();
   renderDecision();
   renderLane();

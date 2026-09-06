@@ -5,6 +5,7 @@ const {
   recommendPickTwoPair,
   scoreDraftPack
 } = require('../draft/blend-engine.cjs');
+const { createDecisionHistory, contentId } = require('../draft/decision-history.cjs');
 const { normalizeCardName } = require('../draft/csv.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('../draft/pool-plan.cjs');
 const { evaluateRecommendationGate, presentDraftRecommendations } = require('../draft/coverage-gate.cjs');
@@ -44,6 +45,7 @@ function createDraftCompanion({
   corpusStore,
   settings,
   reviews,
+  decisions = { read: () => null, write: () => {} },
   persistence = { labels: () => [], retry: async () => {} },
   scryfall = null,
   describeLog = () => ({ path: null, source: 'none', lastActivityAt: null, standardAvailable: false }),
@@ -60,6 +62,9 @@ function createDraftCompanion({
   const reviewTracker = new GameReviewTracker();
   const sceneTracker = new ArenaSceneTracker();
 
+  const decisionHistory = createDecisionHistory({ write: decisions.write });
+  let decisionRecording = false;
+  const fingerprintCache = new WeakMap();
   let draftState = parser.snapshot();
   let reviewState = reviewTracker.snapshot();
   // The set whose Scryfall images, external links, and readiness checks are
@@ -93,7 +98,7 @@ function createDraftCompanion({
     message: 'Loading Scryfall card images'
   };
 
-  const notify = () => onState();
+  const notify = () => { captureDecision(); onState(); };
 
   function setStatus(next) {
     status = next;
@@ -414,6 +419,36 @@ function createDraftCompanion({
     };
   }
 
+  const compactCard = (card) => ({ grpId: card.grpId, name: card.name, manaCost: card.manaCost || '', typeLine: card.typeLine || '', quantity: card.quantity || 1 });
+  function fingerprint(value) {
+    if (!value || typeof value !== 'object') return null;
+    if (!fingerprintCache.has(value)) fingerprintCache.set(value, contentId(value));
+    return fingerprintCache.get(value);
+  }
+  function captureDecision() {
+    if (!decisionRecording || !draftState.pack.length) return;
+    const args = pickPairScoringArgs();
+    const ranked = scoreDraftPack({ cards: draftState.pack, ...args });
+    const gate = recommendationGate(ranked);
+    const recommendations = presentDraftRecommendations(ranked, gate).map((card) => ({
+      ...compactCard(card), score: card.score, dataScore: card.dataScore,
+      contextualRank: card.contextualRank, rawRank: card.rawRank, sourceCoverage: card.sourceCoverage,
+      reasons: card.reasons, adjustments: gate.ready ? card.adjustments : null,
+      metrics: { seventeenLands: card.metrics.seventeenLands, untapped: card.metrics.untapped, confidence: card.metrics.confidence },
+      outlook: card.pickOutlook
+    }));
+    const pickCount = normalizeFormat(draftState.format) === 'pick-two' ? 2 : 1;
+    const pair = gate.ready && pickCount === 2 ? recommendPickTwoPair({ recommendations: ranked, cards: draftState.pack, ...args }) : null;
+    decisionHistory.capture({
+      draftId: draftState.draftId, setCode: draftState.setCode, format: draftState.format,
+      packNumber: draftState.packNumber, pickNumber: draftState.pickNumber, demo: sessionMode === 'demo', pickCount,
+      pack: draftState.pack.map(compactCard), pool: draftState.pool.map(compactCard), excluded: args.excludedPoolNames,
+      lane: args.lane, gate, recommendations, pair,
+      recommended: !gate.ready ? [] : pair ? [pair.first.name, pair.second.name] : ranked.filter((card) => card.eligible).slice(0, 1).map((card) => card.name),
+      sources: { seventeenLands: fingerprint(args.seventeenLands), untapped: fingerprint(args.untapped), corpus: fingerprint(args.archetypeCorpus) }
+    });
+  }
+
   // Answers "if I take this card first, what pairs with it?" for the live Pick Two pack.
   function pickPairFor(firstName) {
     if (normalizeFormat(draftState.format) !== 'pick-two') return null;
@@ -466,6 +501,7 @@ function createDraftCompanion({
         })
       : null;
     return {
+      decisionHistory: { entries: decisionHistory.list(), maxDrafts: decisionHistory.maxDrafts },
       draft: draftState,
       recommendations: presentDraftRecommendations(recommendations, gate),
       deckBuilds,
@@ -564,6 +600,8 @@ function createDraftCompanion({
     setDisplayCode: activeSet.displayCode,
     onStatus: (next) => setStatus(next),
     onBeforeStart: () => {
+      decisionHistory.resetSample();
+      decisionRecording = true;
       sessionMode = 'demo';
       onDemoStart();
       reviewArmed = false;
@@ -598,6 +636,7 @@ function createDraftCompanion({
 
   parser.on('state', (nextState) => {
     const previousDraftId = draftState.draftId;
+    if (decisionRecording) decisionHistory.observePool(nextState, sessionMode === 'demo', draftState);
     draftState = nextState;
     if (previousDraftId && nextState.draftId && previousDraftId !== nextState.draftId) {
       selectedBuildId = null;
@@ -639,6 +678,7 @@ function createDraftCompanion({
   // Log-session lifecycle. The shell owns the transport (fs tailer, browser
   // file polling); the companion owns what the bytes mean.
   function beginLogSession() {
+    decisionRecording = false;
     sessionMode = 'live';
     reviewArmed = false;
     matchParser.reset();
@@ -667,6 +707,8 @@ function createDraftCompanion({
     reviewMatchDecisions.clear();
     reviewTracker.arm(reviewContext());
     reviewArmed = true;
+    decisionRecording = true;
+    captureDecision();
   }
 
   function logRotated() {
@@ -676,6 +718,7 @@ function createDraftCompanion({
 
   // Restore persisted preferences and completed reviews.
   function hydrate() {
+    decisionHistory.hydrate(decisions.read());
     // The store was once the bare reviews array; both shapes stay readable.
     const stored = reviews.read();
     reviewTracker.hydrate(Array.isArray(stored) ? stored : stored?.reviews || []);
@@ -718,6 +761,9 @@ function createDraftCompanion({
   return {
     viewModel,
     hydrate,
+    hydrateDecisionHistory: (value) => decisionHistory.hydrate(value),
+    decisionDetails: (id) => decisionHistory.details(id),
+    bookmarkDecision(id, marked) { decisionHistory.bookmark(id, marked); notify(); return viewModel(); },
     notify,
     async retryLocalSaves() { await persistence.retry(); notify(); return viewModel(); },
     setStatus,

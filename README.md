@@ -221,3 +221,10 @@ Important paths:
 ## Privacy
 
 Arena logs can contain display names, account identifiers, session metadata, machine paths, and credentials. Pick 42 reads them locally and does not upload them. Never commit or attach a raw `Player.log`; add only minimal sanitized fixtures for newly observed log shapes.
+
+
+### Recorded decisions
+
+Open **DECISIONS** to compare advice with the selection Arena recorded. The view keeps raw and contextual scores, their adjustments, source measurements, lane policy, OUT choices, and the prior pool. Pick Two decisions preserve the pair recommendation, including the second card's conditional score.
+
+Advice freezes after its selection is observed. Later imports do not change old comparisons. Historical log scans do not reconstruct advice that Pick 42 did not capture. The latest ten live drafts are retained locally; bookmarks follow that limit. Sample decisions are session-only. A score difference is not a predicted win-rate change.

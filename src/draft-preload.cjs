@@ -4,6 +4,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('draftCompanion', {
   retryLocalSaves: () => ipcRenderer.invoke('draft:retry-local-saves'),
+  decisionDetails: (id) => ipcRenderer.invoke('draft:decision-details', id),
+  bookmarkDecision: (id, marked) => ipcRenderer.invoke('draft:bookmark-decision', id, marked),
   bootstrap: () => ipcRenderer.invoke('draft:bootstrap'),
   importSource: (source, format) => ipcRenderer.invoke('draft:import-source', source, format),
   importArchetypeCorpus: () => ipcRenderer.invoke('draft:import-archetype-corpus'),

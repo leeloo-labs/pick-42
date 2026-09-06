@@ -43,6 +43,7 @@ function createLocalStore(userDataPath, { onSaveChange = () => {}, writeJson = w
     return queue.save(key, label, () => writeJson(key, value));
   };
   const settingsPath = () => path.join(userDataPath, 'draft-settings.json');
+  const decisionsPath = () => path.join(userDataPath, 'draft-decisions.json');
   const gameReviewsPath = () => path.join(userDataPath, 'game-reviews.json');
 
   const readSettings = () => {
@@ -52,6 +53,12 @@ function createLocalStore(userDataPath, { onSaveChange = () => {}, writeJson = w
 
   return {
     persistence: { labels: queue.labels, retry: queue.retry },
+    decisionsPath,
+    readDecisions: () => {
+      if (memory.has(decisionsPath())) return memory.get(decisionsPath());
+      try { return JSON.parse(fs.readFileSync(decisionsPath(), 'utf8')); } catch { return null; }
+    },
+    writeDecisions: (value) => save(decisionsPath(), 'draft decisions', value),
     settingsPath,
     gameReviewsPath,
     manualArchetypeCorpusPath: () => path.join(userDataPath, 'manual-archetype-corpus.json'),

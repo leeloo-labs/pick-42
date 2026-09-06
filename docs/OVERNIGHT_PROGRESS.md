@@ -10,7 +10,7 @@ Automation: `pick-42-overnight-improvements` (hourly, current task).
 2. Complete: isolated browser and desktop log sessions; 11 deterministic tests cover delayed reads, stop, rotation, UTF-8 boundaries, initial failure, revoked access, and desktop file replacement/short reads. Historical scans now complete before reviews arm, including after rotation. Dropped browser snapshots also discard stale reads. Full suite: 198 passing; syntax and production web build passed.
 3. Complete: a shared local-save retry queue retains the latest unsaved preferences/reviews, browser imports/catalog/log handles, and renderer recipe progress. Persistent notice works in full and compact views. IndexedDB saves wait for transaction commit; clipboard denial never reports COPIED and denied paste keeps existing text. Five regression tests added; full suite 203 passing. Browser quota/clipboard fixture verified step progress, visible notice, and retry recovery; normal browser startup has no warnings/errors.
 4. Complete: per-set import profiles in both shells, preserved labeled legacy imports, conservative path retention, PREP navigation/modal, log and card-name context, and explicit optional trophy/image evidence. Live ratings stay on the draft set while preparing another set. Six regression cases added; full suite 209 passing, syntax and web build passed. Browser checked PREP from an active sample at 1280×720.
-5. Saved draft decisions, comparison timeline, replay benchmark; then evaluate confidence calibration.
+5. Decision capture and comparison implemented in this continuation: immutable recorded advice after a copy-aware visible pool selection, conditional Pick Two pair, bookmarked comparisons, and the last ten live drafts stored locally (samples in memory). Seven regression tests added; 216 tests pass. Replay benchmark and calibration evaluation remain queued. Release pending for this continuation.
 6. Local backup/restore and distribution improvements. Notarization requires existing authorized signing credentials; do not purchase services or invent credentials.
 
 Existing trust fixes are committed as `3025a1e` on `codex/product-trust-review`. Finish coherent work in tested commits. Merge and release validated user-facing work through `npm run release:mac` when closing a batch, avoiding repeated packaging between immediately adjacent tasks. Keep a morning record of what shipped, validation, remaining work, and remaining usage.
@@ -23,3 +23,8 @@ The initial audit fixes and priorities 1–4 are complete in five focused commit
 Working tree is on clean `main` after the first batch. Start a new `codex/` branch for the next implementation. The Applications launcher already points to this checkout.
 
 Next substantive task: saved local draft decisions and a comparison view, followed by a replay benchmark. No scoring calibration change has been made. Backup/restore and signing/notarization remain queued. Do not claim those are complete.
+
+
+## Second continuation
+
+Started with 7% account allowance remaining. Implemented the bounded decision-history feature on `codex/draft-decision-history`. Browser checks cover recorded advice/selection, comparison rows, bookmarking, and bookmark filtering. No scoring weights changed. Next release target is 0.1.11; finish and verify its public asset before taking another task.
