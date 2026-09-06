@@ -72,13 +72,15 @@ Use the title-bar source controls to import:
 - **META** — a manually collected local corpus of trophy decks.
 - **LOG** — Arena's `Player.log`.
 
-The **17L** and **UT** buttons open a per-draft-type menu: each CSV export is assigned to the draft type it was filtered for (Premier, Quick, Traditional, Pick Two) or to **All draft types**. The live draft uses its matching import, falling back to the all-types slot, so a Quick Draft export never silently rates a Pick Two pack. The button shows which import is feeding the active draft.
+Open **PREP** from the main navigation to select the set and draft type, inspect the log and card-name coverage, and import ratings. Each set keeps its own profiles, so switching HOB → SOS → HOB restores the original imports. Legacy imports remain preserved and labeled as unassigned; once a source has a named set profile, that profile supplies its format slots.
+
+The **17L** and **UT** buttons open a menu for the selected preparation set: each CSV export is assigned to the draft type it was filtered for (Premier, Quick, Traditional, Pick Two) or to **All draft types**. The live draft uses its matching import, falling back to the all-types slot, so a Quick Draft export never silently rates a Pick Two pack. The button shows which import is feeding the active draft.
 
 Live rankings are fully covered when usable rows from both statistical sources match at least 90% of the nonbasic cards in the active pack. When at least 90% is covered by either source but not both, Pick 42 runs with a visible **Partial data** status and leaves cards with no usable rating unranked. Packs below 90% single-source coverage remain paused. Blank values do not count as coverage, and basic lands are never treated as flexible colorless picks. Bundled sample rows are active only in sample mode.
 
 Paused packs stay in their original pack order with source measurements visible and recommendation ranks and scores withheld in both views. Sample mode is independent of import and connection notifications, so preparing live data or encountering a log error does not change the sample's ratings.
 
-**SET PREP** checks the same ratings slot the live draft will use: the exact draft type first, then the all-types slot. An exact import from another set must be replaced; it cannot borrow the all-types slot's readiness. The checklist shows how many matching cards have usable win rates, and labels set verification as pending when the card catalog is unavailable. Import readiness does not guarantee coverage of a future pack; every live pack is checked separately.
+**PREP** remains accessible during sample and live drafts. It checks the same ratings slot the live draft will use: the exact draft type first, then the all-types slot. An exact import from another set must be replaced; it cannot borrow the all-types slot's readiness. The checklist shows how many matching cards have usable win rates, and labels set verification as pending when the card catalog is unavailable. Import readiness does not guarantee coverage of a future pack; every live pack is checked separately. Trophy evidence and card images are optional. Trophy readiness requires at least four matching trophies in one archetype; using them in advice additionally requires two distinguishing cards in the pool.
 
 Pick 42 does not scrape 17Lands or Untapped and does not depend on undocumented APIs. Current data is imported by the user.
 

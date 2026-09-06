@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalizeCardName } = require('./csv.cjs');
+const { MIN_ARCHETYPE_DECKS, normalizeFormat } = require('./archetype-corpus.cjs');
 const { resolveRatingsSlot } = require('./source-slots.cjs');
 
 // How ready the imported data is for drafting a given set and draft type.
@@ -22,7 +23,7 @@ function ratingsReadiness(slots = [], { format = 'any', cardNames, metric }) {
     const rows = slot.data || [];
     const matched = rows.filter((row) => cardNames.has(row.key || normalizeCardName(row.name)));
     return {
-      format: slot.format, label: slot.label, count: rows.length,
+      format: slot.format, label: slot.label, legacy: Boolean(slot.legacy), count: rows.length,
       matchRate: rowMatchRate(rows, cardNames), matchedCount: matched.length,
       usableCount: matched.filter((row) => Number.isFinite(row[metric])).length
     };
@@ -32,7 +33,7 @@ function ratingsReadiness(slots = [], { format = 'any', cardNames, metric }) {
   const ready = Boolean(selected && selected.matchRate >= MATCH_THRESHOLD && selected.usableCount > 0);
   let detail;
   if (selected) {
-    const prefix = `${selected.format} · ${selected.label || 'import'}`;
+    const prefix = `${selected.format} · ${selected.label || 'import'}${selected.legacy ? ' · legacy import, set not assigned' : ''}`;
     if (!selected.count) detail = `${prefix} · no ratings rows`;
     else if (!cardNames.size) detail = `${prefix} · set verification pending`;
     else if (selected.matchRate < MATCH_THRESHOLD) detail = `${prefix} · imported data names another set`;
@@ -48,12 +49,22 @@ function corpusReadiness(decks = [], { set, format = 'any' }) {
   const setCode = String(set?.displayCode || '').toUpperCase();
   const matching = decks.filter((deck) => String(deck.setCode || '').toUpperCase() === setCode && deck.trophy !== false);
   const formats = [...new Set(matching.map((deck) => deck.format).filter(Boolean))].sort();
-  const exact = format === 'any' || formats.includes(format) || formats.includes('any');
-  const ready = matching.length > 0;
-  const detail = ready
-    ? `${matching.length} ${setCode} decks · ${formats.join('/') || 'any'}${exact ? '' : ` · used cross-format for ${format}`}`
+  const target = normalizeFormat(format);
+  const exact = matching.filter((deck) => target === 'any' || normalizeFormat(deck.format) === target || normalizeFormat(deck.format) === 'any');
+  const largestGroup = (decks) => {
+    const counts = new Map();
+    for (const deck of decks) if (deck.archetype) counts.set(deck.archetype, (counts.get(deck.archetype) || 0) + 1);
+    return Math.max(0, ...counts.values());
+  };
+  const exactCount = largestGroup(exact);
+  const crossFormat = target !== 'any' && exactCount < MIN_ARCHETYPE_DECKS && largestGroup(matching) >= MIN_ARCHETYPE_DECKS;
+  const groupCount = crossFormat ? largestGroup(matching) : exactCount;
+  const ready = groupCount >= MIN_ARCHETYPE_DECKS;
+  const detail = matching.length
+    ? `${matching.length} ${setCode} decks stored · ${formats.join('/') || 'any'} · ${groupCount}/${MIN_ARCHETYPE_DECKS} in the largest ${crossFormat ? 'cross-format' : 'matching'} archetype group${crossFormat ? ` · available cross-format for ${target}` : ''}${ready ? ' · advice also needs two distinguishing pool cards' : ' · more matching trophies needed'}`
     : 'no trophy corpus for this set yet';
-  return { ready, detail, count: matching.length, formats };
+  return { ready, detail, count: matching.length, formats, groupCount, crossFormat };
+
 }
 
 function computeSetReadiness({ set, format = 'any', cardNames = new Set(), sources = {}, corpusDecks = [], images = {} }) {
@@ -64,8 +75,8 @@ function computeSetReadiness({ set, format = 'any', cardNames = new Set(), sourc
   const items = [
     { id: 'seventeenLands', label: '17Lands ratings', ...seventeenLands },
     { id: 'untapped', label: 'Untapped ratings', ...untapped },
-    { id: 'corpus', label: 'Trophy corpus', ...corpus },
-    { id: 'images', label: 'Card images', ready: imagesReady, detail: images.detail || (imagesReady ? 'Scryfall loaded' : 'loading from Scryfall') }
+    { id: 'corpus', label: 'Trophy corpus · optional', ...corpus },
+    { id: 'images', label: 'Card images · optional', ready: imagesReady, detail: images.detail || (imagesReady ? 'Scryfall loaded' : 'loading from Scryfall') }
   ];
   const readyCount = items.filter((item) => item.ready).length;
   const rankingsReady = seventeenLands.ready && untapped.ready;

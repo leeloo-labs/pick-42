@@ -1174,3 +1174,12 @@ button { color: inherit; }
 .local-save-notice span { flex: 1; }
 .local-save-notice button { flex-shrink: 0; padding: 5px 9px; }
 .build-mode .local-save-notice { font-size: 11px; padding: 8px; }
+
+.prep-dialog { width: min(700px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; margin: auto; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: #eeece6; color: var(--ink); }
+.prep-dialog::backdrop { background: rgba(38,34,40,.48); }
+.prep-dialog-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 0; }
+.prep-dialog-heading h1 { margin: 5px 0; font-size: 23px; }
+.prep-dialog-heading small { color: var(--muted); font-size: 10px; letter-spacing: .1em; }
+.prep-dialog #set-prep { padding: 0 20px 20px; }
+.prep-dialog .set-prep-card { margin-top: 12px; text-align: left; }
+.prep-log-detail { overflow-wrap: anywhere; }

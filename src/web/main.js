@@ -7,7 +7,7 @@
 const { createDraftCompanion } = require('../draft-app/companion.cjs');
 const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('../draft-app/source-imports.cjs');
 const { createCorpusStore } = require('../draft-app/corpus-store.cjs');
-const { DEFAULT_SET_CODE, setDefinition, untappedCardDataUrl } = require('../draft/set-definitions.cjs');
+const { DEFAULT_SET_CODE, setDefinition, knownSetDefinitions, untappedCardDataUrl } = require('../draft/set-definitions.cjs');
 const { fetchScryfallSet } = require('../draft/scryfall.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('../draft/seventeenlands-dataset.cjs');
 const { createSaveQueue } = require('../draft/save-queue.js');
@@ -212,12 +212,13 @@ async function resumeStoredLog({ gesture }) {
   }
 }
 
-const importStorageKey = (source, format) => storageKey('import', source, format);
+const importStorageKey = (source, format, setCode = null) => setCode ? storageKey('import', setCode, source, format) : storageKey('import', source, format);
 
-function rememberWebImport(source, format, label, text) {
+function rememberWebImport(source, format, label, text, setCode = companion.activeSetInfo().code) {
   const data = sourceStore.parse(source, text);
-  sourceStore.remember(source, label, format, label, data);
-  writeStoredJson(importStorageKey(source, format), { label, text });
+  sourceStore.remember(source, label, format, label, data, setCode);
+  writeStoredJson(importStorageKey(source, format, setCode), { label, text });
+  writeStoredJson(storageKey('import-sets'), [...new Set([...(readStoredJson(storageKey('import-sets'), []) || []), setCode])]);
   return data;
 }
 
@@ -229,6 +230,17 @@ function restorePersistedData() {
       try {
         sourceStore.remember(source, saved.label || 'import', format, saved.label, sourceStore.parse(source, saved.text));
       } catch { /* Skip an import that no longer parses. */ }
+    }
+  }
+  const sets = new Set([...knownSetDefinitions().map((set) => set.code), ...(readStoredJson(storageKey('import-sets'), []) || [])]);
+  for (const setCode of sets) {
+    if (!/^[a-z0-9]{1,12}$/i.test(setCode)) continue;
+    for (const source of ['seventeenLands', 'untapped']) {
+      for (const format of SOURCE_FORMATS) {
+        const saved = readStoredJson(importStorageKey(source, format, setCode));
+        if (!saved?.text) continue;
+        try { sourceStore.remember(source, saved.label || 'import', format, saved.label, sourceStore.parse(source, saved.text), setCode); } catch { /* Keep the original stored export. */ }
+      }
     }
   }
   const corpus = readStoredJson(storageKey('corpus'));
@@ -432,13 +444,14 @@ window.draftCompanion = {
   importSource: async (source, format) => {
     if (!['seventeenLands', 'untapped'].includes(source)) throw new Error('Unknown draft data source.');
     const formatKey = SOURCE_FORMATS.includes(format) ? format : 'any';
-    const handle = await pickFile({ description: 'CSV export', accept: { 'text/csv': ['.csv'] } });
+    const importSet = companion.activeSetInfo();
+    const handle = await pickFile({ description: `${importSet.displayCode} CSV export`, accept: { 'text/csv': ['.csv'] } });
     if (!handle) return companion.viewModel();
     try {
       const text = await (await handle.getFile()).text();
       const sourceName = source === 'seventeenLands' ? '17Lands' : 'Untapped';
-      const data = rememberWebImport(source, formatKey, handle.name, text);
-      companion.setStatus({ kind: 'live', message: `${sourceName} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
+      const data = rememberWebImport(source, formatKey, handle.name, text, importSet.code);
+      companion.setStatus({ kind: 'live', message: `${sourceName} · ${importSet.displayCode} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
     } catch (error) {
       companion.setStatus({ kind: 'error', message: error.message });
     }

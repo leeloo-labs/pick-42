@@ -19,6 +19,7 @@
           <button id="show-draft" class="view-button active"><i data-lucide="drafting-compass"></i><span class="view-button-label">DRAFT</span></button>
           <button id="show-decks" class="view-button"><i data-lucide="layers-3"></i><span class="view-button-label">DECKS</span><span id="deck-ready-count" class="view-count">0</span></button>
           <button id="show-play" class="view-button"><i data-lucide="swords"></i><span class="view-button-label">PLAY</span><span id="play-count" class="view-count">0</span></button>
+          <button id="show-prep" class="view-button"><i data-lucide="clipboard-check"></i><span class="view-button-label">PREP</span></button>
         </nav>
         <div class="source-actions">
           <div id="source-menu" class="source-menu" hidden></div>
@@ -180,7 +181,7 @@
               <button id="empty-demo" class="primary-button"><i data-lucide="flask-conical"></i><span>LOAD SAMPLE PACK</span></button>
               <button id="empty-demo-pick-two" class="primary-button"><i data-lucide="copy-plus"></i><span>PICK TWO SAMPLE</span></button>
             </div>
-            <div id="set-prep"></div>
+            <button id="empty-prep" class="primary-button">PREPARE A SET</button>
           </div>
           <div id="waiting-pack" class="empty-state waiting-state" hidden>
             <span class="waiting-spinner"><i data-lucide="loader-pinwheel"></i></span>
@@ -580,6 +581,10 @@
           </aside>
         </div>
       </section>
+    </dialog>
+    <dialog id="prep-dialog" class="prep-dialog" aria-labelledby="prep-heading">
+      <header class="prep-dialog-heading"><div><small>LOCAL SET PROFILES</small><h1 id="prep-heading">Prepare for a draft</h1></div><button id="prep-close" class="icon-button" aria-label="Close preparation"><i data-lucide="x"></i></button></header>
+      <div id="set-prep"></div>
     </dialog>
     <script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>
     <script src="../draft/save-queue.js"></script>

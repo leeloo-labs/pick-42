@@ -308,20 +308,22 @@ function renderSourceMenu() {
   }
   const source = sourceMenuOpen;
   const view = model?.sources?.[source];
+  const prepImports = model?.setPrep?.imports?.[source] || view?.imports;
+  const activeFormat = view?.kind === 'import' && view.setCode === model.setPrep?.setCode ? view.activeFormat : null;
   const heading = element('header');
   heading.append(
     element('strong', '', source === 'seventeenLands' ? '17LANDS IMPORTS' : 'UNTAPPED IMPORTS'),
-    element('small', '', 'Assign each CSV export to the draft type it was filtered for.')
+    element('small', '', `Imports for ${model.setPrep?.displayCode || 'the selected set'} · choose the draft type used for the export.`)
   );
   menu.append(heading);
   for (const [formatId, label] of SOURCE_FORMAT_ROWS) {
-    const entry = view?.imports?.[formatId] || null;
-    const row = element('button', `source-menu-row ${view?.activeFormat === formatId ? 'active' : ''}`);
+    const entry = prepImports?.[formatId] || null;
+    const row = element('button', `source-menu-row ${activeFormat === formatId ? 'active' : ''}`);
     row.type = 'button';
     const copy = element('span', 'source-menu-copy');
     copy.append(
-      element('strong', '', label + (view?.activeFormat === formatId ? ' · in use' : '')),
-      element('small', '', entry ? `${entry.count} rows · ${entry.label}` : 'No import')
+      element('strong', '', label + (activeFormat === formatId ? ' · in use' : '')),
+      element('small', '', entry ? `${entry.count} rows · ${entry.label}${entry.legacy ? ' · legacy, set unassigned' : ''}` : 'No import')
     );
     row.append(copy, element('span', 'source-menu-action', entry ? 'REPLACE' : 'IMPORT'));
     row.addEventListener('click', () => {

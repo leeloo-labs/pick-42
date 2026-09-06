@@ -117,3 +117,21 @@ test('live single-source packs retain partial rankings after setup errors', () =
   assert.equal(model.recommendations[0].name, 'Fíli the Pathfinder');
   assert.ok(Number.isFinite(model.recommendations[0].score));
 });
+
+
+test('preparing another set does not replace the live draft ratings profile', () => {
+  const { companion, sourceStore } = session();
+  const csv = fs.readFileSync(path.join(__dirname, '../fixtures/sample-17lands-hob.csv'), 'utf8');
+  const rows = sourceStore.parse('seventeenLands', csv);
+  sourceStore.remember('seventeenLands', 'hob.csv', 'quick', 'hob.csv', rows, 'hob');
+  sourceStore.remember('seventeenLands', 'sos.csv', 'quick', 'sos.csv', rows.map((row) => ({ ...row, gihWinRate: 1 })), 'sos');
+  companion.beginLogSession(); companion.feedLog(quickPack());
+  const before = companion.viewModel();
+  companion.setActiveSet('sos');
+  const after = companion.viewModel();
+  assert.deepEqual(after.recommendations, before.recommendations);
+  assert.equal(after.sources.seventeenLands.setCode, 'hob');
+  assert.equal(after.setPrep.imports.seventeenLands.quick.label, 'sos.csv');
+  companion.setActiveSet('hob');
+  assert.equal(companion.viewModel().setPrep.imports.seventeenLands.quick.label, 'hob.csv');
+});

@@ -2,6 +2,11 @@
 
 // Event wiring and bootstrap. Loads last; every view is defined by now.
 
+const openSetPrep = () => { renderSetPrep(); byId('prep-dialog').showModal(); };
+byId('show-prep').addEventListener('click', openSetPrep);
+byId('empty-prep').addEventListener('click', openSetPrep);
+byId('prep-close').addEventListener('click', () => byId('prep-dialog').close());
+
 byId('retry-local-saves').addEventListener('click', async () => {
   await recipeSaveQueue.retry();
   if (window.draftCompanion.retryLocalSaves) await updateFrom(() => window.draftCompanion.retryLocalSaves());

@@ -47,7 +47,7 @@ test('readiness checks off each source as matching data lands', () => {
       seventeenLands: [{ format: 'any', label: 'sos.csv', data: sosRows }],
       untapped: [{ format: 'quick', label: 'sos-ut.csv', data: sosRows }]
     },
-    corpusDecks: [{ setCode: 'SOS', format: 'premier', trophy: true }],
+    corpusDecks: Array.from({ length: 4 }, () => ({ setCode: 'SOS', format: 'premier', trophy: true, archetype: 'Prismari' })),
     images: { ready: true }
   });
   assert.equal(full.complete, true);
@@ -79,9 +79,10 @@ test('the corpus item counts same-set decks and flags cross-format use', () => {
     ]
   });
   const corpus = prep.items.find((entry) => entry.id === 'corpus');
-  assert.equal(corpus.ready, true);
+  assert.equal(corpus.ready, false);
   assert.equal(corpus.count, 2);
-  assert.match(corpus.detail, /2 SOS decks · premier · used cross-format for quick/);
+  assert.match(corpus.detail, /2 SOS decks stored/);
+  assert.match(corpus.detail, /more matching trophies needed/);
 });
 
 test('readiness measures the exact import even when a matching all-types import exists', () => {
@@ -140,4 +141,16 @@ test('a missing card catalog is unverified rather than a false set mismatch', ()
   assert.equal(prep.items[0].ready, false);
   assert.match(prep.items[0].detail, /set verification pending/);
   assert.doesNotMatch(prep.items[0].detail, /another set/);
+});
+
+
+test('corpus preparation distinguishes stored lists from enough matching archetype evidence', () => {
+  const decks = Array.from({ length: 4 }, () => ({ setCode: 'SOS', format: 'premier', trophy: true, archetype: 'Prismari' }));
+  const prep = (corpusDecks) => computeSetReadiness({ set: sos, format: 'quick', corpusDecks }).items.find((item) => item.id === 'corpus');
+  assert.equal(prep(decks.slice(0, 1)).ready, false);
+  const full = prep(decks);
+  assert.equal(full.ready, true); assert.equal(full.crossFormat, true);
+  assert.match(full.detail, /available cross-format for quick/);
+  assert.match(full.detail, /two distinguishing pool cards/);
+  assert.equal(prep(decks.map((deck, i) => ({ ...deck, archetype: `Build ${i}` }))).ready, false);
 });

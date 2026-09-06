@@ -136,8 +136,8 @@ function createDraftCompanion({
     return { curve, colors, creatures, total: pool.length };
   }
 
-  const activeSourceData = () => sourceStore.activeData({ demo: sessionMode === 'demo', format: draftState.format });
-  const resolveSourceImport = (source, format = draftState.format) => sourceStore.resolve(source, format);
+  const activeSourceData = () => sourceStore.activeData({ demo: sessionMode === 'demo', format: draftState.format, setCode: draftState.setCode || currentSet.code });
+  const resolveSourceImport = (source, format = draftState.format, setCode = draftState.setCode || currentSet.code) => sourceStore.resolve(source, format, setCode);
 
   function draftScopeId() {
     return String(draftState.draftId || (sessionMode === 'demo' ? `demo-${activeSet.code}` : 'unidentified-draft'));
@@ -260,7 +260,7 @@ function createDraftCompanion({
 
   function seventeenLandsForReview(review) {
     if (Array.isArray(review?.sourceEvidence?.seventeenLands)) return review.sourceEvidence.seventeenLands;
-    if (review?.format) return resolveSourceImport('seventeenLands', review.format)?.data || [];
+    if (review?.format) return resolveSourceImport('seventeenLands', review.format, review.setCode || 'legacy')?.data || [];
     // Legacy reviews did not retain their format. Preserve their old best-effort
     // behavior until a future migration can recover it from Arena history.
     return activeSourceData().seventeenLands;
@@ -479,8 +479,8 @@ function createDraftCompanion({
       },
       poolPlan: { excludedNames },
       sources: {
-        seventeenLands: sourceStore.viewState('seventeenLands', { demo: sessionMode === 'demo', format: draftState.format }),
-        untapped: sourceStore.viewState('untapped', { demo: sessionMode === 'demo', format: draftState.format })
+        seventeenLands: sourceStore.viewState('seventeenLands', { demo: sessionMode === 'demo', format: draftState.format, setCode: draftState.setCode || currentSet.code }),
+        untapped: sourceStore.viewState('untapped', { demo: sessionMode === 'demo', format: draftState.format, setCode: draftState.setCode || currentSet.code })
       },
       archetypeCorpus: {
         source: corpusStore.sourceInfo(),
@@ -539,8 +539,8 @@ function createDraftCompanion({
         format: prepFormat,
         cardNames: scryfallReady ? new Set(Object.keys(scryfallIndex)) : new Set(),
         sources: {
-          seventeenLands: sourceStore.slotEntries('seventeenLands'),
-          untapped: sourceStore.slotEntries('untapped')
+          seventeenLands: sourceStore.slotEntries('seventeenLands', currentSet.code),
+          untapped: sourceStore.slotEntries('untapped', currentSet.code)
         },
         corpusDecks: corpusStore.corpus()?.decks || [],
         images: { ready: scryfallReady, detail: scryfallState.message }
@@ -551,6 +551,9 @@ function createDraftCompanion({
         name: entry.name,
         active: entry.code === currentSet.code
       })),
+      imports: { seventeenLands: sourceStore.inventory('seventeenLands', currentSet.code), untapped: sourceStore.inventory('untapped', currentSet.code) },
+      log: describeLog(),
+      cardNames: { total: draftState.pool.length, resolved: draftState.pool.filter((card) => !/^Arena card \d+$/.test(card.name)).length },
       formats: SOURCE_FORMATS
     };
   }

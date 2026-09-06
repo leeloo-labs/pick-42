@@ -204,9 +204,10 @@ function registerIpc() {
   ipcMain.handle('draft:import-source', async (_event, source, format) => {
     if (!['seventeenLands', 'untapped'].includes(source)) throw new Error('Unknown draft data source.');
     const formatKey = SOURCE_FORMATS.includes(format) ? format : 'any';
+    const importSet = companion.activeSetInfo();
     const sourceName = source === 'seventeenLands' ? '17Lands' : 'Untapped';
     const result = await dialog.showOpenDialog(draftWindow, {
-      title: `Import ${sourceName} CSV for ${SOURCE_FORMAT_LABELS[formatKey]}`,
+      title: `Import ${sourceName} CSV for ${importSet.displayCode} · ${SOURCE_FORMAT_LABELS[formatKey]}`,
       properties: ['openFile'],
       filters: [{ name: 'CSV export', extensions: ['csv'] }]
     });
@@ -215,15 +216,15 @@ function registerIpc() {
       // Copy the chosen export into the app's own storage: the dialog grants read
       // access now, and the stored copy stays loadable after the original moves.
       const chosenPath = result.filePaths[0];
-      const storagePath = importedCsvStoragePath(source, formatKey);
+      const storagePath = importedCsvStoragePath(source, formatKey, importSet.code);
       const contents = fs.readFileSync(chosenPath, 'utf8');
       // Validate before replacing the app-owned copy. A bad replacement must not
       // destroy the last working import on the next restart.
       const data = sourceStore.parse(source, contents);
       writeFileAtomic(storagePath, contents);
-      sourceStore.remember(source, storagePath, formatKey, path.basename(chosenPath), data);
-      writeSettings({ sourceImportPaths: sourceStore.settingsPayload() });
-      setStatus({ kind: 'live', message: `${sourceName} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
+      sourceStore.remember(source, storagePath, formatKey, path.basename(chosenPath), data, importSet.code);
+      writeSettings({ sourceImportProfiles: sourceStore.settingsPayload(readSettings().sourceImportProfiles) });
+      setStatus({ kind: 'live', message: `${sourceName} · ${importSet.displayCode} · ${SOURCE_FORMAT_LABELS[formatKey]} · ${data.length} rows imported` });
     } catch (error) {
       setStatus({ kind: 'error', message: error.message });
     }
@@ -400,6 +401,15 @@ app.whenReady().then(async () => {
     const legacyPath = saved[`${source}Path`];
     if (!sourceStore.has(source, 'any') && legacyPath && fs.existsSync(legacyPath)) {
       try { sourceStore.loadCsv(source, legacyPath, 'any'); } catch { /* Keep the bundled sample if an old export moved or changed. */ }
+    }
+  }
+  for (const [setCode, sources] of Object.entries(saved.sourceImportProfiles || {})) {
+    if (!/^[a-z0-9]{1,12}$/i.test(setCode)) continue;
+    for (const source of ['seventeenLands', 'untapped']) {
+      for (const [format, entry] of Object.entries(sources[source] || {})) {
+        if (!SOURCE_FORMATS.includes(format) || !entry?.path) continue;
+        try { sourceStore.loadCsv(source, entry.path, format, entry.label, setCode); } catch { /* Preserve the saved path for a later retry. */ }
+      }
     }
   }
   visualGuideController = new VisualGuideController({

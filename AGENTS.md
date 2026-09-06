@@ -22,13 +22,13 @@ The companion must remain transparent and advisory:
 
 - **17Lands:** imported CSV data, including GIH win rate, games in hand, games-not-seen win rate, and IIH when present. IIH may be calculated as GIH WR minus GNS WR when necessary, but never from a fallback basis. When GIH WR is blank (young-set sample suppression), fall back per card through GD WR then GP WR with the matching game count, record `winRateBasis`, and surface it in the 17L reason chip.
 - **Untapped:** imported CSV data, including in-hand win rate, in-hand win-rate difference, and sample counts when available.
-- Source imports are per draft type: each 17Lands/Untapped CSV is assigned to a format slot (`any`, `premier`, `quick`, `traditional`, `pick-two`; settings key `sourceImportPaths`, legacy single paths migrate to `any`). The live draft resolves its exact format first, then the `any` slot; mismatched-format data is never used silently.
+- Source imports are per set and draft type: each 17Lands/Untapped CSV is assigned to a format slot (`any`, `premier`, `quick`, `traditional`, `pick-two`; settings key `sourceImportProfiles`; old `sourceImportPaths` and single paths remain in the unassigned legacy profile, with single paths mapped to `any`). A named set profile for that source is authoritative; otherwise preserved legacy imports remain visibly unassigned. Within the profile, the live draft resolves its exact format first, then the `any` slot; mismatched-format data is never used silently.
 - The coverage gate has a middle state: when at least 90% of a pack is covered by one source but not both, rankings run with a visible `partial` status instead of pausing; packs under 90% single-source coverage still pause.
 - **Scryfall:** public set data for card images, Oracle text, and presentation enrichment. Arena group IDs remain the live identity source.
 - **Archetype corpus:** authorized local CSV/JSON deck records, including set, format, result, archetype, and main-deck quantities. The corpus may come from a manual export, licensed feed, or offline processing of a licensed public dataset.
 - Do not scrape 17Lands or Untapped or depend on undocumented/private APIs.
-- The active set is selectable and persisted: the SET PREP card in the draft view's empty state picks it, a live draft's log set code switches it automatically, and Scryfall images (per-set caches), external data links, and readiness checks all follow it. The demo sample universe stays pinned to the boot set, which ships fixtures. Set identity still lives in `set-definitions.cjs` — a new set is one entry there.
-- SET PREP measures readiness per set and draft type, never assumes (`src/draft/set-readiness.cjs`): a ratings slot counts only when most of its rows name the set's cards, the trophy corpus counts same-set decks, and card images count once Scryfall loads.
+- The active set is selectable and persisted: the PREP dialog, available from the main navigation during drafts, picks it, a live draft's log set code switches it automatically, and Scryfall images (per-set caches), external data links, and readiness checks all follow it. The demo sample universe stays pinned to the boot set, which ships fixtures. Set identity still lives in `set-definitions.cjs` — a new set is one entry there.
+- SET PREP measures readiness per set and draft type, never assumes (`src/draft/set-readiness.cjs`): a ratings slot counts only when most of its rows name the set's cards, the trophy corpus counts same-set decks and requires four matching trophies in one archetype for data readiness (two distinguishing pool cards are still needed for advice), and card images count once Scryfall loads.
 - When the exact draft type has no usable trophy corpus (17Lands rarely publishes every format), same-set decks from other formats stand in with a visible cross-format label and dampened influence. A set mismatch never falls back.
 
 The blend engine exposes a confidence-aware raw score and one contextual recommendation model. Important invariants:
@@ -108,7 +108,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 203 passing tests.
+- The test suite currently contains 209 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

@@ -56,7 +56,7 @@ function createLocalStore(userDataPath, { onSaveChange = () => {}, writeJson = w
     gameReviewsPath,
     manualArchetypeCorpusPath: () => path.join(userDataPath, 'manual-archetype-corpus.json'),
     scryfallCachePath: (fileName) => path.join(userDataPath, fileName),
-    importedCsvStoragePath: (source, format) => path.join(userDataPath, 'imports', `${source}-${format}.csv`),
+    importedCsvStoragePath: (source, format, setCode) => path.join(userDataPath, 'imports', ...(/^[a-z0-9]{1,12}$/i.test(setCode || '') ? [setCode.toLowerCase()] : []), `${source}-${format}.csv`),
     readSettings,
     writeSettings: (patch) => save(settingsPath(), 'preferences', { ...readSettings(), ...patch }),
     readGameReviews: () => {

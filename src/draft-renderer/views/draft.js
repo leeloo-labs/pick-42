@@ -224,6 +224,9 @@ function renderSetPrep() {
   }
   head.append(sets);
   card.append(head);
+  const log = prep.log?.path ? `Log: ${prep.log.path}` : 'Log: choose Player.log to follow a live draft';
+  const names = prep.cardNames?.total ? ` · ${prep.cardNames.resolved}/${prep.cardNames.total} drafted card names resolved` : '';
+  card.append(element('p', 'set-prep-summary prep-log-detail', `${log}${names}`));
 
   const formats = element('div', 'set-prep-formats');
   for (const format of prep.formats || []) {
@@ -233,6 +236,7 @@ function renderSetPrep() {
     formats.append(chip);
   }
   card.append(formats);
+  card.append(element('p', 'set-prep-summary', `New ratings imports are saved to ${prep.displayCode} · ${prep.format}. Switching sets restores each profile. Legacy imports remain unassigned and are checked against the selected set.`));
 
   const progress = element('div', 'set-prep-progress');
   const track = element('span', 'set-prep-track');
