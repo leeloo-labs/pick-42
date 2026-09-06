@@ -115,11 +115,11 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 216 passing tests.
+- The test suite currently contains 220 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
-- Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong.
+- Keep ranking behavior inspectable and add regression tests for any recommendation the user identifies as clearly wrong. `npm run replay:check` compares curated decision scenarios with a reviewed baseline and reports ranks, scores, reasons, and pair changes. Update the baseline only after reviewing an intentional change; diagnostic cases are not evidence of predictive accuracy.
 
 ## Architecture: one companion, two shells
 

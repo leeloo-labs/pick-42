@@ -14,10 +14,10 @@ Current release: [Pick 42 0.1.11](https://github.com/leeloo-labs/pick-42/release
 
 ## Validation
 
-216 tests passed, syntax checks and the web build passed, and browser checks covered PREP, complete/incomplete builds, save failure/retry, and denied copies. The macOS signature verified and GitHub's uploaded asset matches the local package checksum. No new live Arena game, full Electron window workflow, or recommendation-quality study was performed.
+220 tests passed, syntax checks and the web build passed, and browser checks covered PREP, complete/incomplete builds, save failure/retry, and denied copies. The macOS signature verified and GitHub's uploaded asset matches the local package checksum. No new live Arena game, full Electron window workflow, or recommendation-quality study was performed.
 
 ## Remaining work and budget
 
-A replay benchmark is next, followed by calibration evaluation and local backup/restore. Saved decision comparisons have shipped. Signing/notarization beyond the existing ad-hoc build remains queued and depends on authorized credentials. These are not claimed as implemented.
+The offline replay benchmark and an initial confidence sensitivity evaluation are complete. Ten synthetic scenarios show no policy failures or baseline drift. Production calibration remains unchanged because these scenarios contain no held-out outcomes. Local backup/restore is next. See [the evaluation notes](REPLAY_BENCHMARK.md). Signing/notarization beyond the existing ad-hoc build remains queued and depends on authorized credentials. These are not claimed as implemented.
 
 The latest account reading at the second release's completion was **7% remaining**. The hourly overnight continuation will check again before starting another bounded task and stop starting work at **3%**, or earlier if there is insufficient allowance to finish and verify it. It pauses by 9 AM Eastern September 6. No reset credits were used. See [the checkpoint](OVERNIGHT_PROGRESS.md) for subsequent progress.

@@ -1,0 +1,756 @@
+{
+  "version": 1,
+  "provenance": "Synthetic, authored local regression scenarios. No player logs or scraped data.",
+  "scenarios": [
+    {
+      "id": "paused-coverage",
+      "purpose": "Absent statistics must not produce advice.",
+      "input": {
+        "cards": [
+          {
+            "name": "White body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [],
+        "seventeenLands": [],
+        "untapped": [],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "gate": "missing-sources",
+        "top": null
+      }
+    },
+    {
+      "id": "partial-coverage",
+      "purpose": "One complete source remains visibly partial.",
+      "input": {
+        "cards": [
+          {
+            "name": "White body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [],
+        "seventeenLands": [
+          {
+            "name": "White body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Other body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "gate": "partial"
+      }
+    },
+    {
+      "id": "third-legend",
+      "purpose": "Third legendary copy receives separate pressure.",
+      "input": {
+        "cards": [
+          {
+            "name": "White legend",
+            "manaCost": "{2}{W}",
+            "typeLine": "Legendary Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [
+          {
+            "name": "White legend",
+            "manaCost": "{2}{W}",
+            "typeLine": "Legendary Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White legend",
+            "manaCost": "{2}{W}",
+            "typeLine": "Legendary Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "seventeenLands": [
+          {
+            "name": "White legend",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Other body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "White legend",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Other body",
+            "inHandWinRate": 58,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "adjustments": [
+          {
+            "card": "White legend",
+            "field": "duplicate",
+            "max": -15
+          }
+        ]
+      }
+    },
+    {
+      "id": "unsupported-equipment",
+      "purpose": "A hard subtype requirement needs actual support.",
+      "input": {
+        "cards": [
+          {
+            "name": "Dwarven tool",
+            "manaCost": "{2}",
+            "typeLine": "Artifact \u2014 Equipment",
+            "rulesText": "When this enters, attach it to target Dwarf you control.",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [],
+        "seventeenLands": [
+          {
+            "name": "Dwarven tool",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Other body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "Dwarven tool",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Other body",
+            "inHandWinRate": 58,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "adjustments": [
+          {
+            "card": "Dwarven tool",
+            "field": "synergy",
+            "max": -5
+          }
+        ]
+      }
+    },
+    {
+      "id": "supported-equipment",
+      "purpose": "A Dwarf supplies the attach requirement.",
+      "input": {
+        "cards": [
+          {
+            "name": "Dwarven tool",
+            "manaCost": "{2}",
+            "typeLine": "Artifact \u2014 Equipment",
+            "rulesText": "When this enters, attach it to target Dwarf you control.",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [
+          {
+            "name": "Dwarf ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Dwarf",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "seventeenLands": [
+          {
+            "name": "Dwarven tool",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Other body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "Dwarven tool",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Other body",
+            "inHandWinRate": 58,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "adjustments": [
+          {
+            "card": "Dwarven tool",
+            "field": "synergy",
+            "min": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "locked-lane",
+      "purpose": "A manual lane constrains an ordinary off-color choice.",
+      "input": {
+        "cards": [
+          {
+            "name": "On-plan body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Blue body",
+            "manaCost": "{2}{U}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "White ally",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "seventeenLands": [
+          {
+            "name": "On-plan body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Blue body",
+            "gihWinRate": 60,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "On-plan body",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Blue body",
+            "inHandWinRate": 60,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark",
+        "preference": {
+          "mode": "lock-no-splash",
+          "colors": [
+            "W",
+            "R"
+          ],
+          "draftId": "synthetic-benchmark"
+        }
+      },
+      "expect": {
+        "top": "On-plan body"
+      }
+    },
+    {
+      "id": "hybrid-versus-gold",
+      "purpose": "Either payable hybrid half works; gold needs both colors.",
+      "input": {
+        "cards": [
+          {
+            "name": "Hybrid body",
+            "manaCost": "{2}(B/R)",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Gold body",
+            "manaCost": "{1}{B}{R}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Black ally",
+            "manaCost": "{B}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "seventeenLands": [
+          {
+            "name": "Hybrid body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Gold body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "Hybrid body",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Gold body",
+            "inHandWinRate": 58,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark",
+        "preference": {
+          "mode": "lock-no-splash",
+          "colors": [
+            "B",
+            "G"
+          ],
+          "draftId": "synthetic-benchmark"
+        }
+      },
+      "expect": {
+        "top": "Hybrid body"
+      }
+    },
+    {
+      "id": "pick-two-copies",
+      "purpose": "Pair selection can take two physical copies of one card.",
+      "input": {
+        "cards": [
+          {
+            "name": "Best body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Best body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Weak body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [],
+        "seventeenLands": [
+          {
+            "name": "Best body",
+            "gihWinRate": 63,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Best body",
+            "gihWinRate": 63,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Weak body",
+            "gihWinRate": 51,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "Best body",
+            "inHandWinRate": 63,
+            "games": 5000
+          },
+          {
+            "name": "Best body",
+            "inHandWinRate": 63,
+            "games": 5000
+          },
+          {
+            "name": "Weak body",
+            "inHandWinRate": 51,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Pick Two Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {
+        "pair": [
+          "Best body",
+          "Best body"
+        ]
+      }
+    },
+    {
+      "id": "out-preference",
+      "purpose": "An OUT mark carries forward to later copies.",
+      "input": {
+        "cards": [
+          {
+            "name": "White body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Other body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [
+          {
+            "name": "White body",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "seventeenLands": [
+          {
+            "name": "White body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          },
+          {
+            "name": "Other body",
+            "gihWinRate": 58,
+            "gamesInHand": 5000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "White body",
+            "inHandWinRate": 58,
+            "games": 5000
+          },
+          {
+            "name": "Other body",
+            "inHandWinRate": 58,
+            "games": 5000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark",
+        "excludedPoolNames": [
+          "white body"
+        ]
+      },
+      "expect": {
+        "adjustments": [
+          {
+            "card": "White body",
+            "field": "poolPlan",
+            "max": -5
+          }
+        ]
+      }
+    },
+    {
+      "id": "thin-versus-dense",
+      "purpose": "Diagnostic: sample confidence is not a calibrated probability.",
+      "input": {
+        "cards": [
+          {
+            "name": "Thin sample",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          },
+          {
+            "name": "Dense sample",
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature \u2014 Human",
+            "rulesText": "",
+            "printedPower": "2",
+            "printedToughness": "2"
+          }
+        ],
+        "pool": [],
+        "seventeenLands": [
+          {
+            "name": "Thin sample",
+            "gihWinRate": 70,
+            "gamesInHand": 12
+          },
+          {
+            "name": "Dense sample",
+            "gihWinRate": 61,
+            "gamesInHand": 10000
+          }
+        ],
+        "untapped": [
+          {
+            "name": "Thin sample",
+            "inHandWinRate": 70,
+            "games": 12
+          },
+          {
+            "name": "Dense sample",
+            "inHandWinRate": 61,
+            "games": 10000
+          }
+        ],
+        "setCode": "HOB",
+        "format": "Player Draft",
+        "packNumber": 2,
+        "pickNumber": 4,
+        "draftId": "synthetic-benchmark"
+      },
+      "expect": {},
+      "kind": "diagnostic"
+    }
+  ]
+}

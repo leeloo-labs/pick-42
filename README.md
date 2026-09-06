@@ -228,3 +228,8 @@ Arena logs can contain display names, account identifiers, session metadata, mac
 Open **DECISIONS** to compare advice with the selection Arena recorded. The view keeps raw and contextual scores, their adjustments, source measurements, lane policy, OUT choices, and the prior pool. Pick Two decisions preserve the pair recommendation, including the second card's conditional score.
 
 Advice freezes after its selection is observed. Later imports do not change old comparisons. Historical log scans do not reconstruct advice that Pick 42 did not capture. The latest ten live drafts are retained locally; bookmarks follow that limit. Sample decisions are session-only. A score difference is not a predicted win-rate change.
+
+
+### Recommendation evaluation
+
+`npm run replay:check` runs the offline regression benchmark and writes a report of recommendation changes. See [the replay guide](docs/REPLAY_BENCHMARK.md) for scenario maintenance, baseline review, and the initial confidence sensitivity evaluation. This is a developer tool, not a win-rate validation claim.

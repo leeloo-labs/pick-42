@@ -1,0 +1,924 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "paused-coverage",
+      "purpose": "Absent statistics must not produce advice.",
+      "kind": "regression",
+      "inputDigest": "9df3438d5c75b1af0bf9bc023ec94d161b8db4ed9fc3d0382d77e3ce533b6c14",
+      "result": {
+        "gate": "missing-sources",
+        "recommendation": null,
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "White body",
+            "packIndex": 0,
+            "contextualRank": null,
+            "rawRank": null,
+            "score": null,
+            "dataScore": null,
+            "coverage": 0,
+            "confidence": 0,
+            "adjustments": null,
+            "outlook": null,
+            "reasons": []
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": null,
+            "rawRank": null,
+            "score": null,
+            "dataScore": null,
+            "coverage": 0,
+            "confidence": 0,
+            "adjustments": null,
+            "outlook": null,
+            "reasons": []
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "partial-coverage",
+      "purpose": "One complete source remains visibly partial.",
+      "kind": "regression",
+      "inputDigest": "c9f533af060a53031585769f399121a24991395360398b5f4b1a115588f54ebb",
+      "result": {
+        "gate": "partial",
+        "recommendation": "White body",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "White body",
+            "packIndex": 0,
+            "contextualRank": 1,
+            "rawRank": 1,
+            "score": 64.4,
+            "dataScore": 61.7,
+            "coverage": 1,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "+2.4 curve",
+              "Only one source matched"
+            ]
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": 2,
+            "rawRank": 2,
+            "score": 64.4,
+            "dataScore": 61.7,
+            "coverage": 1,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "+2.4 curve",
+              "Only one source matched"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "third-legend",
+      "purpose": "Third legendary copy receives separate pressure.",
+      "kind": "regression",
+      "inputDigest": "8846c071d1ed83d5abf08ceaa5b477bfc69489a5d7acabc75fb992ab4945945d",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Other body",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "White legend",
+            "packIndex": 0,
+            "contextualRank": 2,
+            "rawRank": 1,
+            "score": 47.6,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": -15,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 0.7,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.3,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "-15 duplicate: third legendary copy is unlikely to make the 40-card deck",
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+0.7 curve"
+            ]
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": 1,
+            "rawRank": 2,
+            "score": 62.6,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 0.7,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.3,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+0.7 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "unsupported-equipment",
+      "purpose": "A hard subtype requirement needs actual support.",
+      "kind": "regression",
+      "inputDigest": "b7c7da8ee5e8be59df1a273e4fc1f007e0eacfb105630d216323a8db326145a8",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Other body",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "Dwarven tool",
+            "packIndex": 0,
+            "contextualRank": 2,
+            "rawRank": 1,
+            "score": 44.2,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 0,
+              "signal": 0,
+              "synergy": -17,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0,
+              "aggression": 0,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "-17 no Dwarf for its attach trigger",
+              "17L 58% GIH",
+              "Untapped 58% in-hand"
+            ]
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": 1,
+            "rawRank": 2,
+            "score": 64.4,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+2.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "supported-equipment",
+      "purpose": "A Dwarf supplies the attach requirement.",
+      "kind": "regression",
+      "inputDigest": "2a756cf2d75f22a733d985600e1770f804b9235047b4af3c2426f0fa577383b6",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Other body",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "Dwarven tool",
+            "packIndex": 0,
+            "contextualRank": 2,
+            "rawRank": 1,
+            "score": 63.3,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 0,
+              "signal": 0,
+              "synergy": 2.1,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0,
+              "aggression": 0,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "+2.1 1 Dwarf for its attach trigger",
+              "17L 58% GIH",
+              "Untapped 58% in-hand"
+            ]
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": 1,
+            "rawRank": 2,
+            "score": 63.4,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 1.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+1.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "locked-lane",
+      "purpose": "A manual lane constrains an ordinary off-color choice.",
+      "kind": "regression",
+      "inputDigest": "a96841ce150f2745179d657365e1f3415c078502fb9952fbce9e3fdf8e44f754",
+      "result": {
+        "gate": "ready",
+        "recommendation": "On-plan body",
+        "pair": null,
+        "lane": {
+          "label": "Boros",
+          "mode": "lock-no-splash",
+          "colors": [
+            "W",
+            "R"
+          ]
+        },
+        "cards": [
+          {
+            "name": "On-plan body",
+            "packIndex": 0,
+            "contextualRank": 1,
+            "rawRank": 2,
+            "score": 69.5,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 4,
+              "duplicate": 0,
+              "color": 5.8,
+              "flexibility": 0,
+              "curve": -2.1,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.2,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "+4 lane: fits the current lane",
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+5.8 fits primary W",
+              "-2.1 curve"
+            ]
+          },
+          {
+            "name": "Blue body",
+            "packIndex": 1,
+            "contextualRank": 2,
+            "rawRank": 1,
+            "score": 25.4,
+            "dataScore": 69.4,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": -28,
+              "duplicate": 0,
+              "color": -13.8,
+              "flexibility": 0,
+              "curve": -2.1,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.2,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": "LIKELY SIDEBOARD",
+            "reasons": [
+              "-28 lane: excluded by Boros · no splash",
+              "17L 60% GIH",
+              "Untapped 60% in-hand",
+              "-13.8 new color U",
+              "-2.1 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "hybrid-versus-gold",
+      "purpose": "Either payable hybrid half works; gold needs both colors.",
+      "kind": "regression",
+      "inputDigest": "995ccebba7b046b12420c9808b0a9b2c0c0e82d02ba3c11f8fb728c5f73742e3",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Hybrid body",
+        "pair": null,
+        "lane": {
+          "label": "Golgari",
+          "mode": "lock-no-splash",
+          "colors": [
+            "B",
+            "G"
+          ]
+        },
+        "cards": [
+          {
+            "name": "Hybrid body",
+            "packIndex": 0,
+            "contextualRank": 1,
+            "rawRank": 1,
+            "score": 73.5,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 4,
+              "duplicate": 0,
+              "color": 5.2,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.2,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "+4 lane: fits the current lane",
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+5.2 hybrid fits B plan",
+              "+2.4 curve"
+            ]
+          },
+          {
+            "name": "Gold body",
+            "packIndex": 1,
+            "contextualRank": 2,
+            "rawRank": 2,
+            "score": 28.6,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": -28,
+              "duplicate": 0,
+              "color": -7.6,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.2,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": "LIKELY SIDEBOARD",
+            "reasons": [
+              "-28 lane: excluded by Golgari · no splash",
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "-7.6 adds R to the current plan",
+              "+2.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "pick-two-copies",
+      "purpose": "Pair selection can take two physical copies of one card.",
+      "kind": "regression",
+      "inputDigest": "ee8224b18c358a323bfd787296187a809a5fea3e3b8efa4e1632c42c14b17c5f",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Best body",
+        "pair": {
+          "first": {
+            "name": "Best body",
+            "score": 83,
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature — Human"
+          },
+          "second": {
+            "name": "Best body",
+            "score": 81.2,
+            "manaCost": "{2}{W}",
+            "typeLine": "Creature — Human",
+            "reason": "-0.7 duplicate: second copy slightly reduces deck diversity",
+            "outlook": null
+          },
+          "secondDiffersFromList": false
+        },
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "Best body",
+            "packIndex": 0,
+            "contextualRank": 1,
+            "rawRank": 1,
+            "score": 83,
+            "dataScore": 81.1,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 63% GIH",
+              "Untapped 63% in-hand",
+              "+2.4 curve"
+            ]
+          },
+          {
+            "name": "Best body",
+            "packIndex": 1,
+            "contextualRank": 2,
+            "rawRank": 2,
+            "score": 83,
+            "dataScore": 81.1,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 63% GIH",
+              "Untapped 63% in-hand",
+              "+2.4 curve"
+            ]
+          },
+          {
+            "name": "Weak body",
+            "packIndex": 2,
+            "contextualRank": 3,
+            "rawRank": 3,
+            "score": 38.3,
+            "dataScore": 34.5,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 51% GIH",
+              "Untapped 51% in-hand",
+              "+2.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "out-preference",
+      "purpose": "An OUT mark carries forward to later copies.",
+      "kind": "regression",
+      "inputDigest": "3de6afd5faf600935e48ac13df23106a0b77fef0671903ea57a62d55c0b9603c",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Other body",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "White body",
+            "packIndex": 0,
+            "contextualRank": 2,
+            "rawRank": 1,
+            "score": 46.6,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": -0.7,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 1.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": -16
+            },
+            "outlook": "LIKELY SIDEBOARD",
+            "reasons": [
+              "-16 pool choice: an earlier White body is marked OUT in the active pool",
+              "-0.7 duplicate: second copy slightly reduces deck diversity",
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+1.4 curve"
+            ]
+          },
+          {
+            "name": "Other body",
+            "packIndex": 1,
+            "contextualRank": 1,
+            "rawRank": 2,
+            "score": 63.4,
+            "dataScore": 61.7,
+            "coverage": 2,
+            "confidence": 82,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 1.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 58% GIH",
+              "Untapped 58% in-hand",
+              "+1.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    },
+    {
+      "id": "thin-versus-dense",
+      "purpose": "Diagnostic: sample confidence is not a calibrated probability.",
+      "kind": "diagnostic",
+      "inputDigest": "239f026c08d8bc88c773d604aca5a676f5bec39720470bf268395cac2f61df96",
+      "result": {
+        "gate": "ready",
+        "recommendation": "Thin sample",
+        "pair": null,
+        "lane": {
+          "label": "Azorius",
+          "mode": "auto",
+          "colors": [
+            "W",
+            "U"
+          ]
+        },
+        "cards": [
+          {
+            "name": "Thin sample",
+            "packIndex": 0,
+            "contextualRank": 1,
+            "rawRank": 1,
+            "score": 96.2,
+            "dataScore": 94.8,
+            "coverage": 2,
+            "confidence": 35,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 70% GIH",
+              "Untapped 70% in-hand",
+              "+2.4 curve"
+            ]
+          },
+          {
+            "name": "Dense sample",
+            "packIndex": 1,
+            "contextualRank": 2,
+            "rawRank": 2,
+            "score": 75.8,
+            "dataScore": 73.6,
+            "coverage": 2,
+            "confidence": 89,
+            "adjustments": {
+              "lane": 0,
+              "duplicate": 0,
+              "color": 0,
+              "flexibility": 0,
+              "curve": 2.4,
+              "signal": 0,
+              "synergy": 0,
+              "interaction": 0,
+              "impact": 0,
+              "creature": 0.4,
+              "aggression": 0.4,
+              "control": 0,
+              "fixing": 0,
+              "rarity": 0,
+              "archetype": 0,
+              "poolPlan": 0
+            },
+            "outlook": null,
+            "reasons": [
+              "17L 61% GIH",
+              "Untapped 61% in-hand",
+              "+2.4 curve"
+            ]
+          }
+        ]
+      },
+      "failures": []
+    }
+  ]
+}
