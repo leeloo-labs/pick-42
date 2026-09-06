@@ -1,51 +1,61 @@
 'use strict';
 
-// Browser counterpart of the fs LogTailer: polls a File System Access handle
-// and reads only the appended bytes. Same event shape — data chunks, a rotate
-// signal when the file shrinks, and an initial full read on start.
-function createLogPoller({ interval = 750, onData, onRotate, onError }) {
-  let handle = null;
-  let offset = 0;
-  let timer = null;
-  let reading = false;
-
-  async function readAvailable() {
-    if (!handle || reading) return;
-    reading = true;
+// Every start owns its offset, decoder and timer. A replaced read may finish,
+// but it cannot deliver bytes or create another polling loop.
+function createLogPoller({ interval = 750, onData, onRotate, onError, onScanComplete,
+  schedule = setInterval, cancel = clearInterval }) {
+  let session = null;
+  function stop() {
+    if (session?.timer != null) cancel(session.timer);
+    session = null;
+  }
+  async function readAvailable(current) {
+    if (session !== current || current.reading) return false;
+    current.reading = true;
     try {
-      const file = await handle.getFile();
-      if (file.size < offset) {
-        offset = 0;
+      const file = await current.handle.getFile();
+      if (session !== current) return false;
+      const rotated = file.size < current.offset;
+      if (rotated) {
+        current.offset = 0;
+        current.decoder = new TextDecoder();
         onRotate?.();
       }
-      if (file.size > offset) {
-        const text = await file.slice(offset).text();
-        offset = file.size;
+      if (session !== current) return false;
+      if (file.size > current.offset) {
+        const bytes = await file.slice(current.offset, file.size).arrayBuffer();
+        if (session !== current) return false;
+        current.offset += bytes.byteLength;
+        const text = current.decoder.decode(bytes, { stream: true });
         if (text) onData?.(text);
       }
+      if (session !== current) return false;
+      if (!current.scanned || rotated) {
+        current.scanned = true;
+        onScanComplete?.();
+      }
+      return session === current;
     } catch (error) {
-      onError?.(error);
+      if (session === current) {
+        stop();
+        onError?.(error);
+      }
+      return false;
     } finally {
-      reading = false;
+      current.reading = false;
     }
   }
-
   return {
-    async start(fileHandle) {
-      this.stop();
-      handle = fileHandle;
-      offset = 0;
-      await readAvailable();
-      timer = setInterval(readAvailable, interval);
+    async start(handle) {
+      stop();
+      const current = { handle, offset: 0, reading: false, scanned: false, timer: null, decoder: new TextDecoder() };
+      session = current;
+      if (!await readAvailable(current) || session !== current) return false;
+      current.timer = schedule(() => readAvailable(current), interval);
+      return true;
     },
-    stop() {
-      if (timer) clearInterval(timer);
-      timer = null;
-      handle = null;
-      offset = 0;
-    },
-    active: () => Boolean(handle)
+    stop,
+    active: () => Boolean(session)
   };
 }
-
 module.exports = { createLogPoller };

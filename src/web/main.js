@@ -59,6 +59,7 @@ const corpusStore = createCorpusStore({
 
 let companion = null;
 let watchedLogName = null;
+let logGeneration = 0;
 let lastLogActivityAt = null;
 let webCompactBuildMode = false;
 const stateHandlers = new Set();
@@ -112,6 +113,10 @@ const poller = createLogPoller({
     companion.feedLog(text);
   },
   onRotate: () => companion.logRotated(),
+  onScanComplete: () => {
+    companion.completeLogScan();
+    companion.setStatus({ kind: 'live', message: watchingStatusMessage(), path: watchedLogName });
+  },
   onError: () => {
     poller.stop();
     watchedLogName = null;
@@ -147,6 +152,7 @@ companion = createDraftCompanion({
     for (const handler of stateHandlers) handler(model);
   },
   onDemoStart: () => {
+    logGeneration += 1;
     poller.stop();
     watchedLogName = null;
   }
@@ -177,14 +183,14 @@ function watchingStatusMessage() {
 }
 
 async function watchLogHandle(handle, { remember = true } = {}) {
+  const generation = ++logGeneration;
   watchedLogHandle = handle;
   watchedLogName = handle.name;
   companion.beginLogSession();
   companion.setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: handle.name });
-  await poller.start(handle);
-  companion.completeLogScan();
-  companion.setStatus({ kind: 'live', message: watchingStatusMessage(), path: handle.name });
+  if (!await poller.start(handle) || generation !== logGeneration) return false;
   if (remember) void saveHandle(LOG_HANDLE_KEY, handle);
+  return true;
 }
 
 // Resume the remembered Player.log when the browser lets us: silently when the
@@ -196,8 +202,7 @@ async function resumeStoredLog({ gesture }) {
     let permission = await handle.queryPermission({ mode: 'read' });
     if (permission === 'prompt' && gesture) permission = await handle.requestPermission({ mode: 'read' });
     if (permission !== 'granted') return false;
-    await watchLogHandle(handle, { remember: false });
-    return true;
+    return await watchLogHandle(handle, { remember: false });
   } catch {
     return false;
   }
@@ -246,8 +251,9 @@ async function importArenaCatalog(payload) {
   await saveData(CATALOG_DATA_KEY, payload);
   const cardCount = Object.keys(payload.cards || {}).length.toLocaleString();
   if (poller.active() && watchedLogHandle) {
-    await watchLogHandle(watchedLogHandle, { remember: false });
-    companion.setStatus({ kind: 'live', message: `${cardCount} Arena card names imported · log re-read`, path: watchedLogName });
+    if (await watchLogHandle(watchedLogHandle, { remember: false })) {
+      companion.setStatus({ kind: 'live', message: `${cardCount} Arena card names imported · log re-read`, path: watchedLogName });
+    }
   } else {
     companion.setStatus({ kind: 'live', message: `${cardCount} Arena card names imported` });
   }
@@ -299,12 +305,19 @@ const EXTERNAL_LINKS = {
 // handle: the whole file feeds through the normal session once, and the user
 // drops it again for a refresh.
 async function importLogSnapshot(file) {
+  const generation = ++logGeneration;
   poller.stop();
   watchedLogHandle = null;
   watchedLogName = `${file.name} (snapshot)`;
   companion.beginLogSession();
   companion.setStatus({ kind: 'loading', message: 'Reading the dropped Arena log' });
-  companion.feedLog(await file.text());
+  let text;
+  try { text = await file.text(); } catch (error) {
+    if (generation === logGeneration) companion.setStatus({ kind: 'error', message: `Could not read ${file.name}: ${error.message}` });
+    return;
+  }
+  if (generation !== logGeneration) return;
+  companion.feedLog(text);
   companion.completeLogScan();
   lastLogActivityAt = Date.now();
   const unresolved = companion.draftState().pool.filter((card) => /^Arena card \d+$/.test(card.name)).length;

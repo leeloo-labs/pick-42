@@ -113,9 +113,9 @@ async function watchLog(logPath) {
   writeSettings({ logPath });
   setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: logPath });
   await tailer.start(logPath);
-  companion.completeLogScan();
 }
 
+tailer.on('scan', () => companion.completeLogScan());
 tailer.on('data', (chunk) => {
   lastLogActivityAt = Date.now();
   companion.feedLog(chunk);

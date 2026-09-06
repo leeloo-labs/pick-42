@@ -665,13 +665,7 @@ function createDraftCompanion({
   }
 
   function logRotated() {
-    sessionMode = 'live';
-    parser.reset();
-    matchParser.reset();
-    reviewMatchDecisions.clear();
-    reviewTracker.arm(reviewContext());
-    sceneTracker.reset();
-    draftState = parser.snapshot();
+    beginLogSession();
     setStatus({ kind: 'loading', message: 'Arena started a new log session' });
   }
 
