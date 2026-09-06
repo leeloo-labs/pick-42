@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('draftCompanion', {
+  retryLocalSaves: () => ipcRenderer.invoke('draft:retry-local-saves'),
   bootstrap: () => ipcRenderer.invoke('draft:bootstrap'),
   importSource: (source, format) => ipcRenderer.invoke('draft:import-source', source, format),
   importArchetypeCorpus: () => ipcRenderer.invoke('draft:import-archetype-corpus'),

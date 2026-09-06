@@ -33,7 +33,7 @@ The companion must remain transparent and advisory:
 
 The blend engine exposes a confidence-aware raw score and one contextual recommendation model. Important invariants:
 
-- Require usable matching rows from both imported statistical sources for at least 90% of nonbasic cards before enabling live rankings.
+- Require at least 90% usable nonbasic-card coverage from one matching imported source before enabling live rankings. Label single-source coverage as partial; full coverage requires both sources. Blank statistics never count.
 - Blank statistics do not count as source coverage.
 - Basic lands are never ranked as flexible colorless cards.
 - Shrink IIH toward zero using sample confidence before it changes a card score.
@@ -108,7 +108,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 163 passing tests.
+- The test suite currently contains 203 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

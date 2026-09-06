@@ -154,3 +154,24 @@ async function updateFrom(action) {
     byId('status-dot').className = 'status-dot error';
   }
 }
+
+const recipeMemory = new Map();
+const recipeSaveQueue = Pick42SaveQueue.createSaveQueue({ onChange: () => renderLocalSaveStatus() });
+function renderLocalSaveStatus() {
+  const labels = [...new Set([...(model?.persistence?.unsaved || []), ...recipeSaveQueue.labels()])];
+  byId('local-save-notice').hidden = !labels.length;
+  setText('local-save-message', labels.length ? `UNSAVED LOCALLY · ${labels.join(', ')}. Kept in this session; retry before closing.` : '');
+}
+async function copyWithFeedback(value, labelId, idleLabel) {
+  const label = byId(labelId);
+  try {
+    const result = await window.draftCompanion.copySearch(value);
+    if (!result?.copied) throw new Error('Copy was not confirmed');
+    label.textContent = 'COPIED';
+    setTimeout(() => { label.textContent = idleLabel; }, 900);
+    return true;
+  } catch {
+    label.textContent = 'COPY FAILED · RETRY';
+    return false;
+  }
+}

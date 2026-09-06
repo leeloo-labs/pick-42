@@ -132,7 +132,8 @@ async function savePastedTrophyDeck() {
     byId('corpus-rank').value = '';
     byId('corpus-source-url').value = '';
     byId('corpus-deck-text').value = '';
-    setCorpusEntryMessage('Trophy deck saved to the local corpus.', 'success');
+    const unsaved = model.persistence?.unsaved?.includes('trophy corpus');
+    setCorpusEntryMessage(unsaved ? 'Trophy deck added for this session. Retry the local save before closing.' : 'Trophy deck saved to the local corpus.', unsaved ? 'error' : 'success');
   } catch (error) {
     setCorpusEntryMessage(error.message, 'error');
   } finally {
@@ -168,6 +169,7 @@ function render() {
   }
   if (selectedName && !model.recommendations.some((card) => card.name === selectedName)) selectedName = null;
   renderStatus();
+  renderLocalSaveStatus();
   renderSourceMenu();
   renderDecision();
   renderLane();

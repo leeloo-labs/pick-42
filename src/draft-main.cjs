@@ -32,7 +32,7 @@ const catalog = { ...demoCatalog, ...arenaCatalogResult.catalog };
 const tailer = new LogTailer();
 
 const ACTIVE_SET = setDefinition(DEFAULT_SET_CODE);
-const store = createLocalStore(app.getPath('userData'));
+const store = createLocalStore(app.getPath('userData'), { onSaveChange: () => queueMicrotask(() => companion.notify()) });
 const { readSettings, writeSettings, readGameReviews, writeGameReviews, manualArchetypeCorpusPath } = store;
 const scryfallCachePath = (setCode = ACTIVE_SET.code) => store.scryfallCachePath(scryfallCacheFileName(setCode));
 // Imports are copied into the app's own storage so they keep working after the
@@ -68,6 +68,7 @@ const companion = createDraftCompanion({
   activeSet: ACTIVE_SET,
   sourceStore,
   corpusStore,
+  persistence: store.persistence,
   settings: { read: readSettings, write: writeSettings },
   reviews: { read: readGameReviews, write: writeGameReviews },
   scryfall: {
@@ -286,6 +287,7 @@ function registerIpc() {
     companion.removeTrophyDeck(deckId);
     return viewModel();
   });
+  ipcMain.handle('draft:retry-local-saves', () => companion.retryLocalSaves());
   ipcMain.handle('draft:read-clipboard', () => ({ text: clipboard.readText() }));
   ipcMain.handle('draft:choose-log', async () => {
     const result = await dialog.showOpenDialog(draftWindow, {

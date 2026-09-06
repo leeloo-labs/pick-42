@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { createSaveQueue } = require('../draft/save-queue.js');
 
 // Where Arena writes Player.log on each platform, most likely first.
 function defaultLogCandidates() {
@@ -34,26 +35,35 @@ function writeJsonAtomic(filePath, value) {
 
 // Every file Pick 42 persists lives under one user-data directory; this owns the
 // paths and the read/merge-write conventions so callers cannot diverge on either.
-function createLocalStore(userDataPath) {
+function createLocalStore(userDataPath, { onSaveChange = () => {}, writeJson = writeJsonAtomic } = {}) {
+  const queue = createSaveQueue({ onChange: onSaveChange });
+  const memory = new Map();
+  const save = (key, label, value) => {
+    memory.set(key, value);
+    return queue.save(key, label, () => writeJson(key, value));
+  };
   const settingsPath = () => path.join(userDataPath, 'draft-settings.json');
   const gameReviewsPath = () => path.join(userDataPath, 'game-reviews.json');
 
   const readSettings = () => {
+    if (memory.has(settingsPath())) return memory.get(settingsPath());
     try { return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')); } catch { return {}; }
   };
 
   return {
+    persistence: { labels: queue.labels, retry: queue.retry },
     settingsPath,
     gameReviewsPath,
     manualArchetypeCorpusPath: () => path.join(userDataPath, 'manual-archetype-corpus.json'),
     scryfallCachePath: (fileName) => path.join(userDataPath, fileName),
     importedCsvStoragePath: (source, format) => path.join(userDataPath, 'imports', `${source}-${format}.csv`),
     readSettings,
-    writeSettings: (patch) => writeJsonAtomic(settingsPath(), { ...readSettings(), ...patch }),
+    writeSettings: (patch) => save(settingsPath(), 'preferences', { ...readSettings(), ...patch }),
     readGameReviews: () => {
+      if (memory.has(gameReviewsPath())) return memory.get(gameReviewsPath());
       try { return JSON.parse(fs.readFileSync(gameReviewsPath(), 'utf8')); } catch { return []; }
     },
-    writeGameReviews: (reviews) => writeJsonAtomic(gameReviewsPath(), reviews)
+    writeGameReviews: (reviews) => save(gameReviewsPath(), 'game reviews', reviews)
   };
 }
 

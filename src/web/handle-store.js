@@ -27,7 +27,9 @@ async function withStore(storeName, mode, run) {
     return await new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, mode);
       const request = run(transaction.objectStore(storeName));
-      request.onsuccess = () => resolve(request.result);
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onabort = () => reject(transaction.error || new Error('Local save was aborted'));
+      transaction.onerror = () => reject(transaction.error || new Error('Local save failed'));
       request.onerror = () => reject(request.error);
     });
   } finally {
@@ -44,11 +46,7 @@ async function loadHandle(key) {
 }
 
 async function saveHandle(key, handle) {
-  try {
-    await withStore('handles', 'readwrite', (store) => store.put(handle, key));
-  } catch {
-    // Private mode or blocked storage: the session still works, unpersisted.
-  }
+  await withStore('handles', 'readwrite', (store) => store.put(handle, key));
 }
 
 async function clearHandle(key) {
@@ -68,11 +66,7 @@ async function loadData(key) {
 }
 
 async function saveData(key, value) {
-  try {
-    await withStore('data', 'readwrite', (store) => store.put(value, key));
-  } catch {
-    // Private mode or blocked storage: the session still works, unpersisted.
-  }
+  await withStore('data', 'readwrite', (store) => store.put(value, key));
 }
 
 module.exports = { clearHandle, loadData, loadHandle, saveData, saveHandle };

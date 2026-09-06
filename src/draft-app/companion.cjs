@@ -44,6 +44,7 @@ function createDraftCompanion({
   corpusStore,
   settings,
   reviews,
+  persistence = { labels: () => [], retry: async () => {} },
   scryfall = null,
   describeLog = () => ({ path: null, source: 'none', lastActivityAt: null, standardAvailable: false }),
   readLogText = () => null,
@@ -510,6 +511,7 @@ function createDraftCompanion({
         ...sceneTracker.snapshot(),
         ...arenaExtras()
       },
+      persistence: { unsaved: persistence.labels() },
       visualGuide: visualGuideView(),
       review: {
         ...presentedReviewState(),
@@ -714,6 +716,7 @@ function createDraftCompanion({
     viewModel,
     hydrate,
     notify,
+    async retryLocalSaves() { await persistence.retry(); notify(); return viewModel(); },
     setStatus,
     status: () => status,
     draftState: () => draftState,

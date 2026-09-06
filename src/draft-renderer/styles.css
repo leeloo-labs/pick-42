@@ -1169,3 +1169,8 @@ button { color: inherit; }
   .corpus-entry-panel { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
   .corpus-library-panel { min-height: 280px; }
 }
+
+.local-save-notice { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff0d7; color: #654615; border-bottom: 1px solid #d7b375; font-size: 12px; }
+.local-save-notice span { flex: 1; }
+.local-save-notice button { flex-shrink: 0; padding: 5px 9px; }
+.build-mode .local-save-notice { font-size: 11px; padding: 8px; }

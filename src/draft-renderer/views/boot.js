@@ -2,6 +2,13 @@
 
 // Event wiring and bootstrap. Loads last; every view is defined by now.
 
+byId('retry-local-saves').addEventListener('click', async () => {
+  await recipeSaveQueue.retry();
+  if (window.draftCompanion.retryLocalSaves) await updateFrom(() => window.draftCompanion.retryLocalSaves());
+  renderBuildOverlay();
+  renderLocalSaveStatus();
+});
+
 byId('import-17lands').addEventListener('click', (event) => toggleSourceMenu('seventeenLands', event));
 document.addEventListener('click', (event) => {
   if (sourceMenuOpen && !byId('source-menu').contains(event.target)) {
@@ -46,6 +53,8 @@ byId('corpus-paste').addEventListener('click', async () => {
     const result = await window.draftCompanion.readClipboard();
     byId('corpus-deck-text').value = result?.text || '';
     setCorpusEntryMessage(result?.text ? 'Deck list pasted from the clipboard.' : 'The clipboard is empty.', result?.text ? 'success' : 'error');
+  } catch {
+    setCorpusEntryMessage('Clipboard access was denied. Paste the deck list into the text box.', 'error');
   } finally {
     button.disabled = false;
   }
@@ -72,7 +81,7 @@ byId('deck-side-panel-button').addEventListener('click', () => {
 byId('build-reset').addEventListener('click', () => {
   const build = chosenBuild();
   if (!build) return;
-  localStorage.removeItem(checklistStorageKey(build));
+  writeRecipe(build, { done: new Set(), skipped: new Set(), history: [] });
   renderBuildOverlay();
 });
 byId('recipe-copy').addEventListener('click', () => {
@@ -84,11 +93,7 @@ byId('recipe-skip').addEventListener('click', () => advanceRecipe('skipped'));
 byId('recipe-undo').addEventListener('click', () => undoRecipe());
 byId('preview-copy-name').addEventListener('click', async () => {
   if (!previewedCardName) return;
-  await window.draftCompanion.copySearch(previewedCardName);
-  const label = byId('preview-copy-name-label');
-  label.textContent = 'COPIED';
-  clearTimeout(previewCopyTimer);
-  previewCopyTimer = setTimeout(() => { label.textContent = 'COPY NAME'; }, 900);
+  await copyWithFeedback(previewedCardName, 'preview-copy-name-label', 'COPY NAME');
 });
 byId('minimize-button').addEventListener('click', () => window.draftCompanion.minimize());
 byId('close-button').addEventListener('click', () => window.draftCompanion.close());

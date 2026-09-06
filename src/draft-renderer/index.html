@@ -33,6 +33,7 @@
         </div>
       </header>
 
+      <div id="local-save-notice" class="local-save-notice" role="status" hidden><span id="local-save-message"></span><button id="retry-local-saves" type="button">RETRY SAVE</button></div>
       <div class="status-bar">
         <span id="status-dot" class="status-dot"></span>
         <span id="status-message">Starting draft companion</span>
@@ -581,6 +582,7 @@
       </section>
     </dialog>
     <script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>
+    <script src="../draft/save-queue.js"></script>
     <script src="../draft/recipe-queue.js"></script>
     <script src="../draft/arena-sort.js"></script>
     <script src="views/shared.js"></script>

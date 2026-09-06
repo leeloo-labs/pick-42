@@ -10,6 +10,7 @@ const { createCorpusStore } = require('../draft-app/corpus-store.cjs');
 const { DEFAULT_SET_CODE, setDefinition, untappedCardDataUrl } = require('../draft/set-definitions.cjs');
 const { fetchScryfallSet } = require('../draft/scryfall.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('../draft/seventeenlands-dataset.cjs');
+const { createSaveQueue } = require('../draft/save-queue.js');
 const { createLogPoller } = require('./log-poller.js');
 const { fileLineSource } = require('./file-lines.js');
 const { loadData, loadHandle, saveData, saveHandle } = require('./handle-store.js');
@@ -25,9 +26,11 @@ const SCRYFALL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const storageKey = (...parts) => ['pick42', ...parts].join(':');
 
+const localValues = new Map();
+const saveQueue = createSaveQueue({ onChange: () => queueMicrotask(() => companion?.notify()) });
 const readStoredJson = (key, fallback = null) => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localValues.has(key) ? localValues.get(key) : localStorage.getItem(key);
     return raw === null ? fallback : JSON.parse(raw);
   } catch {
     return fallback;
@@ -35,11 +38,11 @@ const readStoredJson = (key, fallback = null) => {
 };
 
 const writeStoredJson = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Quota or private-mode failure: the session keeps working in memory.
-  }
+  const text = JSON.stringify(value);
+  localValues.set(key, text);
+  const label = key.includes('settings') ? 'preferences' : key.includes('reviews') ? 'game reviews'
+    : key.includes('corpus') ? 'trophy corpus' : key.includes('scryfall') ? 'card images' : 'ratings imports';
+  return saveQueue.save(key, label, () => localStorage.setItem(key, text));
 };
 
 const demoCatalog = demoCatalogFixture.default ?? demoCatalogFixture;
@@ -52,7 +55,7 @@ const corpusStore = createCorpusStore({
   manualStoragePath: () => storageKey('manual-corpus'),
   setCodeExample: ACTIVE_SET.displayCode,
   io: {
-    readText: (key) => localStorage.getItem(key) ?? 'null',
+    readText: (key) => localValues.get(key) ?? localStorage.getItem(key) ?? 'null',
     writeJson: writeStoredJson
   }
 });
@@ -131,6 +134,7 @@ companion = createDraftCompanion({
   activeSet: ACTIVE_SET,
   sourceStore,
   corpusStore,
+  persistence: { labels: saveQueue.labels, retry: saveQueue.retry },
   settings: {
     read: () => readStoredJson(storageKey('settings'), {}) || {},
     write: (patch) => writeStoredJson(storageKey('settings'), { ...(readStoredJson(storageKey('settings'), {}) || {}), ...patch })
@@ -189,7 +193,7 @@ async function watchLogHandle(handle, { remember = true } = {}) {
   companion.beginLogSession();
   companion.setStatus({ kind: 'loading', message: 'Scanning Arena draft events', path: handle.name });
   if (!await poller.start(handle) || generation !== logGeneration) return false;
-  if (remember) void saveHandle(LOG_HANDLE_KEY, handle);
+  if (remember) void saveQueue.save(LOG_HANDLE_KEY, 'remembered log', () => saveHandle(LOG_HANDLE_KEY, handle));
   return true;
 }
 
@@ -248,7 +252,7 @@ function applyArenaCatalog(payload) {
 // it, and re-read a watched log so the current draft picks up real names.
 async function importArenaCatalog(payload) {
   applyArenaCatalog(payload);
-  await saveData(CATALOG_DATA_KEY, payload);
+  await saveQueue.save(CATALOG_DATA_KEY, 'card catalog', () => saveData(CATALOG_DATA_KEY, payload));
   const cardCount = Object.keys(payload.cards || {}).length.toLocaleString();
   if (poller.active() && watchedLogHandle) {
     if (await watchLogHandle(watchedLogHandle, { remember: false })) {
@@ -466,13 +470,8 @@ window.draftCompanion = {
     companion.removeTrophyDeck(deckId);
     return companion.viewModel();
   },
-  readClipboard: async () => {
-    try {
-      return { text: await navigator.clipboard.readText() };
-    } catch {
-      return { text: '' };
-    }
-  },
+  retryLocalSaves: async () => companion.retryLocalSaves(),
+  readClipboard: async () => ({ text: await navigator.clipboard.readText() }),
   chooseLog: async () => {
     // A remembered handle resumes on this click's gesture; the picker only
     // opens when nothing is remembered, permission is refused, or the
@@ -507,7 +506,7 @@ window.draftCompanion = {
   copySearch: async (text) => {
     const value = String(text || '').trim().slice(0, 200);
     if (value) {
-      try { await navigator.clipboard.writeText(value); } catch { /* Clipboard denied; the copy chip simply has no effect. */ }
+      await navigator.clipboard.writeText(value);
     }
     return { copied: value };
   },

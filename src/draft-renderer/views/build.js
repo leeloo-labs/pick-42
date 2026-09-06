@@ -22,7 +22,8 @@ function checklistStorageKey(build) {
 
 function readRecipe(build) {
   try {
-    const saved = JSON.parse(localStorage.getItem(checklistStorageKey(build)) || '{}');
+    const key = checklistStorageKey(build);
+    const saved = JSON.parse(recipeMemory.get(key) ?? localStorage.getItem(key) ?? '{}');
     return {
       done: new Set(Array.isArray(saved.done) ? saved.done : []),
       skipped: new Set(Array.isArray(saved.skipped) ? saved.skipped : []),
@@ -34,11 +35,10 @@ function readRecipe(build) {
 }
 
 function writeRecipe(build, recipe) {
-  localStorage.setItem(checklistStorageKey(build), JSON.stringify({
-    done: [...recipe.done],
-    skipped: [...recipe.skipped],
-    history: recipe.history.slice(-200)
-  }));
+  const key = checklistStorageKey(build);
+  const text = JSON.stringify({ done: [...recipe.done], skipped: [...recipe.skipped], history: recipe.history.slice(-200) });
+  recipeMemory.set(key, text);
+  recipeSaveQueue.save(key, 'recipe progress', () => localStorage.setItem(key, text));
 }
 
 function currentRecipe(build) {
@@ -72,11 +72,7 @@ function recipeQueueRow(task, state, index, current) {
 
 async function copyRecipeSearch(task) {
   if (!task) return;
-  await window.draftCompanion.copySearch(task.card.name);
-  const label = byId('recipe-copy-label');
-  label.textContent = 'COPIED';
-  clearTimeout(recipeCopyTimer);
-  recipeCopyTimer = setTimeout(() => { label.textContent = 'COPY SEARCH'; }, 900);
+  await copyWithFeedback(task.card.name, 'recipe-copy-label', 'COPY SEARCH');
 }
 
 async function advanceRecipe(status = 'done') {
