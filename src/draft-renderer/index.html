@@ -586,6 +586,13 @@
     <dialog id="prep-dialog" class="prep-dialog" aria-labelledby="prep-heading">
       <header class="prep-dialog-heading"><div><small>LOCAL SET PROFILES</small><h1 id="prep-heading">Prepare for a draft</h1></div><button id="prep-close" class="icon-button" aria-label="Close preparation"><i data-lucide="x"></i></button></header>
       <div id="set-prep"></div>
+      <section class="local-backup" aria-labelledby="backup-heading">
+        <h2 id="backup-heading">Local backup</h2>
+        <p>Save imported ratings, trophy decks, reviews, recorded decisions and recipe progress in a portable file. Raw logs and file permissions stay on this device.</p>
+        <div class="backup-actions"><button id="backup-export" type="button">EXPORT BACKUP</button><button id="backup-choose" type="button">CHOOSE BACKUP</button><input id="backup-file" type="file" accept=".json,application/json" hidden></div>
+        <p id="backup-message" role="status" aria-live="polite"></p>
+        <button id="backup-restore" type="button" hidden>ADD MISSING DATA</button>
+      </section>
     </dialog>
     <dialog id="decision-history-dialog" class="history-dialog" aria-labelledby="history-heading">
       <header class="prep-dialog-heading"><div><small>LOCAL DRAFT HISTORY</small><h1 id="history-heading">Recorded decisions</h1></div><button id="history-close" class="icon-button" aria-label="Close decision history"><i data-lucide="x"></i></button></header>
@@ -604,6 +611,7 @@
     <script src="views/play.js"></script>
     <script src="views/history.js"></script>
     <script src="views/shell.js"></script>
+    <script src="views/backup.js"></script>
     <script src="views/boot.js"></script>
   </body>
 </html>

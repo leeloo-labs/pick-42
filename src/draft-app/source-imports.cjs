@@ -105,6 +105,7 @@ function createSourceImportStore() {
   };
 
   return {
+    backupEntries: () => Object.entries(profiles).flatMap(([setCode, imports]) => ['seventeenLands', 'untapped'].flatMap((source) => Object.entries(imports[source]).map(([format, entry]) => ({ setCode, source, format, label: entry.label, data: entry.data })))),
     parse,
     remember,
     loadCsv,

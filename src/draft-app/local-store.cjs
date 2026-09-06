@@ -53,6 +53,9 @@ function createLocalStore(userDataPath, { onSaveChange = () => {}, writeJson = w
 
   return {
     persistence: { labels: queue.labels, retry: queue.retry },
+    writeJsonResource: (filePath, value, label) => save(filePath, label, value),
+    writeTextResource: (filePath, text, label) => queue.save(filePath, label, () => writeFileAtomic(filePath, text)),
+    restoredCorpusPath: () => path.join(userDataPath, 'restored-archetype-corpus.json'),
     decisionsPath,
     readDecisions: () => {
       if (memory.has(decisionsPath())) return memory.get(decisionsPath());

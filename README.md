@@ -233,3 +233,9 @@ Advice freezes after its selection is observed. Later imports do not change old 
 ### Recommendation evaluation
 
 `npm run replay:check` runs the offline regression benchmark and writes a report of recommendation changes. See [the replay guide](docs/REPLAY_BENCHMARK.md) for scenario maintenance, baseline review, and the initial confidence sensitivity evaluation. This is a developer tool, not a win-rate validation claim.
+
+### Local backups
+
+Open **PREP → EXPORT BACKUP** to save a portable JSON file containing ratings imports, trophy libraries, completed reviews and manual records, recorded decisions, portable preferences, and recipe progress. The browser requests a download; the desktop app opens a save dialog. Raw Arena logs, file paths/permissions, and image caches are excluded.
+
+On either version, use **PREP → CHOOSE BACKUP**, inspect the addition counts, then **ADD MISSING DATA**. Existing entries win on conflicts; the normal ten-draft decision and event-aware review retention limits still apply. Backups are limited to 50 MB. If the app reports unsaved data, use **RETRY SAVES** before closing. Reconnect Arena's log separately on a new device.

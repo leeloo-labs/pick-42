@@ -79,6 +79,7 @@ function createDecisionHistory({ write = () => {}, now = () => new Date().toISOS
       id, draftId, setCode, format, packNumber, pickNumber, demo, gate: gate.kind,
       actual: actual.map((card) => card.name), recommended: recommended || [], bookmarked, observedAt
     })),
+    export: () => ({ version: 1, records: clone(records.filter((record) => !record.demo)) }),
     maxDrafts
   };
 }

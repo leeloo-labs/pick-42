@@ -115,7 +115,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 220 passing tests.
+- The test suite currently contains 229 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.
@@ -127,3 +127,9 @@ npm run check
 - `src/draft-main.cjs` is the Electron shell (file dialogs, fs log tailer, windows, IPC); `src/web/main.js` is the browser shell (localStorage/IndexedDB persistence, File System Access pickers and log polling, fetch for Scryfall). Both expose the identical `window.draftCompanion` surface, and the renderer under `src/draft-renderer/` must keep working unchanged on both.
 - New session behavior belongs in the companion; new platform behavior belongs in a shell adapter. Never fork renderer code per shell — the web build derives its `index.html` from the renderer's page (`scripts/build-web.mjs`).
 - Node builtins used by shared modules need a browser shim in `src/web/shims/` (or an injectable seam) before they can ship in the web bundle.
+
+## Portable local backup
+
+- PREP offers export and additive restore of ratings by set/format, trophy libraries, completed reviews/manual records, live decisions, portable preferences and recipe progress. Raw logs, paths, file handles and image caches are excluded.
+- Validate every backup section before persistence, preview additions, preserve existing entries on conflicts, and keep save failures in the retry queue. Decision history keeps its ten-draft bound with existing drafts taking priority; review retention remains event-aware.
+- Ratings backups preserve the actual GIH/GD/GP basis, matching counts, blank values and signed percentage units. Never silently change the statistical basis on restore.

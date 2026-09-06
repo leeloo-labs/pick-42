@@ -176,6 +176,19 @@ function createCorpusStore({
   };
 
   return {
+    backupData: () => ({ imported: importedCorpus?.decks || [], manual: manualDecks, importedMetadata: importedCorpus ? { source: importedCorpus.source, license: importedCorpus.license, generatedAt: importedCorpus.generatedAt } : {} }),
+    prepareBackup(data) {
+      const imported = data.imported.length ? parseArchetypeCorpus(JSON.stringify({ ...data.importedMetadata, version: 1, decks: data.imported }), { catalog }) : null;
+      const manual = data.manual.length ? parseArchetypeCorpus(JSON.stringify({ version: 1, decks: data.manual }), { catalog }) : null;
+      return { imported, manual };
+    },
+    restoreBackup({ imported, manual }, persistImported) {
+      if (imported) importedPath = persistImported(imported);
+      importedCorpus = imported;
+      manualDecks = manual?.decks || [];
+      writeManual();
+      rebuild();
+    },
     loadImported,
     loadImportedText,
     readManual,

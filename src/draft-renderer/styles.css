@@ -1211,3 +1211,11 @@ button { color: inherit; }
 @media (max-width: 740px) { .history-layout { grid-template-columns: 1fr; } #history-list { max-height: 150px; border-right: 0; border-bottom: 1px solid var(--line); } #history-detail { max-height: 55vh; } }
 
 .history-draft-group { margin: 10px 4px; font-size: 11px; color: var(--muted); font-weight: 600; }
+
+.local-backup { margin: 0 20px 20px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: #f8f7f3; }
+.local-backup h2 { margin: 0 0 8px; font-size: 16px; }
+.local-backup p { font-size: 12px; line-height: 1.55; color: var(--muted); }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.local-backup button { padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); font-size: 11px; cursor: pointer; }
+.local-backup button:disabled { opacity: .55; cursor: wait; }
+#backup-message[data-error="true"] { color: #90392c; }

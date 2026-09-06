@@ -33,3 +33,10 @@ Started with 7% account allowance remaining. Implemented the bounded decision-hi
 ## Third continuation
 
 Started with 7% remaining. Added the developer-only offline replay benchmark: ten curated synthetic scenarios, independently stated policy contracts, reviewed baseline, full before/after rank/score/reason/pair changes, input-change detection, and safe explicit baseline updates. Four benchmark tests bring the suite to 220 passing. `npm run replay:check` reports zero failures and zero drift. A diagnostic prior-sensitivity evaluation is recorded in docs/REPLAY_BENCHMARK.md; it supports further evaluation, not a production weight change. No runtime application behavior changed, so the latest app remains 0.1.11. Next: local backup/restore, then assess available signing credentials without purchasing or changing accounts.
+
+
+## Fourth continuation
+
+Started with 6% remaining. Implemented portable local backup/restore in both shells, available in PREP. Additive preview keeps existing conflicts, validates all sections before writes, preserves ratings bases and sample counts, and routes failed saves through retry. Nine regression tests cover round trips, provenance, retention, malformed inputs, stale confirmations, and quota recovery; 229 total tests pass. Syntax, production web build, and all ten replay scenarios pass with no ranking drift. Live UI inspection was unavailable because the Mac was locked; automated control tests passed.
+
+A read-only signing-identity check returned zero valid identities. No credentials were created or purchased. Notarization remains dependent on an available Developer ID identity and authorized notarization credentials; the locked Mac may affect credential availability. Production calibration remains dependent on held-out outcomes. Both are deferred rather than guessed. Release 0.1.12 is the next required step for this batch; verify publication and checksum before claiming it shipped.

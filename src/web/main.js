@@ -134,6 +134,10 @@ companion = createDraftCompanion({
   activeSet: ACTIVE_SET,
   sourceStore,
   corpusStore,
+  backupStorage: {
+    rating: (entry) => rememberWebImport(entry.source, entry.format, entry.label, entry.text, entry.setCode),
+    corpus: (payload) => { writeStoredJson(storageKey('corpus'), { label: 'Restored trophy corpus', text: JSON.stringify(payload) }); return 'Restored trophy corpus'; }
+  },
   decisions: { read: () => null, write: (value) => saveQueue.save(storageKey('decisions'), 'draft decisions', () => saveData(storageKey('decisions'), value)) },
   persistence: { labels: saveQueue.labels, retry: saveQueue.retry },
   settings: {
@@ -443,6 +447,18 @@ function installDropTarget() {
 window.draftCompanion = {
   decisionDetails: async (id) => companion.decisionDetails(id),
   bookmarkDecision: async (id, marked) => companion.bookmarkDecision(id, marked),
+  exportBackup: async (recipes) => {
+    const backup = companion.exportBackup(recipes);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = `Pick-42-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return { downloaded: true };
+  },
+  previewBackup: async (text, recipes) => companion.previewBackup(text, recipes),
+  restoreBackup: async (token, recipes) => companion.restoreBackup(token, recipes),
   bootstrap: async () => companion.viewModel(),
   importSource: async (source, format) => {
     if (!['seventeenLands', 'untapped'].includes(source)) throw new Error('Unknown draft data source.');

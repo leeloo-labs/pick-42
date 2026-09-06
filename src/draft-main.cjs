@@ -39,7 +39,7 @@ const scryfallCachePath = (setCode = ACTIVE_SET.code) => store.scryfallCachePath
 // original download is moved, deleted, or blocked by macOS folder permissions.
 const importedCsvStoragePath = store.importedCsvStoragePath;
 const sourceStore = createSourceImportStore();
-const corpusStore = createCorpusStore({ catalog, manualStoragePath: manualArchetypeCorpusPath, setCodeExample: ACTIVE_SET.displayCode });
+const corpusStore = createCorpusStore({ catalog, manualStoragePath: manualArchetypeCorpusPath, setCodeExample: ACTIVE_SET.displayCode, io: { readText: (filePath) => fs.readFileSync(filePath, 'utf8'), writeJson: (filePath, value) => store.writeJsonResource(filePath, value, 'trophy corpus') } });
 const loadSampleSources = () => sourceStore.loadSamples({
   seventeenLands: fixturePath(ACTIVE_SET.sampleFixtures.seventeenLands),
   untapped: fixturePath(ACTIVE_SET.sampleFixtures.untapped)
@@ -69,6 +69,20 @@ const companion = createDraftCompanion({
   sourceStore,
   corpusStore,
   decisions: { read: store.readDecisions, write: store.writeDecisions },
+  backupStorage: {
+    rating(entry) {
+      const filePath = importedCsvStoragePath(entry.source, entry.format, entry.setCode);
+      store.writeTextResource(filePath, entry.text, 'ratings imports');
+      sourceStore.remember(entry.source, filePath, entry.format, entry.label, sourceStore.parse(entry.source, entry.text), entry.setCode);
+      writeSettings({ sourceImportProfiles: sourceStore.settingsPayload(readSettings().sourceImportProfiles) });
+    },
+    corpus(payload) {
+      const filePath = store.restoredCorpusPath();
+      store.writeJsonResource(filePath, payload, 'trophy corpus');
+      writeSettings({ archetypeCorpusPath: filePath });
+      return filePath;
+    }
+  },
   persistence: store.persistence,
   settings: { read: readSettings, write: writeSettings },
   reviews: { read: readGameReviews, write: writeGameReviews },
@@ -289,6 +303,15 @@ function registerIpc() {
     companion.removeTrophyDeck(deckId);
     return viewModel();
   });
+  ipcMain.handle('draft:export-backup', async (_event, recipes) => {
+    const backup = companion.exportBackup(recipes);
+    const result = await dialog.showSaveDialog(draftWindow, { title: 'Save Pick 42 backup', defaultPath: `Pick-42-backup-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: 'Pick 42 backup', extensions: ['json'] }] });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    writeJsonAtomic(result.filePath, backup);
+    return { saved: true };
+  });
+  ipcMain.handle('draft:preview-backup', (_event, text, recipes) => companion.previewBackup(text, recipes));
+  ipcMain.handle('draft:restore-backup', (_event, token, recipes) => companion.restoreBackup(token, recipes));
   ipcMain.handle('draft:decision-details', (_event, id) => companion.decisionDetails(id));
   ipcMain.handle('draft:bookmark-decision', (_event, id, marked) => companion.bookmarkDecision(id, marked));
   ipcMain.handle('draft:retry-local-saves', () => companion.retryLocalSaves());

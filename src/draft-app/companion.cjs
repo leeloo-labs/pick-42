@@ -5,6 +5,7 @@ const {
   recommendPickTwoPair,
   scoreDraftPack
 } = require('../draft/blend-engine.cjs');
+const { ratingsCsv, portableSettings, validateBackup, validateRecipes, planRestore, clone } = require('../draft/local-backup.cjs');
 const { createDecisionHistory, contentId } = require('../draft/decision-history.cjs');
 const { normalizeCardName } = require('../draft/csv.cjs');
 const { exclusionKeysForDraft, filterActivePool, updatePoolExclusion } = require('../draft/pool-plan.cjs');
@@ -46,6 +47,7 @@ function createDraftCompanion({
   settings,
   reviews,
   decisions = { read: () => null, write: () => {} },
+  backupStorage = null,
   persistence = { labels: () => [], retry: async () => {} },
   scryfall = null,
   describeLog = () => ({ path: null, source: 'none', lastActivityAt: null, standardAvailable: false }),
@@ -65,6 +67,8 @@ function createDraftCompanion({
   const decisionHistory = createDecisionHistory({ write: decisions.write });
   let decisionRecording = false;
   const fingerprintCache = new WeakMap();
+  let pendingRestore = null;
+  let restoreToken = 0;
   let draftState = parser.snapshot();
   let reviewState = reviewTracker.snapshot();
   // The set whose Scryfall images, external links, and readiness checks are
@@ -449,6 +453,51 @@ function createDraftCompanion({
     });
   }
 
+  function exportBackup(recipes = {}) {
+    validateRecipes(recipes);
+    const backup = clone({ product: 'Pick 42', version: 1, createdAt: new Date().toISOString(),
+      settings: portableSettings(settings.read()),
+      ratings: sourceStore.backupEntries().map(({ data, ...entry }) => ({ ...entry, text: ratingsCsv(entry.source, data) })),
+      corpus: corpusStore.backupData(), reviews: { reviews: reviewTracker.snapshot().reviews, manualRecords },
+      decisions: decisionHistory.export(), recipes
+    });
+    if (new TextEncoder().encode(JSON.stringify(backup)).length > 50 * 1024 * 1024) throw new Error('Backup exceeds the 50 MB limit');
+    return backup;
+  }
+  function previewBackup(text, recipes = {}) {
+    pendingRestore = null;
+    if (typeof text !== 'string' || text.length > 50 * 1024 * 1024) throw new Error('Backup exceeds the 50 MB limit');
+    const incoming = validateBackup(JSON.parse(text));
+    if (incoming.reviews.manualRecords[SAMPLE_COURSE_ID]) throw new Error('Sample drafts cannot have manual game records');
+    const plan = planRestore(exportBackup(recipes), incoming);
+    pendingRestore = { token: ++restoreToken, incoming };
+    return { token: restoreToken, createdAt: incoming.createdAt, summary: plan.summary };
+  }
+  function restoreBackup(token, recipes = {}) {
+    if (!backupStorage || token !== pendingRestore?.token) throw new Error('Choose and preview the backup again');
+    const plan = planRestore(exportBackup(recipes), pendingRestore.incoming);
+    // Normalize the complete corpus before any persistence adapter runs.
+    const corpus = plan.summary.corpus ? corpusStore.prepareBackup(plan.corpus) : null;
+    for (const entry of plan.ratings) backupStorage.rating(entry);
+    if (corpus) corpusStore.restoreBackup(corpus, backupStorage.corpus);
+    settings.write(plan.settings);
+    reviewTracker.hydrate(plan.reviews.reviews);
+    manualRecords = plan.reviews.manualRecords;
+    persistReviews();
+    decisionHistory.hydrate(plan.decisions);
+    decisions.write(decisionHistory.export());
+    // Apply portable preferences to the current session as well as its saved state.
+    const saved = settings.read();
+    lanePreference = saved.lanePreference || null;
+    poolExclusionPreference = saved.poolExclusions || null;
+    selectedBuildId = saved.selectedBuildId || null;
+    if (saved.activeSetCode && !draftState.pack.length) applySetChange(saved.activeSetCode);
+    prepFormat = saved.prepFormat || prepFormat;
+    pendingRestore = null;
+    setStatus({ kind: 'live', message: 'Backup merged locally · existing entries kept' });
+    return { recipes: plan.recipes, summary: plan.summary, model: viewModel() };
+  }
+
   // Answers "if I take this card first, what pairs with it?" for the live Pick Two pack.
   function pickPairFor(firstName) {
     if (normalizeFormat(draftState.format) !== 'pick-two') return null;
@@ -760,6 +809,7 @@ function createDraftCompanion({
 
   return {
     viewModel,
+    exportBackup, previewBackup, restoreBackup,
     hydrate,
     hydrateDecisionHistory: (value) => decisionHistory.hydrate(value),
     decisionDetails: (id) => decisionHistory.details(id),
