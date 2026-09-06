@@ -1,6 +1,6 @@
 # Pick 42 overnight notes
 
-Current release: [Pick 42 0.1.11](https://github.com/leeloo-labs/pick-42/releases/tag/v0.1.11), including the first improvement batch and local decision history. Reopening the existing Applications launcher loads the updated project. The public download is also updated.
+Current release: [Pick 42 0.1.12](https://github.com/leeloo-labs/pick-42/releases/tag/v0.1.12), including the correctness improvements, local decision history, and portable backups. Reopening the existing Applications launcher loads the updated project. The public download is also updated.
 
 ## What changed
 
@@ -19,6 +19,17 @@ Current release: [Pick 42 0.1.11](https://github.com/leeloo-labs/pick-42/release
 
 ## Remaining work and budget
 
-The offline replay benchmark and an initial confidence sensitivity evaluation are complete. Ten synthetic scenarios show no policy failures or baseline drift. Production calibration remains unchanged because these scenarios contain no held-out outcomes. Local backup/restore is implemented; its release verification is recorded in the checkpoint. See [the evaluation notes](REPLAY_BENCHMARK.md). A signing check found zero available valid identities while the Mac was locked. Notarization still requires an available Developer ID identity and authorized credentials. The backup controls passed automated tests; live visual inspection was unavailable while the Mac was locked.
+The offline replay benchmark and an initial confidence sensitivity evaluation are complete. Ten synthetic scenarios show no policy failures or baseline drift. Production calibration remains unchanged because these scenarios contain no held-out outcomes. Local backup/restore is released and the public ZIP checksum is verified. See [the evaluation notes](REPLAY_BENCHMARK.md). A signing check found zero available valid identities while the Mac was locked. Notarization still requires an available Developer ID identity and authorized credentials. The backup controls passed automated tests; live visual inspection was unavailable while the Mac was locked.
 
-The latest account reading at the second release's completion was **7% remaining**. The hourly overnight continuation will check again before starting another bounded task and stop starting work at **3%**, or earlier if there is insufficient allowance to finish and verify it. It pauses by 9 AM Eastern September 6. No reset credits were used. See [the checkpoint](OVERNIGHT_PROGRESS.md) for subsequent progress.
+The last account reading was **6% remaining**. Overnight work is paused at a tested, published release to preserve allowance for your feedback. No reset credits were used. The implemented priorities are complete through local backup/restore; this does not claim that the research and usability follow-ups below are done.
+
+## Useful morning checks
+
+1. Reopen Pick 42 and use PREP during a sample draft. Confirm that setup status and the active draft's ratings remain understandable.
+2. Inspect a generated deck and its Recipe Mode instructions. Try skip, undo, and return.
+3. Open DECISIONS, compare two cards, and bookmark a choice.
+4. Export a backup from PREP. Choosing the same file should preview no duplicate additions; restore should preserve current entries.
+
+Broader counterfactual replay across subsequent picks remains follow-up work. Faithful replay needs complete historical inputs and an explicit hypothetical pool; the current comparison shows recorded evidence and never claims to reconstruct later packs. Fresh-user live-draft testing, empirical scoring calibration, and notarization also remain open.
+
+See [the checkpoint](OVERNIGHT_PROGRESS.md) for the release audit and [the original review](PRODUCT_REVIEW.md) for the rationale.
