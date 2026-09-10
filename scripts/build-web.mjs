@@ -40,6 +40,7 @@ function copyAssets() {
   const rendererDir = path.join(root, 'src', 'draft-renderer');
   const copies = [
     [path.join(root, 'assets', 'icon.png'), path.join(outDir, 'icon.png')],
+    [path.join(root, 'assets', 'brand-mark.png'), path.join(outDir, 'brand-mark.png')],
     [path.join(rendererDir, 'styles.css'), path.join(outDir, 'styles.css')],
     [path.join(root, 'src', 'draft', 'save-queue.js'), path.join(outDir, 'save-queue.js')],
     [path.join(root, 'src', 'draft', 'recipe-queue.js'), path.join(outDir, 'recipe-queue.js')],
@@ -61,6 +62,7 @@ function writeIndexHtml() {
     ],
     [/<title>[^<]*<\/title>/, '<title>Pick 42</title>\n    <link rel="icon" href="icon.png">'],
     [/<body>/, '<body class="web-shell">'],
+    [/\.\.\/\.\.\/assets\/brand-mark\.png/g, 'brand-mark.png'],
     ['<script src="../../node_modules/lucide/dist/umd/lucide.min.js"></script>', '<script src="lucide.min.js"></script>'],
     ['<script src="../draft/save-queue.js"></script>', '<script src="save-queue.js"></script>'],
     ['<script src="../draft/recipe-queue.js"></script>', '<script src="recipe-queue.js"></script>'],

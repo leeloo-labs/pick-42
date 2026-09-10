@@ -6,4 +6,5 @@ dist/
 node_modules/
 # Branding concepts stay local until one becomes assets/icon.*
 assets/*concept*
+output/brand/
 npm-debug.log*
