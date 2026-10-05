@@ -121,3 +121,25 @@ test('trophy libraries and completed reviews survive a portable round-trip with 
   assert.deepEqual(second.companion.exportBackup().corpus, exported.corpus);
   assert.equal(second.companion.exportBackup().reviews.reviews[0].id, 'game1');
 });
+
+test('user-declared trophies without records survive backup restore without inventing results', () => {
+  const first = session(), second = session();
+  first.companion.addTrophyDeck({ setCode: 'FRA', format: 'PremierDraft', deckText: 'Deck\n23 Test Creature\n17 Mountain' });
+  const backup = first.companion.exportBackup();
+  assert.equal(backup.corpus.manual[0].trophy, true);
+  assert.equal(backup.corpus.manual[0].wins, null);
+  assert.equal(backup.corpus.manual[0].losses, null);
+  assert.doesNotThrow(() => validateBackup(backup));
+  const preview = second.companion.previewBackup(JSON.stringify(backup));
+  second.companion.restoreBackup(preview.token);
+  const restored = second.companion.exportBackup().corpus.manual[0];
+  assert.equal(restored.trophy, true);
+  assert.equal(restored.wins, null);
+  assert.equal(restored.losses, null);
+  assert.match(second.companion.viewModel().archetypeCorpus.manualDecks[0].record, /record not entered/);
+  for (const patch of [{ trophy: false }, { wins: 5, losses: 3 }, { wins: null, losses: 2 }, { record: '5-3' }]) {
+    const invalid = structuredClone(backup);
+    Object.assign(invalid.corpus.manual[0], patch);
+    assert.throws(() => validateBackup(invalid));
+  }
+});

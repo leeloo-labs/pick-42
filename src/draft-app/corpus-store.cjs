@@ -7,6 +7,7 @@ const { writeJsonAtomic } = require('./local-store.cjs');
 const {
   createArchetypeDeck,
   isGenericArchetypeLabel,
+  normalizeFormat,
   parseArchetypeCorpus,
   parseArenaDeckText,
   summarizeArchetypeCorpus,
@@ -67,10 +68,9 @@ function createCorpusStore({
 
   const manualDeckId = (value, cards) => {
     const signature = JSON.stringify({
-      setCode: value.setCode,
-      format: value.format,
-      record: value.record,
-      sourceUrl: value.sourceUrl,
+      setCode: String(value.setCode).trim().toUpperCase(),
+      format: normalizeFormat(value.format),
+      sourceUrl: String(value.sourceUrl || '').trim(),
       cards: cards.map((card) => [card.key, card.quantity]).sort((a, b) => a[0].localeCompare(b[0]))
     });
     return `manual-${crypto.createHash('sha256').update(signature).digest('hex').slice(0, 16)}`;
@@ -136,15 +136,18 @@ function createCorpusStore({
     const record = String(value?.record || '').trim();
     if (!setCode) throw new Error(`Enter the set code shown by 17Lands, such as ${setCodeExample}.`);
     if (!format) throw new Error('Choose the draft format for this trophy deck.');
-    if (!record) throw new Error('Enter the final record shown by 17Lands, such as 7-2.');
-    const id = manualDeckId({ setCode, format, record, sourceUrl: value?.sourceUrl }, parsed.cards);
-    if (manualDecks.some((deck) => deck.id === id)) throw new Error('That trophy deck is already in the manual corpus.');
+    if (trophyThreshold(format) === null) throw new Error('Choose a supported draft format for this trophy deck.');
+    // Record is optional metadata, never part of a pasted deck's identity.
+    // Compare contents as well as IDs so older saved decks remain deduplicated.
+    const id = manualDeckId({ setCode, format, sourceUrl: value?.sourceUrl }, parsed.cards);
+    if (manualDecks.some((deck) => deck.id === id || manualDeckId(deck, deck.cards) === id)) throw new Error('That trophy deck is already in the manual corpus.');
     const deck = {
       ...createArchetypeDeck({
         id,
         setCode,
         format,
         record,
+        trophy: record ? undefined : true,
         eventDate: value?.eventDate,
         rank: value?.rank,
         archetype: value?.archetype,

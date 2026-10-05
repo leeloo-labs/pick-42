@@ -19,11 +19,11 @@ Until a set appears in the 17Lands public datasets, individual public trophy lis
 
 1. Open **Trophy Decks** on 17Lands and select the set and event format.
 2. Open one trophy deck and choose **Copy Deck**.
-3. In Pick 42, choose **META**, then **Paste Clipboard**. Ordinary `Cmd/Ctrl+V` also works.
-4. Enter the set code, event format, final record, and date shown by 17Lands. Rank, archetype label, and deck URL are optional.
+3. In Pick 42, choose **PREP → Paste Deck** or **META**, then **Paste Clipboard**. Ordinary `Cmd/Ctrl+V` also works.
+4. Check the set and event format carried over from PREP. The final record, date, rank, archetype label, and source URL are under **Optional details**; the URL is stored as a reference.
 5. Choose **Save Trophy Deck**.
 
-Pick 42 accepts Arena-format lines such as `2 Dori, Bearer of Friends (HOB) 123`, ignores the sideboard, and requires at least 40 main-deck cards. It verifies the record against the selected format's trophy threshold and rejects duplicate pasted entries. Card colors and a general color-pair archetype are inferred from fixed mana requirements and the mana base in Arena's installed card catalog when no archetype label is supplied. A small fixed-cost third-color commitment is recorded as a splash; a hybrid payment alternative alone does not make the deck three-color. Existing automatically generated labels are migrated under this rule, while labels entered by the user are preserved.
+Pick 42 accepts Arena-format lines such as `2 Dori, Bearer of Friends (HOB) 123`, ignores the sideboard, and requires at least 40 main-deck cards. A blank record declares the list a trophy without inventing wins or losses; an entered record is checked against the selected format’s trophy threshold. Duplicate pasted entries are rejected even if the optional record is added or omitted. Card colors and a general color-pair archetype are inferred from fixed mana requirements and the mana base in Arena's installed card catalog when no archetype label is supplied. A small fixed-cost third-color commitment is recorded as a splash; a hybrid payment alternative alone does not make the deck three-color. Existing automatically generated labels are migrated under this rule, while labels entered by the user are preserved.
 
 Pasted entries are kept in Pick 42's legacy-compatible local user-data directory as `manual-archetype-corpus.json`. They are merged in memory with any normalized corpus file selected through **Import Data File**. Removing a pasted entry from the META panel updates only that local file.
 

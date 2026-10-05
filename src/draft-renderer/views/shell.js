@@ -59,7 +59,6 @@ function seedCorpusForm(context = null) {
   const defaults = context || model.archetypeCorpus?.defaults || {};
   if (defaults.setCode) byId('corpus-set-code').placeholder = defaults.setCode;
   if (context || !byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || '';
-  if (!byId('corpus-event-date').value) byId('corpus-event-date').value = defaults.eventDate || new Date().toISOString().slice(0, 10);
   byId('corpus-format').value = corpusFormatValue(defaults.format);
 }
 
@@ -102,7 +101,11 @@ function renderCorpusManager() {
 }
 
 function openCorpusManager(context = null) {
-  seedCorpusForm(context);
+  const prep = model.setPrep;
+  seedCorpusForm(context || (prep ? {
+    setCode: prep.displayCode,
+    format: prep.format === 'any' ? model.archetypeCorpus?.defaults?.format : prep.format
+  } : null));
   renderCorpusManager();
   setCorpusEntryMessage('A complete main deck must contain at least 40 cards.');
   const dialog = byId('corpus-dialog');
@@ -113,7 +116,7 @@ function openCorpusManager(context = null) {
 async function savePastedTrophyDeck() {
   const button = byId('corpus-save');
   button.disabled = true;
-  setCorpusEntryMessage('Validating deck and trophy record…');
+  setCorpusEntryMessage('Validating deck…');
   try {
     const next = await window.draftCompanion.addTrophyDeck({
       setCode: byId('corpus-set-code').value,

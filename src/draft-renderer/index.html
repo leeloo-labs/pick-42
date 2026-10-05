@@ -554,13 +554,20 @@
             <div class="corpus-field-grid">
               <label><span>SET CODE</span><input id="corpus-set-code" maxlength="10" placeholder="Set code"></label>
               <label><span>FORMAT</span><select id="corpus-format"><option value="PremierDraft">Premier Draft</option><option value="QuickDraft">Quick Draft</option><option value="TraditionalDraft">Traditional Draft</option><option value="PickTwoDraft">Pick-Two Draft</option></select></label>
-              <label><span>FINAL RECORD</span><input id="corpus-record" maxlength="10" placeholder="7-2"></label>
+            </div>
+            <label class="corpus-deck-field"><span>ARENA DECK LIST</span><textarea id="corpus-deck-text" spellcheck="false" placeholder="Deck&#10;2 Card Name (FRA) 123&#10;…"></textarea></label>
+            <p class="set-prep-summary">Pasted lists are saved as trophy decks. The final record and source link are optional.</p>
+            <details class="corpus-optional">
+              <summary>Optional details</summary>
+              <div class="corpus-field-grid">
+              <label><span>FINAL RECORD <i>OPTIONAL</i></span><input id="corpus-record" maxlength="10" placeholder="e.g. 7-2" aria-describedby="corpus-record-help"></label>
               <label><span>EVENT DATE</span><input id="corpus-event-date" type="date"></label>
               <label><span>ARCHETYPE <i>OPTIONAL</i></span><input id="corpus-archetype" maxlength="60" placeholder="Auto-detect colors"></label>
               <label><span>RANK <i>OPTIONAL</i></span><input id="corpus-rank" maxlength="40" placeholder="Diamond"></label>
             </div>
-            <label class="corpus-url-field"><span>17LANDS DECK URL <i>OPTIONAL</i></span><input id="corpus-source-url" type="url" placeholder="https://www.17lands.com/deck/…"></label>
-            <label class="corpus-deck-field"><span>ARENA DECK LIST</span><textarea id="corpus-deck-text" spellcheck="false" placeholder="Deck&#10;2 Dori, Bearer of Friends (HOB) 123&#10;1 Dwarven Mattock (HOB) 456&#10;…"></textarea></label>
+              <p id="corpus-record-help" class="set-prep-summary">Entered records are checked against the format’s trophy threshold.</p>
+              <label class="corpus-url-field"><span>SOURCE URL <i>REFERENCE ONLY</i></span><input id="corpus-source-url" type="url" placeholder="https://www.17lands.com/deck/…"></label>
+            </details>
             <div class="corpus-entry-actions">
               <button id="corpus-open-trophies" class="corpus-secondary" type="button" title="Open the 17Lands trophy-deck browser"><i data-lucide="external-link"></i><span>OPEN TROPHY DECKS</span></button>
               <button id="corpus-paste" class="corpus-secondary" type="button"><i data-lucide="clipboard-paste"></i><span>PASTE CLIPBOARD</span></button>

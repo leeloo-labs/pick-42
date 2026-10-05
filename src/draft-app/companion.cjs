@@ -618,7 +618,7 @@ function createDraftCompanion({
           id: deck.id,
           setCode: deck.setCode,
           format: deck.formatLabel,
-          record: deck.wins === null ? 'Trophy' : `${deck.wins}-${deck.losses ?? 0}`,
+          record: deck.wins === null ? 'Trophy · record not entered' : `${deck.wins}-${deck.losses ?? 0}`,
           archetype: deck.archetype,
           colors: deck.colors,
           splashColors: deck.splashColors,
@@ -965,7 +965,8 @@ function createDraftCompanion({
     addTrophyDeck(payload) {
       const value = payload && typeof payload === 'object' ? payload : {};
       const deck = corpusStore.addManual(value, { setCode: draftState.setCode, format: draftState.format });
-      setStatus({ kind: 'live', message: `${deck.archetype} ${deck.record || `${deck.wins}-${deck.losses ?? 0}`} trophy deck saved locally` });
+      const recordLabel = deck.wins === null ? ' · record not entered' : ` · ${deck.wins}-${deck.losses ?? 0}`;
+      setStatus({ kind: 'live', message: `${deck.archetype} trophy deck saved locally${recordLabel}` });
       return deck;
     },
     removeTrophyDeck(deckId) {

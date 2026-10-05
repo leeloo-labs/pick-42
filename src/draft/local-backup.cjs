@@ -67,7 +67,9 @@ function validateBackup(value) {
   }
   for (const deck of safe.corpus.manual) {
     const threshold = trophyThreshold(deck.format);
-    if (deck.cards.reduce((total, card) => total + card.quantity, 0) !== 40 || threshold == null || !Number.isInteger(deck.wins) || deck.wins < threshold) throw new Error('Invalid manually recorded trophy deck');
+    const declaredTrophy = deck.trophy === true && deck.wins == null && deck.losses == null && !String(deck.record || '').trim();
+    const qualifyingRecord = Number.isInteger(deck.wins) && threshold != null && deck.wins >= threshold;
+    if (deck.cards.reduce((total, card) => total + card.quantity, 0) !== 40 || threshold == null || (!declaredTrophy && !qualifyingRecord)) throw new Error('Invalid manually recorded trophy deck');
   }
   if (!safe.reviews || !Array.isArray(safe.reviews.reviews) || !safe.reviews.manualRecords || typeof safe.reviews.manualRecords !== 'object'
       || Array.isArray(safe.reviews.manualRecords)) throw new Error('Invalid game reviews');
