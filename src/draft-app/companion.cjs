@@ -26,7 +26,7 @@ const {
 } = require('../draft/game-review.cjs');
 const { buildScryfallIndex, findScryfallCard } = require('../draft/scryfall.cjs');
 const { computeSetReadiness } = require('../draft/set-readiness.cjs');
-const { knownSetDefinitions, setDefinition } = require('../draft/set-definitions.cjs');
+const { knownSetDefinitions, normalizeSetCatalog, setDefinition, untappedCardDataUrl, validSetCode } = require('../draft/set-definitions.cjs');
 const { SOURCE_FORMATS } = require('./source-imports.cjs');
 const { ArenaLogParser } = require('../core/arena-log-parser.cjs');
 const { ArenaSceneTracker } = require('../core/arena-scene-tracker.cjs');
@@ -76,6 +76,8 @@ function createDraftCompanion({
   // universe stays pinned to the boot set, which ships fixtures.
   let currentSet = activeSet;
   let prepFormat = 'any';
+  let setCatalog = [];
+  let setCatalogStatus = { kind: 'idle', message: '' };
   let scryfallLoadToken = 0;
   // Wins and losses entered by hand for games played away from this machine
   // (Arena on a phone writes no log here). Keyed by draftId, persisted with
@@ -110,7 +112,8 @@ function createDraftCompanion({
   }
 
   function applySetChange(setCode, { persist = true } = {}) {
-    const next = setDefinition(setCode);
+    if (!validSetCode(setCode)) throw new Error('Enter a set code using 2–12 letters or numbers, such as FRA.');
+    const next = prepSetDefinition(setCode);
     if (!next.code || next.code === currentSet.code) return false;
     currentSet = next;
     if (persist) settings.write({ activeSetCode: next.code });
@@ -127,6 +130,36 @@ function createDraftCompanion({
     void initializeScryfall();
     onContextChanged();
     return true;
+  }
+
+  function prepSetDefinition(code) {
+    const definition = setDefinition(code);
+    const discovered = setCatalog.find((entry) => entry.code === definition.code);
+    return discovered ? { ...definition, name: discovered.name } : definition;
+  }
+
+  function rememberPrepSet(set) {
+    setCatalog = normalizeSetCatalog([...setCatalog, { ...setCatalog.find((entry) => entry.code === set.code), code: set.code, name: set.name }]);
+    settings.write({ setCatalog });
+  }
+
+  async function refreshSetCatalog() {
+    if (setCatalogStatus.kind === 'loading') return viewModel();
+    setCatalogStatus = { kind: 'loading', message: 'Checking Scryfall for new sets…' };
+    notify();
+    try {
+      if (!scryfall?.listSets) throw new Error('Set lookup is unavailable.');
+      const discovered = normalizeSetCatalog(await scryfall.listSets());
+      if (!discovered.length) throw new Error('No sets returned.');
+      setCatalog = normalizeSetCatalog([...setCatalog, ...discovered]);
+      settings.write({ setCatalog });
+      currentSet = prepSetDefinition(currentSet.code);
+      setCatalogStatus = { kind: 'ready', message: 'Set list updated from Scryfall.' };
+    } catch (error) {
+      setCatalogStatus = { kind: 'error', message: `Set list unavailable · ${error.message} Saved sets and set-code entry remain available.` };
+    }
+    notify();
+    return viewModel();
   }
 
   function poolSummary(pool) {
@@ -348,7 +381,11 @@ function createDraftCompanion({
   }
 
   function applyScryfallPayload(payload, source = payload?.source || 'cache') {
-    if (!payload?.cards?.length) return;
+    if (!payload?.cards?.length || String(payload.setCode || '').toLowerCase() !== currentSet.code) return;
+    if (payload.setName && payload.setName !== currentSet.name) {
+      currentSet = { ...currentSet, name: payload.setName };
+      rememberPrepSet(currentSet);
+    }
     scryfallIndex = buildScryfallIndex(payload.cards);
     scryfallState = {
       kind: 'ready',
@@ -365,20 +402,22 @@ function createDraftCompanion({
     if (!scryfall) return;
     const token = ++scryfallLoadToken;
     const forSet = currentSet;
-    const cached = await scryfall.readCache(forSet);
-    if (token !== scryfallLoadToken) return;
-    if (cached?.cards?.length) {
-      applyScryfallPayload(cached, 'cache');
-      notify();
-    }
-
+    let cached = null;
     try {
+      const candidate = await scryfall.readCache(forSet);
+      if (token !== scryfallLoadToken) return;
+      if (candidate?.cards?.length && String(candidate.setCode).toLowerCase() === forSet.code) {
+        cached = candidate;
+        applyScryfallPayload(cached, 'cache');
+        notify();
+      }
       if (!cached) {
         scryfallState = { ...scryfallState, kind: 'loading', message: `Downloading ${forSet.name} card images from Scryfall` };
         notify();
       }
       const payload = await scryfall.load(forSet);
       if (token !== scryfallLoadToken) return;
+      if (!payload?.cards?.length || String(payload.setCode).toLowerCase() !== forSet.code) throw new Error('No matching card data returned for this set.');
       applyScryfallPayload(payload, payload.source);
     } catch (error) {
       if (token !== scryfallLoadToken) return;
@@ -618,6 +657,13 @@ function createDraftCompanion({
   function buildSetPrep() {
     const scryfallReady = scryfallState.kind === 'ready'
       && String(scryfallState.setCode || '').toLowerCase() === currentSet.code;
+    const available = new Map(knownSetDefinitions().map((entry) => [entry.code, entry]));
+    for (const entry of setCatalog) available.set(entry.code, { ...prepSetDefinition(entry.code), releasedAt: entry.releasedAt });
+    const savedCodes = [...sourceStore.backupEntries().map((entry) => entry.setCode), ...(corpusStore.corpus()?.decks || []).map((deck) => deck.setCode)];
+    for (const code of savedCodes) {
+      if (validSetCode(code) && !available.has(String(code).toLowerCase())) available.set(String(code).toLowerCase(), prepSetDefinition(code));
+    }
+    available.set(currentSet.code, { ...available.get(currentSet.code), ...currentSet });
     return {
       ...computeSetReadiness({
         set: currentSet,
@@ -630,12 +676,14 @@ function createDraftCompanion({
         corpusDecks: corpusStore.corpus()?.decks || [],
         images: { ready: scryfallReady, detail: scryfallState.message }
       }),
-      availableSets: knownSetDefinitions().map((entry) => ({
+      availableSets: [...available.values()].sort((a, b) => (b.releasedAt || '').localeCompare(a.releasedAt || '') || a.name.localeCompare(b.name)).map((entry) => ({
         code: entry.code,
         displayCode: entry.displayCode,
         name: entry.name,
         active: entry.code === currentSet.code
       })),
+      catalogStatus: setCatalogStatus,
+      untappedAvailable: Boolean(untappedCardDataUrl(currentSet.code)),
       imports: { seventeenLands: sourceStore.inventory('seventeenLands', currentSet.code), untapped: sourceStore.inventory('untapped', currentSet.code) },
       log: describeLog(),
       cardNames: { total: draftState.pool.length, resolved: draftState.pool.filter((card) => !/^Arena card \d+$/.test(card.name)).length },
@@ -775,6 +823,7 @@ function createDraftCompanion({
     delete manualRecords[SAMPLE_COURSE_ID];
     persistReviews();
     const saved = settings.read();
+    setCatalog = normalizeSetCatalog(saved.setCatalog);
     lanePreference = saved.lanePreference && ['lock-no-splash', 'lock-splash', 'stay-open'].includes(saved.lanePreference.mode)
       ? saved.lanePreference
       : null;
@@ -782,8 +831,8 @@ function createDraftCompanion({
       ? saved.poolExclusions
       : null;
     selectedBuildId = String(saved.selectedBuildId || '').trim() || null;
-    if (saved.activeSetCode) {
-      const restored = setDefinition(saved.activeSetCode);
+    if (validSetCode(saved.activeSetCode)) {
+      const restored = prepSetDefinition(saved.activeSetCode);
       if (restored.code !== currentSet.code) {
         currentSet = restored;
         scryfallState = { ...scryfallState, setCode: restored.code, setName: restored.name };
@@ -826,6 +875,8 @@ function createDraftCompanion({
     completeLogScan,
     logRotated,
     initializeScryfall,
+    refreshSetCatalog,
+    async retrySetCards() { await initializeScryfall(); return viewModel(); },
     augmentCatalog,
     startDemo: (mode) => demoDriver.start(mode),
     advanceDemo: () => { if (sessionMode === 'demo') demoDriver.advance(); },
@@ -852,6 +903,7 @@ function createDraftCompanion({
     },
     setActiveSet(setCode) {
       applySetChange(setCode);
+      rememberPrepSet(currentSet);
       notify();
       return viewModel();
     },

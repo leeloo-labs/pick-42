@@ -9,7 +9,7 @@ const { createSourceImportStore } = require('../src/draft-app/source-imports.cjs
 const { createCorpusStore } = require('../src/draft-app/corpus-store.cjs');
 const { setDefinition } = require('../src/draft/set-definitions.cjs');
 
-function session(decisions = { read: () => null, write: () => {} }) {
+function session(decisions = { read: () => null, write: () => {} }, options = {}) {
   const catalog = structuredClone(require('../fixtures/demo-draft-cards.json'));
   const sourceStore = createSourceImportStore();
   sourceStore.loadSamples({
@@ -24,7 +24,8 @@ function session(decisions = { read: () => null, write: () => {} }) {
   const companion = createDraftCompanion({
     decisions, catalog, demoCatalog: catalog, activeSet: setDefinition('hob'), sourceStore, corpusStore,
     settings: { read: () => saved, write: (patch) => { saved = { ...saved, ...patch }; } },
-    reviews: { read: () => [], write: () => {} }
+    reviews: { read: () => [], write: () => {} },
+    ...options
   });
   return { companion, sourceStore };
 }
@@ -167,4 +168,61 @@ test('sample decision history records the conditional Pick Two pair and remains 
   assert.equal(companion.decisionDetails(entry.id).actual.length, 2);
   assert.equal(writes, 0);
   companion.startDemo(); assert.equal(companion.viewModel().decisionHistory.entries.length, 1);
+});
+
+test('PREP discovers future sets, keeps offline choices, and restores custom selection', async () => {
+  let saved = {};
+  let offline = false;
+  const options = {
+    settings: { read: () => saved, write: (patch) => { saved = { ...saved, ...patch }; } },
+    scryfall: {
+      listSets: async () => {
+        if (offline) throw new Error('Offline');
+        return [{ code: 'xyz', name: 'Future draft set', releasedAt: '2027-01-01' }];
+      },
+      readCache: async () => null,
+      load: async () => { throw new Error('No card data yet'); }
+    }
+  };
+  const { companion } = session(undefined, options);
+  let model = await companion.refreshSetCatalog();
+  assert.ok(model.setPrep.availableSets.some((set) => set.code === 'fra' && set.name === 'Reality Fracture'));
+  assert.ok(model.setPrep.availableSets.some((set) => set.code === 'xyz'));
+  companion.setActiveSet(' XYZ ');
+  companion.setPrepFormat('pick-two');
+  await companion.retrySetCards();
+  assert.equal(companion.activeSetInfo().name, 'Future draft set');
+  assert.equal(companion.viewModel().setPrep.ratingsStatus, 'none');
+  offline = true;
+  model = await companion.refreshSetCatalog();
+  assert.equal(model.setPrep.catalogStatus.kind, 'error');
+  assert.ok(model.setPrep.availableSets.some((set) => set.code === 'xyz' && set.active));
+  const restored = session(undefined, options).companion;
+  restored.hydrate();
+  assert.equal(restored.activeSetInfo().name, 'Future draft set');
+  assert.equal(restored.viewModel().setPrep.format, 'pick-two');
+  restored.setActiveSet('abc');
+  restored.setActiveSet('fra');
+  assert.ok(restored.viewModel().setPrep.availableSets.some((set) => set.code === 'abc'));
+  for (const invalid of ['', '../fra', 'Reality Fracture', 'legacy', 123]) {
+    assert.throws(() => restored.setActiveSet(invalid), /set code/);
+    assert.equal(restored.activeSetInfo().code, 'fra');
+  }
+});
+
+test('PREP shows unknown sets from restored imports and rejects mismatched card payloads', async () => {
+  const { companion, sourceStore } = session(undefined, {
+    scryfall: {
+      readCache: async () => ({ setCode: 'hob', cards: [{ name: 'Attercop', imageUris: {} }] }),
+      load: async () => ({ setCode: 'hob', cards: [{ name: 'Attercop', imageUris: {} }] })
+    }
+  });
+  sourceStore.remember('seventeenLands', 'xyz.csv', 'premier', 'xyz.csv', [{ name: 'Attercop', gihWinRate: 60 }], 'xyz');
+  assert.ok(companion.viewModel().setPrep.availableSets.some((set) => set.code === 'xyz'));
+  companion.setActiveSet('xyz');
+  await companion.retrySetCards();
+  const prep = companion.viewModel().setPrep;
+  assert.equal(prep.ratingsStatus, 'none');
+  assert.equal(prep.items.find((item) => item.id === 'images').ready, false);
+  assert.equal(companion.viewModel().scryfall.kind, 'offline');
 });

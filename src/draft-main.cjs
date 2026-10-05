@@ -9,7 +9,7 @@ const { migrateLegacyUserData } = require('./draft-app/migrate-user-data.cjs');
 const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('./draft-app/source-imports.cjs');
 const { createCorpusStore } = require('./draft-app/corpus-store.cjs');
 const { createDraftCompanion } = require('./draft-app/companion.cjs');
-const { loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
+const { fetchScryfallSets, loadScryfallSet, readScryfallCache } = require('./draft/scryfall.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('./draft/seventeenlands-dataset.cjs');
 const { loadArenaCardCatalog } = require('./core/card-catalog.cjs');
 const { LogTailer } = require('./core/log-tailer.cjs');
@@ -87,6 +87,7 @@ const companion = createDraftCompanion({
   settings: { read: readSettings, write: writeSettings },
   reviews: { read: readGameReviews, write: writeGameReviews },
   scryfall: {
+    listSets: () => fetchScryfallSets(),
     readCache: (set = ACTIVE_SET) => readScryfallCache(scryfallCachePath(set.code)),
     load: (set = ACTIVE_SET) => loadScryfallSet({ cachePath: scryfallCachePath(set.code), setCode: set.scryfallSetCode })
   },
@@ -338,6 +339,8 @@ function registerIpc() {
   ipcMain.handle('draft:set-pool-card-excluded', (_event, cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded));
   ipcMain.handle('draft:set-manual-record', (_event, record) => companion.setManualRecord(record));
   ipcMain.handle('draft:set-active-set', (_event, setCode) => companion.setActiveSet(setCode));
+  ipcMain.handle('draft:refresh-set-catalog', () => companion.refreshSetCatalog());
+  ipcMain.handle('draft:retry-set-cards', () => companion.retrySetCards());
   ipcMain.handle('draft:set-prep-format', (_event, format) => companion.setPrepFormat(format));
   ipcMain.handle('draft:start-demo', (_event, mode) => { companion.startDemo(mode); return viewModel(); });
   ipcMain.handle('draft:advance-demo', () => { companion.advanceDemo(); return viewModel(); });

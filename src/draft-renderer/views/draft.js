@@ -201,87 +201,85 @@ function sourceStat(label, value, className) {
   return stat;
 }
 
-// The SET PREP card: pick the set you are drafting next and watch each data
-// requirement check off as its file lands. Every state is measured — a slot
-// counts only when its rows name the set's cards.
+// Keep setup inputs mounted while live log updates refresh the checklist.
 function renderSetPrep() {
-  const host = byId('set-prep');
   const prep = model.setPrep;
-  if (!host) return;
-  host.replaceChildren();
   if (!prep) return;
-
-  const card = element('div', 'set-prep-card');
-  const head = element('div', 'set-prep-head');
-  head.append(element('span', 'set-prep-eyebrow', 'SET PREP'));
-  const sets = element('div', 'set-prep-sets');
-  for (const entry of prep.availableSets || []) {
-    const chip = element('button', `set-prep-chip ${entry.active ? 'active' : ''}`);
-    chip.type = 'button';
-    chip.append(element('b', '', entry.displayCode), element('small', '', entry.name));
-    if (!entry.active) chip.addEventListener('click', () => updateFrom(() => window.draftCompanion.setActiveSet(entry.code)));
-    sets.append(chip);
+  const select = byId('prep-set');
+  const signature = JSON.stringify(prep.availableSets.map(({ code, name }) => [code, name]));
+  if (select.dataset.options !== signature) {
+    select.replaceChildren(...prep.availableSets.map((entry) => {
+      const option = element('option', '', `${entry.name} (${entry.displayCode})`);
+      option.value = entry.code;
+      return option;
+    }));
+    select.dataset.options = signature;
   }
-  head.append(sets);
-  card.append(head);
-  const log = prep.log?.path ? `Log: ${prep.log.path}` : 'Log: choose Player.log to follow a live draft';
+  select.value = prep.setCode;
+  byId('prep-format').value = prep.format;
+  byId('prep-refresh-sets').disabled = prep.catalogStatus?.kind === 'loading';
+  setText('prep-catalog-status', prep.catalogStatus?.message || 'Choose a set, or check for new releases.');
+  const formatLabel = SOURCE_FORMAT_ROWS.find(([id]) => id === prep.format)?.[1] || prep.format;
+  setText('prep-import-target', `Ratings imports go to ${prep.displayCode} · ${formatLabel}. Each set keeps its own ratings.`);
+  setText('prep-ratings-status', prep.ratingsStatus === 'full' ? 'BOTH SOURCES' : prep.ratingsStatus === 'partial' ? 'PARTIAL DATA' : 'RATINGS NEEDED');
+  setText('prep-summary', prep.rankingsReady
+    ? `Both ratings imports match ${prep.displayCode}. Each live pack is checked for coverage.`
+    : prep.ratingsStatus === 'partial'
+      ? `One ratings import matches ${prep.displayCode}. Live rankings need at least 90% usable pack coverage.`
+      : `Import a ratings CSV for ${prep.displayCode}. Live rankings need at least 90% usable pack coverage from one source.`);
+  const log = prep.log?.path ? `Following ${prep.log.path}` : 'Choose Player.log to follow a live draft.';
   const names = prep.cardNames?.total ? ` · ${prep.cardNames.resolved}/${prep.cardNames.total} drafted card names resolved` : '';
-  card.append(element('p', 'set-prep-summary prep-log-detail', `${log}${names}`));
-
-  const formats = element('div', 'set-prep-formats');
-  for (const format of prep.formats || []) {
-    const chip = element('button', `set-prep-format ${format === prep.format ? 'active' : ''}`, format === 'any' ? 'ANY' : format.toUpperCase());
-    chip.type = 'button';
-    chip.addEventListener('click', () => updateFrom(() => window.draftCompanion.setPrepFormat(format)));
-    formats.append(chip);
-  }
-  card.append(formats);
-  card.append(element('p', 'set-prep-summary', `New ratings imports are saved to ${prep.displayCode} · ${prep.format}. Switching sets restores each profile. Legacy imports remain unassigned and are checked against the selected set.`));
-
-  const progress = element('div', 'set-prep-progress');
-  const track = element('span', 'set-prep-track');
-  const bar = element('span', 'set-prep-bar');
-  bar.style.width = `${prep.percent}%`;
-  track.append(bar);
-  progress.append(track, element('b', '', `${prep.readyCount} of ${prep.total} ready`));
-  card.append(progress);
-  const summary = prep.complete
-    ? `${prep.displayCode} prep items are present. Each live pack is checked for ratings coverage.`
-    : (prep.rankingsReady
-      ? `Both ratings imports match ${prep.displayCode}. Each live pack is checked for coverage.`
-      : prep.ratingsStatus === 'partial'
-        ? `One ratings import matches ${prep.displayCode}. Packs with at least 90% usable coverage can run with partial data.`
-        : `Import ratings for ${prep.displayCode} and this draft type. Live packs need at least 90% usable coverage.`);
-  card.append(element('p', 'set-prep-summary', summary));
-
-  const rows = element('div', 'set-prep-items');
+  setText('prep-log-detail', `${log}${names}`);
+  const rows = byId('prep-items');
+  rows.replaceChildren();
   for (const item of prep.items || []) {
     const row = element('div', `set-prep-item ${item.ready ? 'ready' : ''}`);
     const mark = element('span', 'set-prep-mark');
     mark.append(iconElement(item.ready ? 'circle-check' : 'circle-dashed'));
     const copy = element('span', 'set-prep-copy');
-    copy.append(element('b', '', item.label), element('small', '', item.detail));
-    row.append(mark, copy);
-    const action = setPrepAction(item, prep);
-    if (action) row.append(action);
+    const label = item.id === 'corpus' ? 'Trophy decks · optional' : item.label;
+    copy.append(element('b', '', label), element('small', '', item.detail));
+    row.append(mark, copy, setPrepAction(item, prep));
     rows.append(row);
   }
-  card.append(rows);
-  host.append(card);
-  hydrateIcons(card);
+  hydrateIcons(rows);
+}
+
+async function runPrepAction(action) {
+  setText('prep-operation-status', '');
+  try {
+    const next = await action();
+    if (next) { model = next; render(); }
+    setText('prep-operation-status', model.status?.message || '');
+  } catch (error) {
+    setText('prep-operation-status', error.message);
+  }
 }
 
 function setPrepAction(item, prep) {
-  const button = (label, onClick) => {
-    const control = element('button', 'set-prep-action', label);
+  const actions = element('div', 'set-prep-actions');
+  const button = (label, onClick, secondary = false) => {
+    const control = element('button', `set-prep-action${secondary ? ' secondary' : ''}`, label);
     control.type = 'button';
     control.addEventListener('click', onClick);
+    actions.append(control);
     return control;
   };
-  if (item.id === 'seventeenLands') return button('IMPORT CSV', () => updateFrom(() => window.draftCompanion.importSource('seventeenLands', prep.format)));
-  if (item.id === 'untapped') return button('IMPORT CSV', () => updateFrom(() => window.draftCompanion.importSource('untapped', prep.format)));
-  if (item.id === 'corpus') return button('IMPORT DATA', () => updateFrom(() => window.draftCompanion.importArchetypeCorpus()));
-  return null;
+  if (['seventeenLands', 'untapped'].includes(item.id)) {
+    button('IMPORT CSV', () => runPrepAction(() => window.draftCompanion.importSource(item.id, prep.format)));
+    if (item.id === 'seventeenLands' || prep.untappedAvailable) {
+      button('GET DATA ↗', () => window.draftCompanion.openLink(item.id === 'seventeenLands' ? 'seventeenLandsCardData' : 'untappedCardData'), true);
+    }
+  } else if (item.id === 'corpus') {
+    button('IMPORT FILE', () => runPrepAction(() => window.draftCompanion.importArchetypeCorpus()));
+    button('PASTE DECK', () => openCorpusManager({ setCode: prep.displayCode, format: prep.format }), true);
+  } else if (!item.ready) {
+    const retry = button('RETRY', () => runPrepAction(() => window.draftCompanion.retrySetCards()));
+    retry.disabled = model.scryfall?.kind === 'loading';
+  } else {
+    actions.append(element('small', 'set-prep-summary', 'LOADED'));
+  }
+  return actions;
 }
 
 function renderRanking() {

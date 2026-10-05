@@ -88,3 +88,19 @@ test('uses a fresh disk cache without issuing network requests', async (t) => {
   assert.equal(payload.source, 'cache');
   assert.equal(payload.cards[0].imageUris.normal, 'cached');
 });
+
+test('set discovery keeps draft releases and excludes commander, tokens, and invalid codes', async () => {
+  const { fetchScryfallSets } = require('../src/draft/scryfall.cjs');
+  const sets = await fetchScryfallSets({ fetchImpl: async (url, options) => {
+    assert.equal(url, 'https://api.scryfall.com/sets');
+    assert.deepEqual(options.headers, REQUEST_HEADERS);
+    return response({ data: [
+      { code: 'fra', name: 'Reality Fracture', set_type: 'expansion', released_at: '2026-10-02' },
+      { code: 'frc', name: 'Reality Fracture Commander', set_type: 'commander' },
+      { code: 'tfra', name: 'Reality Fracture Tokens', set_type: 'token' },
+      { code: '../fra', name: 'Invalid', set_type: 'expansion' }
+    ] });
+  } });
+  assert.deepEqual(sets, [{ code: 'fra', name: 'Reality Fracture', releasedAt: '2026-10-02' }]);
+  await assert.rejects(fetchScryfallSets({ fetchImpl: async () => response({ data: [] }) }), /no draft sets/);
+});

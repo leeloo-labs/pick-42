@@ -72,7 +72,7 @@ Use the title-bar source controls to import:
 - **META** — a manually collected local corpus of trophy decks.
 - **LOG** — Arena's `Player.log`.
 
-Open **PREP** from the main navigation to select the set and draft type, inspect the log and card-name coverage, and import ratings. Each set keeps its own profiles, so switching HOB → SOS → HOB restores the original imports. Legacy imports remain preserved and labeled as unassigned; once a source has a named set profile, that profile supplies its format slots.
+Open **PREP** from the main navigation, choose a set and the draft type used in your export, then import ratings or trophy decks from their rows. Reality Fracture (FRA) is included. **CHECK FOR NEW SETS** refreshes the public Scryfall catalog; **Missing a set? Enter its code** also works without an app update. The set list is saved locally, and pasted trophy decks inherit PREP’s selected set and draft type. Log and card-name details are under **Arena connection**. Each set keeps its own profiles, so switching HOB → SOS → HOB restores the original imports. Legacy imports remain preserved and labeled as unassigned; once a source has a named set profile, that profile supplies its format slots.
 
 The **17L** and **UT** buttons open a menu for the selected preparation set: each CSV export is assigned to the draft type it was filtered for (Premier, Quick, Traditional, Pick Two) or to **All draft types**. The live draft uses its matching import, falling back to the all-types slot, so a Quick Draft export never silently rates a Pick Two pack. The button shows which import is feeding the active draft.
 
@@ -236,6 +236,6 @@ Advice freezes after its selection is observed. Later imports do not change old 
 
 ### Local backups
 
-Open **PREP → EXPORT BACKUP** to save a portable JSON file containing ratings imports, trophy libraries, completed reviews and manual records, recorded decisions, portable preferences, and recipe progress. The browser requests a download; the desktop app opens a save dialog. Raw Arena logs, file paths/permissions, and image caches are excluded.
+Open **PREP → Local backup → EXPORT BACKUP** to save a portable JSON file containing ratings imports, trophy libraries, completed reviews and manual records, recorded decisions, portable preferences, and recipe progress. The browser requests a download; the desktop app opens a save dialog. Raw Arena logs, file paths/permissions, and image caches are excluded.
 
-On either version, use **PREP → CHOOSE BACKUP**, inspect the addition counts, then **ADD MISSING DATA**. Existing entries win on conflicts; the normal ten-draft decision and event-aware review retention limits still apply. Backups are limited to 50 MB. If the app reports unsaved data, use **RETRY SAVES** before closing. Reconnect Arena's log separately on a new device.
+On either version, use **PREP → Local backup → CHOOSE BACKUP**, inspect the addition counts, then **ADD MISSING DATA**. Existing entries win on conflicts; the normal ten-draft decision and event-aware review retention limits still apply. Backups are limited to 50 MB. If the app reports unsaved data, use **RETRY SAVES** before closing. Reconnect Arena's log separately on a new device.

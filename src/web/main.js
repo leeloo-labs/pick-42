@@ -8,7 +8,7 @@ const { createDraftCompanion } = require('../draft-app/companion.cjs');
 const { SOURCE_FORMATS, SOURCE_FORMAT_LABELS, createSourceImportStore } = require('../draft-app/source-imports.cjs');
 const { createCorpusStore } = require('../draft-app/corpus-store.cjs');
 const { DEFAULT_SET_CODE, setDefinition, knownSetDefinitions, untappedCardDataUrl } = require('../draft/set-definitions.cjs');
-const { fetchScryfallSet } = require('../draft/scryfall.cjs');
+const { fetchScryfallSet, fetchScryfallSets } = require('../draft/scryfall.cjs');
 const { extractTrophyDecksFromGameData, isSeventeenLandsGameData } = require('../draft/seventeenlands-dataset.cjs');
 const { createSaveQueue } = require('../draft/save-queue.js');
 const { createLogPoller } = require('./log-poller.js');
@@ -86,6 +86,7 @@ function buildCatalogFromScryfall(payload) {
 const scryfallCacheKey = (setCode = ACTIVE_SET.code) => storageKey('scryfall', setCode);
 
 const scryfallAdapter = {
+  listSets: () => fetchScryfallSets(),
   readCache: (set = ACTIVE_SET) => {
     const cached = readStoredJson(scryfallCacheKey(set.code));
     return cached?.cards?.length ? cached : null;
@@ -523,6 +524,8 @@ window.draftCompanion = {
   setLanePreference: async (mode) => companion.setLanePreference(mode),
   setManualRecord: async (record) => companion.setManualRecord(record),
   setActiveSet: async (setCode) => companion.setActiveSet(setCode),
+  refreshSetCatalog: async () => companion.refreshSetCatalog(),
+  retrySetCards: async () => companion.retrySetCards(),
   setPrepFormat: async (format) => companion.setPrepFormat(format),
   setPoolCardExcluded: async (cardName, excluded) => companion.setPoolCardExcluded(cardName, excluded),
   startDemo: async (mode) => {

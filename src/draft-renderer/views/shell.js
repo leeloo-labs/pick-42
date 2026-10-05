@@ -45,7 +45,7 @@ function corpusFormatValue(value) {
   const normalized = String(value || '').toLowerCase();
   if (normalized.includes('quick')) return 'QuickDraft';
   if (normalized.includes('traditional')) return 'TraditionalDraft';
-  if (normalized.includes('pick-two') || normalized.includes('picktwo')) return 'PickTwoDraft';
+  if (normalized.includes('pick-two') || normalized.includes('picktwo') || normalized.includes('pick two')) return 'PickTwoDraft';
   return 'PremierDraft';
 }
 
@@ -55,11 +55,11 @@ function setCorpusEntryMessage(message, kind = '') {
   node.className = `corpus-entry-message ${kind}`;
 }
 
-function seedCorpusForm() {
-  const defaults = model.archetypeCorpus?.defaults || {};
+function seedCorpusForm(context = null) {
+  const defaults = context || model.archetypeCorpus?.defaults || {};
   if (defaults.setCode) byId('corpus-set-code').placeholder = defaults.setCode;
-  if (!byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || '';
-  if (!byId('corpus-event-date').value) byId('corpus-event-date').value = defaults.eventDate || '';
+  if (context || !byId('corpus-set-code').value) byId('corpus-set-code').value = defaults.setCode || '';
+  if (!byId('corpus-event-date').value) byId('corpus-event-date').value = defaults.eventDate || new Date().toISOString().slice(0, 10);
   byId('corpus-format').value = corpusFormatValue(defaults.format);
 }
 
@@ -101,8 +101,8 @@ function renderCorpusManager() {
   hydrateIcons(list);
 }
 
-function openCorpusManager() {
-  seedCorpusForm();
+function openCorpusManager(context = null) {
+  seedCorpusForm(context);
   renderCorpusManager();
   setCorpusEntryMessage('A complete main deck must contain at least 40 cards.');
   const dialog = byId('corpus-dialog');

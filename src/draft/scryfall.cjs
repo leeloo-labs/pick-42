@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeCardName } = require('./csv.cjs');
-const { DEFAULT_SET_CODE } = require('./set-definitions.cjs');
+const { DEFAULT_SET_CODE, normalizeSetCatalog } = require('./set-definitions.cjs');
 
 const CACHE_VERSION = 1;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -95,6 +95,17 @@ async function requestJson(url, fetchImpl) {
   return response.json();
 }
 
+async function fetchScryfallSets({ fetchImpl = globalThis.fetch } = {}) {
+  const payload = await requestJson('https://api.scryfall.com/sets', fetchImpl);
+  if (!Array.isArray(payload.data)) throw new Error('Scryfall returned no set list.');
+  const draftTypes = new Set(['core', 'expansion', 'masters', 'draft_innovation', 'alchemy']);
+  const sets = normalizeSetCatalog(payload.data.filter((set) => draftTypes.has(set.set_type)).map((set) => ({
+    code: set.code, name: set.name, releasedAt: set.released_at
+  })));
+  if (!sets.length) throw new Error('Scryfall returned no draft sets.');
+  return sets;
+}
+
 async function fetchScryfallSet({
   setCode = DEFAULT_SET_CODE,
   fetchImpl = globalThis.fetch,
@@ -142,6 +153,7 @@ module.exports = {
   buildScryfallIndex,
   compactCard,
   fetchScryfallSet,
+  fetchScryfallSets,
   findScryfallCard,
   loadScryfallSet,
   readScryfallCache,

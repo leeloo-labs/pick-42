@@ -10,6 +10,22 @@ const openSetPrep = () => { renderSetPrep(); byId('prep-dialog').showModal(); };
 byId('show-prep').addEventListener('click', openSetPrep);
 byId('empty-prep').addEventListener('click', openSetPrep);
 byId('prep-close').addEventListener('click', () => byId('prep-dialog').close());
+byId('prep-set').addEventListener('change', () => updateFrom(() => window.draftCompanion.setActiveSet(byId('prep-set').value)));
+byId('prep-format').addEventListener('change', () => updateFrom(() => window.draftCompanion.setPrepFormat(byId('prep-format').value)));
+byId('prep-refresh-sets').addEventListener('click', () => updateFrom(() => window.draftCompanion.refreshSetCatalog()));
+byId('prep-choose-log').addEventListener('click', () => runPrepAction(() => window.draftCompanion.chooseLog()));
+byId('prep-add-set-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setText('prep-set-error', '');
+  try {
+    model = await window.draftCompanion.setActiveSet(byId('prep-set-code').value.trim());
+    byId('prep-set-code').value = '';
+    byId('prep-add-set-form').closest('details').open = false;
+    render();
+  } catch (error) {
+    setText('prep-set-error', error.message);
+  }
+});
 
 byId('retry-local-saves').addEventListener('click', async () => {
   await recipeSaveQueue.retry();
@@ -52,7 +68,7 @@ byId('lane-resume-auto').addEventListener('click', () => {
   updateFrom(() => window.draftCompanion.setLanePreference('auto'));
 });
 byId('import-untapped').addEventListener('click', (event) => toggleSourceMenu('untapped', event));
-byId('import-archetypes').addEventListener('click', openCorpusManager);
+byId('import-archetypes').addEventListener('click', () => openCorpusManager());
 byId('corpus-close').addEventListener('click', () => byId('corpus-dialog').close());
 byId('corpus-open-trophies').addEventListener('click', () => window.draftCompanion.openLink('seventeenLandsTrophies'));
 byId('corpus-paste').addEventListener('click', async () => {

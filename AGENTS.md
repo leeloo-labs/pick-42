@@ -27,7 +27,7 @@ The companion must remain transparent and advisory:
 - **Scryfall:** public set data for card images, Oracle text, and presentation enrichment. Arena group IDs remain the live identity source.
 - **Archetype corpus:** authorized local CSV/JSON deck records, including set, format, result, archetype, and main-deck quantities. The corpus may come from a manual export, licensed feed, or offline processing of a licensed public dataset.
 - Do not scrape 17Lands or Untapped or depend on undocumented/private APIs.
-- The active set is selectable and persisted: the PREP dialog, available from the main navigation during drafts, picks it, a live draft's log set code switches it automatically, and Scryfall images (per-set caches), external data links, and readiness checks all follow it. The demo sample universe stays pinned to the boot set, which ships fixtures. Set identity still lives in `set-definitions.cjs` — a new set is one entry there.
+- The active set is selectable and persisted: PREP offers a set selector, a public Scryfall set-list refresh cached in `setCatalog`, and validated set-code entry so future releases need no app update. Reality Fracture is FRA. Bundled identity and source slugs live in `set-definitions.cjs`; discovered sets get their names from Scryfall, never guessed Untapped slugs. Saved imports and corpus sets remain selectable offline. A live draft's log set code switches the active set automatically, and per-set images, data links, and readiness checks follow it. The demo sample universe stays pinned to the boot set. PREP imports target its selected set/format; pasted trophy decks inherit that context. Optional decks/images and connection/backup details do not inflate a ratings-readiness percentage.
 - SET PREP measures readiness per set and draft type, never assumes (`src/draft/set-readiness.cjs`): a ratings slot counts only when most of its rows name the set's cards, the trophy corpus counts same-set decks and requires four matching trophies in one archetype for data readiness (two distinguishing pool cards are still needed for advice), and card images count once Scryfall loads.
 - When the exact draft type has no usable trophy corpus (17Lands rarely publishes every format), same-set decks from other formats stand in with a visible cross-format label and dampened influence. A set mismatch never falls back.
 
@@ -115,7 +115,7 @@ npm test
 npm run check
 ```
 
-- The test suite currently contains 229 passing tests.
+- The test suite currently contains 233 passing tests.
 - Every user-facing change that lands on `main` must also update the public download: finish by running `npm run release:mac` (requires a clean tree; it bumps the patch version, runs the suite, rebuilds the ad-hoc-signed Apple Silicon app via `scripts/package-mac.sh`, and publishes a GitHub release). The portfolio's download button points at `releases/latest/download/Pick-42-mac-arm64.zip`, so never rename the release asset.
 - Preserve local-only behavior and existing saved state when changing Electron names or data paths.
 - Add sanitized fixtures for newly observed Arena log shapes; never commit raw `Player.log` files.

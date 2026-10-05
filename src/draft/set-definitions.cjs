@@ -1,10 +1,9 @@
 'use strict';
 
-// Identity metadata for every draftable set Pick 42 knows about. Anything
-// per-set that is data — codes, names, external slugs, cache file names,
-// bundled sample fixtures — reads from here, so supporting the next set
-// starts with one new entry. Set-specific draft mechanics (theme tags,
-// synergy heuristics) stay in the engine and must be ported per set.
+// Bundled identity metadata, source slugs, and sample fixtures. PREP can also
+// discover sets through Scryfall or accept a set code without an app update.
+// Set-specific draft mechanics (theme tags, synergy heuristics) stay in the
+// engine and must be ported per set.
 const SET_DEFINITIONS = Object.freeze({
   hob: Object.freeze({
     code: 'hob',
@@ -24,14 +23,41 @@ const SET_DEFINITIONS = Object.freeze({
     scryfallSetCode: 'sos',
     untappedSlug: 'secrets-of-strixhaven',
     sampleFixtures: null
+  }),
+  fra: Object.freeze({
+    code: 'fra',
+    displayCode: 'FRA',
+    name: 'Reality Fracture',
+    scryfallSetCode: 'fra',
+    untappedSlug: 'reality-fracture',
+    sampleFixtures: null
   })
 });
 
 const DEFAULT_SET_CODE = 'hob';
 
+function validSetCode(value) {
+  return typeof value === 'string' && /^[a-z0-9]{2,12}$/i.test(value.trim()) && value.trim().toLowerCase() !== 'legacy';
+}
+
+// Public catalog entries contain identity only. Card data and ratings are
+// still loaded and verified separately for the chosen set.
+function normalizeSetCatalog(entries) {
+  const sets = new Map();
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!validSetCode(entry?.code) || typeof entry.name !== 'string' || !entry.name.trim()) continue;
+    const code = entry.code.trim().toLowerCase();
+    sets.set(code, {
+      code, name: entry.name.trim().slice(0, 120),
+      releasedAt: /^\d{4}-\d{2}-\d{2}$/.test(entry.releasedAt || '') ? entry.releasedAt : ''
+    });
+  }
+  return [...sets.values()];
+}
+
 function setDefinition(setCode = DEFAULT_SET_CODE) {
   const key = String(setCode || DEFAULT_SET_CODE).trim().toLowerCase();
-  if (SET_DEFINITIONS[key]) return SET_DEFINITIONS[key];
+  if (Object.hasOwn(SET_DEFINITIONS, key)) return SET_DEFINITIONS[key];
   // Unknown sets still get usable identity metadata; callers needing more
   // (sample fixtures, an Untapped slug) check for null and degrade visibly.
   return {
@@ -63,7 +89,9 @@ module.exports = {
   DEFAULT_SET_CODE,
   SET_DEFINITIONS,
   knownSetDefinitions,
+  normalizeSetCatalog,
   scryfallCacheFileName,
   setDefinition,
-  untappedCardDataUrl
+  untappedCardDataUrl,
+  validSetCode
 };

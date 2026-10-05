@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('draftCompanion', {
   setPoolCardExcluded: (cardName, excluded) => ipcRenderer.invoke('draft:set-pool-card-excluded', cardName, excluded),
   setManualRecord: (record) => ipcRenderer.invoke('draft:set-manual-record', record),
   setActiveSet: (setCode) => ipcRenderer.invoke('draft:set-active-set', setCode),
+  refreshSetCatalog: () => ipcRenderer.invoke('draft:refresh-set-catalog'),
+  retrySetCards: () => ipcRenderer.invoke('draft:retry-set-cards'),
   setPrepFormat: (format) => ipcRenderer.invoke('draft:set-prep-format', format),
   startDemo: (mode) => ipcRenderer.invoke('draft:start-demo', mode),
   advanceDemo: () => ipcRenderer.invoke('draft:advance-demo'),

@@ -52,5 +52,14 @@ test('Secrets of Strixhaven resolves with full metadata and no sample fixtures',
   assert.equal(sos.scryfallSetCode, 'sos');
   assert.equal(sos.sampleFixtures, null);
   assert.equal(untappedCardDataUrl('sos'), 'https://mtga.untapped.gg/limited/draft/secrets-of-strixhaven/card-data');
-  assert.deepEqual(knownSetDefinitions().map((entry) => entry.code), ['hob', 'sos']);
+  assert.deepEqual(knownSetDefinitions().map((entry) => entry.code), ['hob', 'sos', 'fra']);
+});
+
+test('Reality Fracture has its own identity and source link without sample data', () => {
+  const fra = setDefinition('FRA');
+  assert.equal(fra.name, 'Reality Fracture');
+  assert.equal(fra.scryfallSetCode, 'fra');
+  assert.equal(fra.sampleFixtures, null);
+  assert.equal(scryfallCacheFileName('fra'), 'scryfall-fra.json');
+  assert.equal(untappedCardDataUrl('fra'), 'https://mtga.untapped.gg/limited/draft/reality-fracture/card-data');
 });
