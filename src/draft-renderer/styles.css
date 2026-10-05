@@ -151,10 +151,32 @@ button { color: inherit; }
 .source-button.meta b { color: var(--gold); }
 .source-button.log > .lucide { color: var(--cyan); }
 .source-button.meta > .lucide { color: var(--gold); }
-.window-actions { -webkit-app-region: no-drag; display: flex; gap: 2px; margin-left: 11px; }
-.icon-button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 7px; color: var(--quiet); background: none; cursor: pointer; }
-.icon-button .lucide { width: 14px; height: 14px; }
-.icon-button:hover { color: var(--ink); background: rgba(255,255,255,.07); }
+.window-actions { -webkit-app-region: no-drag; display: flex; flex: 0 0 auto; gap: 4px; margin-left: 11px; }
+/* Window controls and dialog dismissals share a full, non-shrinking target.
+   The button owns pointer events; its decorative icon never owns the hit. */
+.icon-button, .build-icon-button, .corpus-close {
+  -webkit-app-region: no-drag;
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: rgba(47,42,50,.04);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.icon-button > *, .build-icon-button > *, .corpus-close > * { pointer-events: none; }
+.icon-button .lucide, .build-icon-button .lucide, .corpus-close .lucide { width: 18px; height: 18px; }
+.icon-button:hover, .build-icon-button:hover, .corpus-close:hover { color: var(--ink); background: rgba(47,42,50,.1); border-color: rgba(47,42,50,.28); }
+.icon-button:active, .build-icon-button:active, .corpus-close:active { background: rgba(47,42,50,.16); }
+.icon-button:focus-visible, .build-icon-button:focus-visible, .corpus-close:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
 
 .status-bar { display: flex; min-height: 34px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .status-dot { width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 9px currentColor; }
@@ -696,10 +718,7 @@ button { color: inherit; }
   font-weight: 850;
   letter-spacing: .1em;
 }
-.build-window-actions { -webkit-app-region: no-drag; display: flex; gap: 2px; margin-left: 6px; }
-.build-icon-button { display: grid; width: 27px; height: 27px; place-items: center; border: 0; border-radius: 7px; color: var(--quiet); background: none; cursor: pointer; }
-.build-icon-button .lucide { width: 14px; height: 14px; }
-.build-icon-button:hover { color: var(--ink); background: rgba(255,255,255,.07); }
+.build-window-actions { -webkit-app-region: no-drag; display: flex; flex: 0 0 auto; gap: 4px; margin-left: 6px; }
 
 .build-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 9px; padding: 10px; }
 .build-content[hidden] { display: none; }
@@ -874,9 +893,6 @@ button { color: inherit; }
 .corpus-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; padding: 21px 23px 18px; border-bottom: 1px solid var(--line); background: rgba(248,246,242,.54); }
 .corpus-dialog-heading h1 { margin: 6px 0 5px; font-size: 21px; letter-spacing: -.035em; }
 .corpus-dialog-heading p { max-width: 650px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
-.corpus-close { display: grid; flex: 0 0 auto; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; color: var(--quiet); background: rgba(47,42,50,.06); cursor: pointer; }
-.corpus-close .lucide { width: 15px; height: 15px; }
-.corpus-close:hover { color: var(--ink); background: rgba(47,42,50,.1); }
 .corpus-dialog-body { display: grid; min-height: 0; grid-template-columns: minmax(520px, 1.45fr) minmax(270px, .78fr); }
 .corpus-entry-panel { min-width: 0; overflow-y: auto; padding: 20px 22px 22px; border-right: 1px solid var(--line); }
 .corpus-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
@@ -950,7 +966,6 @@ button { color: inherit; }
 .view-button .view-count { background: rgba(48,42,52,.07); }
 .view-button.active { color: #60439f; background: rgba(112,84,179,.14); }
 .source-button:hover { background: rgba(112,84,179,.09); }
-.icon-button:hover, .build-icon-button:hover { background: rgba(48,42,52,.08); }
 .quiet-button:hover { color: #5e439b; }
 
 .recommendations-panel, .inspector-panel, .deck-panel, .deck-sidebar { scrollbar-color: #8c858f transparent; }
@@ -1182,7 +1197,18 @@ button { color: inherit; }
 .local-save-notice button { flex-shrink: 0; padding: 5px 9px; }
 .build-mode .local-save-notice { font-size: 11px; padding: 8px; }
 
-.prep-dialog { width: min(700px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; margin: auto; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: #eeece6; color: var(--ink); }
+.prep-dialog { width: min(700px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; margin: auto; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: #eeece6; color: var(--ink); }
+.prep-dialog[open] { display: flex; flex-direction: column; }
+.prep-dialog > .prep-dialog-heading { flex: 0 0 auto; padding-bottom: 12px; }
+.prep-dialog-body { min-height: 0; overflow-y: auto; }
+.prep-dialog-footer { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--line); background: #f8f7f3; }
+.prep-dialog-footer p { flex: 1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.prep-dialog-footer p[data-unsaved="true"] { color: var(--gold); }
+.prep-dialog-footer button { -webkit-app-region: no-drag; flex: 0 0 auto; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; font-weight: 750; cursor: pointer; }
+.prep-dialog-footer button:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+#prep-done { min-width: 92px; color: white; background: var(--violet); border-color: var(--violet); }
+#prep-done:hover { background: #5e439f; }
+#prep-retry-saves { color: var(--violet); background: white; }
 .prep-dialog::backdrop { background: rgba(38,34,40,.48); }
 .prep-dialog-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 0; }
 .prep-dialog-heading h1 { margin: 5px 0; font-size: 23px; }

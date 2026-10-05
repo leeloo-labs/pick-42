@@ -592,25 +592,32 @@
     </dialog>
     <dialog id="prep-dialog" class="prep-dialog" aria-labelledby="prep-heading">
       <header class="prep-dialog-heading"><div><small>SET PREP</small><h1 id="prep-heading">Prepare for a draft</h1></div><button id="prep-close" class="icon-button" aria-label="Close preparation"><i data-lucide="x"></i></button></header>
-      <div id="set-prep">
-        <section class="prep-selection" aria-label="Set and draft type">
-          <div class="prep-select-row"><label for="prep-set">Set<select id="prep-set"></select></label><button id="prep-refresh-sets" class="set-prep-action" type="button">CHECK FOR NEW SETS</button></div>
-          <p id="prep-catalog-status" class="set-prep-summary" role="status"></p>
-          <details class="prep-add-set"><summary>Missing a set? Enter its code</summary><form id="prep-add-set-form"><label for="prep-set-code">Set code<input id="prep-set-code" placeholder="e.g. FRA" pattern="[A-Za-z0-9]{2,12}" minlength="2" maxlength="12" required autocomplete="off"></label><button class="set-prep-action" type="submit">USE SET</button></form><p id="prep-set-error" class="set-prep-summary" role="alert"></p></details>
-          <label for="prep-format">Draft type<select id="prep-format" aria-describedby="prep-format-help"><option value="any">Shared ratings (fallback)</option><option value="premier">Premier Draft</option><option value="quick">Quick Draft</option><option value="traditional">Traditional Draft</option><option value="pick-two">Pick Two Draft</option></select></label>
-          <p id="prep-format-help" class="set-prep-summary"></p>
-          <p id="prep-import-target" class="set-prep-summary"></p>
-        </section>
-        <section class="set-prep-card" aria-label="Imports for this set"><div class="set-prep-head"><h2>Ratings &amp; trophy decks</h2><span id="prep-ratings-status" class="set-prep-eyebrow"></span></div><p id="prep-summary" class="set-prep-summary"></p><div id="prep-items" class="set-prep-items"></div><p id="prep-operation-status" class="set-prep-summary" role="status"></p></section>
-        <details class="prep-connection"><summary>Arena connection</summary><p id="prep-log-detail" class="set-prep-summary prep-log-detail"></p><button id="prep-choose-log" class="set-prep-action" type="button">CHOOSE PLAYER.LOG</button></details>
+      <div class="prep-dialog-body">
+        <div id="set-prep">
+          <section class="prep-selection" aria-label="Set and draft type">
+            <div class="prep-select-row"><label for="prep-set">Set<select id="prep-set"></select></label><button id="prep-refresh-sets" class="set-prep-action" type="button">CHECK FOR NEW SETS</button></div>
+            <p id="prep-catalog-status" class="set-prep-summary" role="status"></p>
+            <details class="prep-add-set"><summary>Missing a set? Enter its code</summary><form id="prep-add-set-form"><label for="prep-set-code">Set code<input id="prep-set-code" placeholder="e.g. FRA" pattern="[A-Za-z0-9]{2,12}" minlength="2" maxlength="12" required autocomplete="off"></label><button class="set-prep-action" type="submit">USE SET</button></form><p id="prep-set-error" class="set-prep-summary" role="alert"></p></details>
+            <label for="prep-format">Draft type<select id="prep-format" aria-describedby="prep-format-help"><option value="any">Shared ratings (fallback)</option><option value="premier">Premier Draft</option><option value="quick">Quick Draft</option><option value="traditional">Traditional Draft</option><option value="pick-two">Pick Two Draft</option></select></label>
+            <p id="prep-format-help" class="set-prep-summary"></p>
+            <p id="prep-import-target" class="set-prep-summary"></p>
+          </section>
+          <section class="set-prep-card" aria-label="Imports for this set"><div class="set-prep-head"><h2>Ratings &amp; trophy decks</h2><span id="prep-ratings-status" class="set-prep-eyebrow"></span></div><p id="prep-summary" class="set-prep-summary"></p><div id="prep-items" class="set-prep-items"></div><p id="prep-operation-status" class="set-prep-summary" role="status"></p></section>
+          <details class="prep-connection"><summary>Arena connection</summary><p id="prep-log-detail" class="set-prep-summary prep-log-detail"></p><button id="prep-choose-log" class="set-prep-action" type="button">CHOOSE PLAYER.LOG</button></details>
+        </div>
+        <details class="local-backup">
+          <summary id="backup-heading">Local backup</summary>
+          <p>Save imported ratings, trophy decks, reviews, recorded decisions and recipe progress in a portable file. Raw logs and file permissions stay on this device.</p>
+          <div class="backup-actions"><button id="backup-export" type="button">EXPORT BACKUP</button><button id="backup-choose" type="button">CHOOSE BACKUP</button><input id="backup-file" type="file" accept=".json,application/json" hidden></div>
+          <p id="backup-message" role="status" aria-live="polite"></p>
+          <button id="backup-restore" type="button" hidden>ADD MISSING DATA</button>
+        </details>
       </div>
-      <details class="local-backup">
-        <summary id="backup-heading">Local backup</summary>
-        <p>Save imported ratings, trophy decks, reviews, recorded decisions and recipe progress in a portable file. Raw logs and file permissions stay on this device.</p>
-        <div class="backup-actions"><button id="backup-export" type="button">EXPORT BACKUP</button><button id="backup-choose" type="button">CHOOSE BACKUP</button><input id="backup-file" type="file" accept=".json,application/json" hidden></div>
-        <p id="backup-message" role="status" aria-live="polite"></p>
-        <button id="backup-restore" type="button" hidden>ADD MISSING DATA</button>
-      </details>
+      <footer class="prep-dialog-footer">
+        <p id="prep-save-status" role="status" aria-live="polite">Changes save automatically on this device.</p>
+        <button id="prep-retry-saves" type="button" hidden>Retry saves</button>
+        <button id="prep-done" type="button">Done</button>
+      </footer>
     </dialog>
     <dialog id="decision-history-dialog" class="history-dialog" aria-labelledby="history-heading">
       <header class="prep-dialog-heading"><div><small>LOCAL DRAFT HISTORY</small><h1 id="history-heading">Recorded decisions</h1></div><button id="history-close" class="icon-button" aria-label="Close decision history"><i data-lucide="x"></i></button></header>

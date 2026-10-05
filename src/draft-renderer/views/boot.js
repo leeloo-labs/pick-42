@@ -10,6 +10,8 @@ const openSetPrep = () => { renderSetPrep(); byId('prep-dialog').showModal(); };
 byId('show-prep').addEventListener('click', openSetPrep);
 byId('empty-prep').addEventListener('click', openSetPrep);
 byId('prep-close').addEventListener('click', () => byId('prep-dialog').close());
+byId('prep-done').addEventListener('click', () => byId('prep-dialog').close());
+byId('prep-retry-saves').addEventListener('click', () => byId('retry-local-saves').click());
 byId('prep-set').addEventListener('change', () => updateFrom(() => window.draftCompanion.setActiveSet(byId('prep-set').value)));
 byId('prep-format').addEventListener('change', () => updateFrom(() => window.draftCompanion.setPrepFormat(byId('prep-format').value)));
 byId('prep-refresh-sets').addEventListener('click', () => updateFrom(() => window.draftCompanion.refreshSetCatalog()));

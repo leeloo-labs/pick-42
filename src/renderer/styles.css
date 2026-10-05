@@ -63,18 +63,30 @@ button { font: inherit; }
 .brand-copy strong { font-size: 14px; font-weight: 850; letter-spacing: .025em; }
 .brand-copy span { margin-top: 5px; color: var(--quiet); font-size: 8px; letter-spacing: 0.15em; }
 
-.titlebar-actions { -webkit-app-region: no-drag; display: flex; gap: 4px; margin-left: auto; }
+.titlebar-actions { -webkit-app-region: no-drag; display: flex; flex: 0 0 auto; gap: 4px; margin-left: auto; }
 .icon-button {
-  width: 28px;
-  height: 28px;
+  -webkit-app-region: no-drag;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 20px;
+  line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
 }
+.icon-button > * { pointer-events: none; }
 .icon-button:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+.icon-button:active { background: rgba(255, 255, 255, 0.14); }
+.icon-button:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
 
 .status-strip {
   display: flex;

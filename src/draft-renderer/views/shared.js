@@ -161,6 +161,11 @@ function renderLocalSaveStatus() {
   const labels = [...new Set([...(model?.persistence?.unsaved || []), ...recipeSaveQueue.labels()])];
   byId('local-save-notice').hidden = !labels.length;
   setText('local-save-message', labels.length ? `UNSAVED LOCALLY · ${labels.join(', ')}. Kept in this session; retry before closing.` : '');
+  byId('prep-save-status').dataset.unsaved = String(Boolean(labels.length));
+  setText('prep-save-status', labels.length
+    ? `Waiting to save locally: ${labels.join(', ')}. Retry saves before closing Pick 42.`
+    : 'Changes save automatically on this device.');
+  byId('prep-retry-saves').hidden = !labels.length;
 }
 async function copyWithFeedback(value, labelId, idleLabel) {
   const label = byId(labelId);

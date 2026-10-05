@@ -73,6 +73,7 @@ The blend engine exposes a confidence-aware raw score and one contextual recomme
 - Hybrid cards and matching dual lands use a two-color split treatment without a gold outline. Gold cards retain a gold outline and display both required colors.
 - A drafted basic-fetching land (sacrifice: search for a basic land) is a guaranteed one-copy inclusion whenever the build includes no on-color dual land, and in a splash build even alongside a dual. It counts as a flexible source of every deck color.
 - Use a warm neutral light theme so white and black cards both remain visually distinct.
+- Close controls have fixed 44-pixel targets, including their padding, with explicit no-drag regions in Electron. PREP has a persistent Done footer, explains automatic local saving, and shows pending saves with a retry action.
 - Recipe Mode is the reliable deck-building aid: it gives deterministic add/drop quantity instructions and preserves progress locally.
 - The positional OCR overlay remains experimental and disabled in normal startup because Arena grid reordering and scrolling made it unreliable.
 
