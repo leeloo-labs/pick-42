@@ -220,7 +220,10 @@ function renderSetPrep() {
   byId('prep-refresh-sets').disabled = prep.catalogStatus?.kind === 'loading';
   setText('prep-catalog-status', prep.catalogStatus?.message || 'Choose a set, or check for new releases.');
   const formatLabel = SOURCE_FORMAT_ROWS.find(([id]) => id === prep.format)?.[1] || prep.format;
-  setText('prep-import-target', `Ratings imports go to ${prep.displayCode} · ${formatLabel}. Each set keeps its own ratings.`);
+  setText('prep-format-help', prep.format === 'any'
+    ? 'These ratings are used for any draft type without its own import. Choose the draft type used in your export when known.'
+    : `Pick 42 uses ${formatLabel} ratings first, then shared fallback ratings if this draft type has no import.`);
+  setText('prep-import-target', `Ratings imports go to ${prep.displayCode} · ${formatLabel}. Trophy decks keep their recorded draft types.`);
   setText('prep-ratings-status', prep.ratingsStatus === 'full' ? 'BOTH SOURCES' : prep.ratingsStatus === 'partial' ? 'PARTIAL DATA' : 'RATINGS NEEDED');
   setText('prep-summary', prep.rankingsReady
     ? `Both ratings imports match ${prep.displayCode}. Each live pack is checked for coverage.`

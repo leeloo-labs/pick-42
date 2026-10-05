@@ -2,7 +2,7 @@
 
 const { normalizeCardName } = require('./csv.cjs');
 const { MIN_ARCHETYPE_DECKS, normalizeFormat } = require('./archetype-corpus.cjs');
-const { resolveRatingsSlot } = require('./source-slots.cjs');
+const { SOURCE_FORMAT_LABELS, resolveRatingsSlot } = require('./source-slots.cjs');
 
 // How ready the imported data is for drafting a given set and draft type.
 // Everything here is measured, never assumed: a ratings slot only counts when
@@ -33,14 +33,17 @@ function ratingsReadiness(slots = [], { format = 'any', cardNames, metric }) {
   const ready = Boolean(selected && selected.matchRate >= MATCH_THRESHOLD && selected.usableCount > 0);
   let detail;
   if (selected) {
-    const prefix = `${selected.format} · ${selected.label || 'import'}${selected.legacy ? ' · legacy import, set not assigned' : ''}`;
+    const useLabel = selected.format === 'any' && format !== 'any'
+      ? `Shared fallback used for ${SOURCE_FORMAT_LABELS[format] || format}`
+      : SOURCE_FORMAT_LABELS[selected.format] || selected.format;
+    const prefix = `${useLabel} · ${selected.label || 'import'}${selected.legacy ? ' · legacy import, set not assigned' : ''}`;
     if (!selected.count) detail = `${prefix} · no ratings rows`;
     else if (!cardNames.size) detail = `${prefix} · set verification pending`;
     else if (selected.matchRate < MATCH_THRESHOLD) detail = `${prefix} · imported data names another set`;
     else if (!selected.usableCount) detail = `${prefix} · matching cards have no usable win rates`;
     else detail = `${prefix} · ${selected.usableCount}/${selected.matchedCount} matching cards rated`;
-  } else if (matching.length) detail = `${matching.map((slot) => slot.format).join('/')} slot only · import into ${format === 'any' ? 'any' : `${format} or any`}`;
-  else if (measured.length) detail = `no ${format} or all-types import selected`;
+  } else if (matching.length) detail = `${matching.map((slot) => SOURCE_FORMAT_LABELS[slot.format] || slot.format).join(', ')} ratings stored · ${format === 'any' ? 'select that draft type to view them, or import shared fallback ratings' : `import ${SOURCE_FORMAT_LABELS[format] || format} or shared fallback ratings`}`;
+  else if (measured.length) detail = format === 'any' ? 'No shared fallback ratings imported' : `No ${SOURCE_FORMAT_LABELS[format] || format} or shared fallback ratings imported`;
   else detail = 'no export imported yet';
   return { ready, detail, activeFormat: selected?.format || null, usableCount: selected?.usableCount || 0, slots: measured };
 }
@@ -60,9 +63,10 @@ function corpusReadiness(decks = [], { set, format = 'any' }) {
   const crossFormat = target !== 'any' && exactCount < MIN_ARCHETYPE_DECKS && largestGroup(matching) >= MIN_ARCHETYPE_DECKS;
   const groupCount = crossFormat ? largestGroup(matching) : exactCount;
   const ready = groupCount >= MIN_ARCHETYPE_DECKS;
+  const formatLabels = formats.map((value) => normalizeFormat(value) === 'any' ? 'Unspecified draft type' : SOURCE_FORMAT_LABELS[normalizeFormat(value)] || value);
   const detail = matching.length
-    ? `${matching.length} ${setCode} decks stored · ${formats.join('/') || 'any'} · ${groupCount}/${MIN_ARCHETYPE_DECKS} in the largest ${crossFormat ? 'cross-format' : 'matching'} archetype group${crossFormat ? ` · available cross-format for ${target}` : ''}${ready ? ' · advice also needs two distinguishing pool cards' : ' · more matching trophies needed'}`
-    : 'no trophy corpus for this set yet';
+    ? `${matching.length} ${setCode} trophy deck${matching.length === 1 ? '' : 's'} imported · ${formatLabels.join(', ') || 'Unspecified draft type'}. Largest ${crossFormat ? 'cross-format' : 'matching'} archetype group: ${groupCount} decks (minimum ${MIN_ARCHETYPE_DECKS}).${crossFormat ? ` Cross-format advice for ${SOURCE_FORMAT_LABELS[target] || target} has reduced influence.` : ''}${ready ? ' Trophy advice activates when your drafted pool supports a matching archetype.' : ' More trophy decks sharing an archetype are needed.'}`
+    : `No trophy decks imported for ${setCode} yet.`;
   return { ready, detail, count: matching.length, formats, groupCount, crossFormat };
 
 }

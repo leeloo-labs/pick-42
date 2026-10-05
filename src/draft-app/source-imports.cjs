@@ -2,12 +2,11 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { resolveRatingsSlot } = require('../draft/source-slots.cjs');
+const { SOURCE_FORMAT_LABELS, resolveRatingsSlot } = require('../draft/source-slots.cjs');
 const { parseSeventeenLandsCsv } = require('../draft/sources/seventeenlands.cjs');
 const { parseUntappedCsv } = require('../draft/sources/untapped.cjs');
 
 const SOURCE_FORMATS = ['any', 'premier', 'quick', 'traditional', 'pick-two'];
-const SOURCE_FORMAT_LABELS = { any: 'all draft types', premier: 'Premier Draft', quick: 'Quick Draft', traditional: 'Traditional Draft', 'pick-two': 'Pick Two Draft' };
 
 // Holds every imported 17Lands/Untapped CSV by draft-type slot plus the bundled
 // sample rows, and answers which data feeds a given live format.
@@ -75,7 +74,7 @@ function createSourceImportStore() {
       kind: resolved ? 'import' : 'none',
       legacy: Boolean(resolved?.legacy),
       setCode: profileKey(setCode),
-      label: resolved ? `${resolved.label}${resolved.legacy ? ' · legacy import' : ''}` : `No ${source === 'seventeenLands' ? '17Lands' : 'Untapped'} import for this draft type`,
+      label: resolved ? `${resolved.label} · ${SOURCE_FORMAT_LABELS[resolved.format]}${resolved.legacy ? ' · legacy import' : ''}` : `No ${source === 'seventeenLands' ? '17Lands' : 'Untapped'} import for this draft type`,
       count: resolved ? resolved.count : 0,
       activeFormat: resolved ? resolved.format : null,
       imports: inventory(source, setCode)

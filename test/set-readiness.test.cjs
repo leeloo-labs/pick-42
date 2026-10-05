@@ -35,7 +35,7 @@ test('readiness checks off each source as matching data lands', () => {
   });
   assert.equal(partial.items.find((item) => item.id === 'seventeenLands').ready, true);
   assert.equal(partial.items.find((item) => item.id === 'untapped').ready, false);
-  assert.match(partial.items.find((item) => item.id === 'untapped').detail, /no quick or all-types import/);
+  assert.match(partial.items.find((item) => item.id === 'untapped').detail, /No Quick Draft or shared fallback ratings imported/);
   assert.equal(partial.readyCount, 2);
   assert.equal(partial.rankingsReady, false);
 
@@ -64,7 +64,7 @@ test('an off-format slot with matching data points at the right slot instead of 
   });
   const item = prep.items.find((entry) => entry.id === 'seventeenLands');
   assert.equal(item.ready, false);
-  assert.match(item.detail, /premier slot only · import into quick or any/);
+  assert.match(item.detail, /Premier Draft ratings stored · import Quick Draft or shared fallback ratings/);
 });
 
 test('the corpus item counts same-set decks and flags cross-format use', () => {
@@ -81,8 +81,8 @@ test('the corpus item counts same-set decks and flags cross-format use', () => {
   const corpus = prep.items.find((entry) => entry.id === 'corpus');
   assert.equal(corpus.ready, false);
   assert.equal(corpus.count, 2);
-  assert.match(corpus.detail, /2 SOS decks stored/);
-  assert.match(corpus.detail, /more matching trophies needed/);
+  assert.match(corpus.detail, /2 SOS trophy decks imported/);
+  assert.match(corpus.detail, /More trophy decks sharing an archetype are needed/);
 });
 
 test('readiness measures the exact import even when a matching all-types import exists', () => {
@@ -95,7 +95,7 @@ test('readiness measures the exact import even when a matching all-types import 
   });
   const item = prep.items.find((entry) => entry.id === 'seventeenLands');
   assert.equal(item.ready, false);
-  assert.match(item.detail, /quick.*old-hob.csv.*another set/);
+  assert.match(item.detail, /Quick Draft.*old-hob.csv.*another set/);
 });
 
 test('ANY prep requires the all-types slot, just like an unidentified live format', () => {
@@ -105,7 +105,7 @@ test('ANY prep requires the all-types slot, just like an unidentified live forma
   });
   const item = prep.items.find((entry) => entry.id === 'seventeenLands');
   assert.equal(item.ready, false);
-  assert.match(item.detail, /quick slot only/);
+  assert.match(item.detail, /Quick Draft ratings stored/);
 });
 
 test('matching card names with blank win rates are not a ready ratings source', () => {
@@ -150,7 +150,7 @@ test('corpus preparation distinguishes stored lists from enough matching archety
   assert.equal(prep(decks.slice(0, 1)).ready, false);
   const full = prep(decks);
   assert.equal(full.ready, true); assert.equal(full.crossFormat, true);
-  assert.match(full.detail, /available cross-format for quick/);
-  assert.match(full.detail, /two distinguishing pool cards/);
+  assert.match(full.detail, /Cross-format advice for Quick Draft has reduced influence/);
+  assert.match(full.detail, /Trophy advice activates when your drafted pool supports a matching archetype/);
   assert.equal(prep(decks.map((deck, i) => ({ ...deck, archetype: `Build ${i}` }))).ready, false);
 });

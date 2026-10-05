@@ -597,7 +597,8 @@
           <div class="prep-select-row"><label for="prep-set">Set<select id="prep-set"></select></label><button id="prep-refresh-sets" class="set-prep-action" type="button">CHECK FOR NEW SETS</button></div>
           <p id="prep-catalog-status" class="set-prep-summary" role="status"></p>
           <details class="prep-add-set"><summary>Missing a set? Enter its code</summary><form id="prep-add-set-form"><label for="prep-set-code">Set code<input id="prep-set-code" placeholder="e.g. FRA" pattern="[A-Za-z0-9]{2,12}" minlength="2" maxlength="12" required autocomplete="off"></label><button class="set-prep-action" type="submit">USE SET</button></form><p id="prep-set-error" class="set-prep-summary" role="alert"></p></details>
-          <label for="prep-format">Draft type<select id="prep-format"><option value="any">All draft types</option><option value="premier">Premier Draft</option><option value="quick">Quick Draft</option><option value="traditional">Traditional Draft</option><option value="pick-two">Pick Two Draft</option></select></label>
+          <label for="prep-format">Draft type<select id="prep-format" aria-describedby="prep-format-help"><option value="any">Shared ratings (fallback)</option><option value="premier">Premier Draft</option><option value="quick">Quick Draft</option><option value="traditional">Traditional Draft</option><option value="pick-two">Pick Two Draft</option></select></label>
+          <p id="prep-format-help" class="set-prep-summary"></p>
           <p id="prep-import-target" class="set-prep-summary"></p>
         </section>
         <section class="set-prep-card" aria-label="Imports for this set"><div class="set-prep-head"><h2>Ratings &amp; trophy decks</h2><span id="prep-ratings-status" class="set-prep-eyebrow"></span></div><p id="prep-summary" class="set-prep-summary"></p><div id="prep-items" class="set-prep-items"></div><p id="prep-operation-status" class="set-prep-summary" role="status"></p></section>

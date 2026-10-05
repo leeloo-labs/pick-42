@@ -15,7 +15,7 @@ function renderStatus() {
 
   const source17 = model.sources.seventeenLands;
   const sourceUt = model.sources.untapped;
-  const shortFormat = { any: 'all', premier: 'premier', quick: 'quick', traditional: 'trad', 'pick-two': 'pick 2' };
+  const shortFormat = { any: 'fallback', premier: 'premier', quick: 'quick', traditional: 'trad', 'pick-two': 'pick 2' };
   const sourceLabel = (source) => {
     if (source.kind === 'sample') return 'sample';
     if (source.kind !== 'import') return 'no data';
@@ -190,7 +190,7 @@ function render() {
 }
 
 const SOURCE_FORMAT_ROWS = [
-  ['any', 'All draft types'],
+  ['any', 'Shared ratings (fallback)'],
   ['premier', 'Premier Draft'],
   ['quick', 'Quick Draft'],
   ['traditional', 'Traditional Draft'],
@@ -317,7 +317,7 @@ function renderSourceMenu() {
   const heading = element('header');
   heading.append(
     element('strong', '', source === 'seventeenLands' ? '17LANDS IMPORTS' : 'UNTAPPED IMPORTS'),
-    element('small', '', `Imports for ${model.setPrep?.displayCode || 'the selected set'} · choose the draft type used for the export.`)
+    element('small', '', `Imports for ${model.setPrep?.displayCode || 'the selected set'} · choose the draft type used for the export. Shared ratings are used when a draft type has no import of its own.`)
   );
   menu.append(heading);
   for (const [formatId, label] of SOURCE_FORMAT_ROWS) {
